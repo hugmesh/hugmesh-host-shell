@@ -48,9 +48,7 @@ describe('FooterComponent', () => {
     expect(cc!.getAttribute('target')).toBe('_blank');
   });
 
-  it('should render a horizontal rule', () => {
-    expect(el.querySelector('hr'))
-      .withContext('<hr> separator must be present')
-      .toBeTruthy();
+  it('should not render a horizontal rule', () => {
+    expect(el.querySelector('hr')).toBeNull();
   });
 });

@@ -33,8 +33,8 @@ describe('HeaderComponent', () => {
     expect(h1?.getAttribute('tabindex')).toBe('-1');
   });
 
-  it('host should carry the container-fluid class', () => {
+  it('host should carry the text-center class', () => {
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.classList).toContain('container-fluid');
+    expect(host.classList).toContain('text-center');
   });
 });
