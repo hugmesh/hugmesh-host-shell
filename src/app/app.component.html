@@ -1,10 +1,29 @@
 <a
-  href="#"
-  target="_self"
-  onclick="event.preventDefault(); location.hash='maincontent';"
+  href="#maincontent"
   class="skip visually-hidden-focusable"
-  >Skip to main content</a
+  (click)="skipToMain($event)"
+>Skip to main content</a>
+
+<app-background #bg></app-background>
+
+<button
+  class="bg-toggle"
+  type="button"
+  (click)="bg.toggle()"
+  [attr.aria-pressed]="bg.paused()"
+  aria-label="Toggle background animation"
+  title="Toggle background animation"
 >
+  @if (bg.paused()) {
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8 5v14l11-7z"/>
+    </svg>
+  } @else {
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+    </svg>
+  }
+</button>
 
 <header personal-header></header>
 <div menu></div>

@@ -1,6 +1,20 @@
 Feature: Landing Page
-    This feature lets a user see the landing page.
-    Scenario: Basic increment scenario
-        Given I go to "http://localhost:8080/"
-        When I click on the Skip to Content link
-        Then the first header has focus
+  The Snapdragon Systems landing page should load correctly and be navigable.
+
+  Scenario: Page loads with the correct title
+    Given I go to "http://localhost:8080/"
+    Then the page title is "Snapdragon Systems"
+
+  Scenario: Navigation bar is visible
+    Given I go to "http://localhost:8080/"
+    Then I see the navigation bar
+    And the navigation contains "Introduction"
+    And the navigation contains "About"
+
+  Scenario: Skip link is present in the DOM
+    Given I go to "http://localhost:8080/"
+    Then the skip link is present
+
+  Scenario: Footer renders a GitHub source link
+    Given I go to "http://localhost:8080/"
+    Then the footer contains a link to the page source

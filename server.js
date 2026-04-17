@@ -8,7 +8,7 @@ const port = 8080;
 var RateLimit = require("express-rate-limit");
 var limiter = RateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 500,
+  max: 5000,
 });
 app.use(limiter);
 

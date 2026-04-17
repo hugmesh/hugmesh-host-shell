@@ -1,0 +1,45 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+nav.navbar {
+  @include m.glass-float;
+  margin: 0.5rem auto;
+  width: fit-content;
+}
+
+.nav-item {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.nav-link {
+  color: t.$light;
+  min-width: 5rem;
+  text-align: start;
+
+  @media (min-width: #{t.$bp-md}) {
+    min-width: 10.625rem;
+  }
+
+  &::after {
+    content: ' UwU';
+  }
+
+  &:not(.navbar-toggler):hover,
+  &:not(.navbar-toggler):focus-visible {
+    color: t.$neon;
+
+    &::after { content: ' UwO'; }
+  }
+
+  &.active {
+    color: t.$neon;
+
+    &::after { content: ' OwO'; }
+  }
+
+  &.disabled {
+    color: rgba(t.$light, t.$opacity-muted);
+    cursor: not-allowed;
+  }
+}

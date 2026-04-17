@@ -16,6 +16,16 @@ module.exports = function (config) {
     junitReporter: {
       outputDir: require("path").join(__dirname, "./coverage/snapdragon/"),
       outputFile: "test-results.xml",
+      useBrowserName: false,
+    },
+    coverageReporter: {
+      dir: "coverage/snapdragon",
+      reporters: [
+        { type: "html",         subdir: "html"                               },
+        { type: "lcovonly",     subdir: ".",   file: "lcov.info"             },
+        { type: "json-summary", subdir: ".",   file: "coverage-summary.json" },
+        { type: "text-summary"                                               },
+      ],
     },
     reporters: ["progress", "junit", "coverage"],
     port: 9876,
@@ -26,7 +36,7 @@ module.exports = function (config) {
     customLaunchers: {
       ChromeHeadlessCI: {
         base: "ChromeHeadless",
-        flags: ["--no-sandbox"],
+        flags: ["--no-sandbox", "--disable-dev-shm-usage"],
       },
     },
     singleRun: true,

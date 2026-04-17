@@ -1,0 +1,15 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+:host {
+  @include m.glass-float;
+  display: block;
+  margin: 1rem 1.5rem 0.5rem;
+  padding: 0.75rem 1.5rem;
+}
+
+h1 {
+  color: t.$neon;
+  text-shadow: 0 0 12px rgba(t.$neon, 0.5), 0 0 30px rgba(t.$neon, 0.2);
+  word-break: break-word;
+}
