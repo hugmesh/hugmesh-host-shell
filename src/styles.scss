@@ -12,18 +12,11 @@ $navbar-dark-active-color:   t.$neon;
 $navbar-dark-disabled-color: rgba(t.$light, t.$opacity-muted);
 $nav-link-disabled-color:    rgba(t.$light, t.$opacity-muted);
 $border-radius:              t.$radius-sm;
-$font-family-monospace:      t.$font-mono;
-$font-family-base:           $font-family-monospace;
+$font-family-sans-serif:     t.$font-sans;
+$font-family-base:           t.$font-sans;
 
 @import "bootstrap/scss/bootstrap";
 
-@font-face {
-  font-family: 'MoreSugar';
-  src: url('assets/MoreSugar-Thin.ttf') format('truetype');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
 
 html,
 body {

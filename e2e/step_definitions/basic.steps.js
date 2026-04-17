@@ -32,13 +32,8 @@ Then('I see the navigation bar', async function () {
 });
 
 Then('the navigation contains {string}', async function (linkText) {
-  const buttons = await browser.findElements('css selector', 'nav button');
-  let found = false;
-  for (const btn of buttons) {
-    const text = await btn.getText();
-    if (text && text.includes(linkText)) { found = true; break; }
-  }
-  assert.ok(found, `Expected navigation to contain "${linkText}"`);
+  const navText = await browser.execute(() => document.querySelector('nav')?.innerText ?? '');
+  assert.ok(navText.includes(linkText), `Expected navigation to contain "${linkText}"`);
 });
 
 Then('the skip link is present', async function () {

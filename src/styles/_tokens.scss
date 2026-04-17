@@ -17,8 +17,9 @@ $pastel-mint:     #caffbf;
 $pastel-lemon:    #fdffb6;
 $pastel-peach:    #ffd6a5;
 
-$font-mono:  'Courier New', Courier, monospace;
-$font-fancy: 'MoreSugar', 'Courier New', Courier, monospace;
+$font-sans:  Arial, Helvetica, sans-serif;
+$font-mono:  $font-sans;
+$font-fancy: $font-sans;
 
 $radius-sm:   0.5rem;
 $radius-md:   0.75rem;
