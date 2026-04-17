@@ -64,5 +64,28 @@ module.exports = {
         server_path: '',
       },
     },
+
+    nginx: {
+      launch_url: 'http://localhost:8081',
+
+      desiredCapabilities: {
+        browserName: 'chrome',
+        'goog:chromeOptions': {
+          args: [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--ignore-certificate-errors',
+            '--allow-insecure-localhost',
+            '--headless=new',
+            '--window-size=1280,1024',
+          ],
+        },
+      },
+
+      webdriver: {
+        start_process: true,
+        server_path: '',
+      },
+    },
   },
 };

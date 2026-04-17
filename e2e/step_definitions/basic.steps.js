@@ -15,8 +15,8 @@ After(async function () {
   } catch (_) {}
 });
 
-Given('I go to {string}', async function (url) {
-  await browser.navigateTo(url);
+Given('I go to {string}', async function (path) {
+  await browser.navigateTo(browser.launchUrl + path);
   await browser.waitForElementVisible('body', 5000);
 });
 
