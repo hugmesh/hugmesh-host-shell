@@ -1,0 +1,67 @@
+@use 'tokens' as t;
+
+@keyframes bg-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes shimmer {
+  0%, 15% { transform: translateX(-200%) skewX(-18deg); }
+  60%, 100% { transform: translateX(350%) skewX(-18deg); }
+}
+
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: t.$z-background;
+  display: block;
+  overflow: hidden;
+
+  background: linear-gradient(
+    -45deg,
+    t.$pastel-rose,
+    t.$pastel-lavender,
+    t.$pastel-sky,
+    t.$pastel-mint,
+    t.$pastel-lemon,
+    t.$pastel-peach,
+    t.$pastel-rose
+  );
+  background-size: 400% 400%;
+  animation: bg-shift 22s ease infinite;
+}
+
+:host::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 0;
+  width: 50%;
+  height: 120%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent
+  );
+  animation: shimmer 14s ease-in-out infinite;
+  animation-delay: 3s;
+  pointer-events: none;
+}
+
+:host.is-paused,
+:host.is-paused::before {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    animation: none;
+    background-position: 50% 50%;
+  }
+
+  :host::before {
+    display: none;
+  }
+}

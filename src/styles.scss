@@ -1,0 +1,140 @@
+@use 'tokens' as t;
+
+$primary:                    t.$neon;
+$secondary:                  t.$muted;
+$body-bg:                    t.$black;
+$body-color:                 t.$offwhite;
+$link-color:                 t.$neon;
+$link-hover-color:           t.$neon-bright;
+$navbar-dark-color:          t.$light;
+$navbar-dark-hover-color:    t.$neon;
+$navbar-dark-active-color:   t.$neon;
+$navbar-dark-disabled-color: rgba(t.$light, t.$opacity-muted);
+$nav-link-disabled-color:    rgba(t.$light, t.$opacity-muted);
+$border-radius:              t.$radius-sm;
+$font-family-sans-serif:     t.$font-sans;
+$font-family-base:           t.$font-sans;
+
+@import "bootstrap/scss/bootstrap";
+
+
+html,
+body {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+main {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  background: transparent;
+}
+
+header,
+footer {
+  position: relative;
+  z-index: t.$z-content;
+}
+
+[menu] {
+  position: relative;
+  z-index: t.$z-nav;
+}
+
+h1 {
+  font-size: clamp(1.4rem, 4vw + 0.5rem, 3rem);
+}
+
+h2 {
+  font-size: clamp(1.1rem, 1.5vw + 0.75rem, 1.6rem);
+}
+
+.skip {
+  &:focus,
+  &:focus-visible {
+    position: fixed;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: t.$z-top;
+    width: auto;
+    height: auto;
+    padding: 0.6rem 1.2rem;
+    background: t.$charcoal;
+    font-size: 1rem;
+    font-weight: 700;
+    border: 2px solid t.$neon;
+    border-radius: t.$radius-sm;
+    outline: none;
+    clip: auto;
+    overflow: visible;
+    white-space: nowrap;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid t.$neon;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.bg-toggle {
+  position: fixed;
+  inset-inline-end: 1rem;
+  bottom: 1rem;
+  z-index: t.$z-overlay;
+  background: rgba(t.$charcoal, 0.8);
+  border: 1px solid rgba(t.$neon, 0.3);
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow t.$transition-base;
+  padding: 0;
+
+  &:hover,
+  &:focus-visible {
+    box-shadow: 0 0 10px rgba(t.$neon, 0.5);
+    outline: 2px solid t.$neon;
+    outline-offset: 2px;
+  }
+
+  svg {
+    fill: t.$neon;
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .home-section,
+  .section-backpane,
+  .link-item {
+    border: 2px solid t.$offwhite !important;
+  }
+
+  h1,
+  h2 {
+    background: t.$black !important;
+    backdrop-filter: none !important;
+    border-color: t.$offwhite !important;
+    color: t.$offwhite !important;
+  }
+}

@@ -1,0 +1,35 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+:host {
+  @include m.glass-float;
+  display: block;
+  margin: 0.5rem 1.5rem 1rem;
+  padding: 0 1rem;
+}
+
+a {
+  color: t.$light;
+
+  &:hover,
+  &:focus-visible {
+    color: t.$neon;
+  }
+}
+
+.github {
+  color: t.$muted;
+  font-weight: 600;
+  font-family: t.$font-fancy;
+  font-size: 0.875rem;
+}
+
+.cc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.cc-icon {
+  height: 1.375rem;
+}

@@ -4,10 +4,8 @@ import { Component } from '@angular/core';
   selector: '[personal-footer]',
   host: {
     id: 'personal-footer',
-    class: 'container-fluid',
   },
   templateUrl: './footer.component.html',
-  styleUrls: ['./footer.component.css'],
-  standalone: false,
+  styleUrl: './footer.component.scss',
 })
 export class FooterComponent {}

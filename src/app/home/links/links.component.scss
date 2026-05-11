@@ -1,0 +1,51 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+:host {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 2rem;
+}
+
+p {
+  font-family: t.$font-fancy;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.link-item {
+  @include m.card-surface;
+  margin: 1rem;
+  text-align: center;
+  min-height: 8rem;
+  min-width: 8rem;
+  padding: 0.75rem;
+
+  @media (min-width: #{t.$bp-sm}) {
+    margin: 2rem;
+    min-height: 12rem;
+    min-width: 12rem;
+  }
+
+  a {
+    color: t.$light;
+    transition: color t.$transition-base, filter t.$transition-base;
+
+    &:hover,
+    &:focus-visible {
+      color: t.$neon;
+      filter: drop-shadow(0 0 6px rgba(t.$neon, 0.7));
+    }
+  }
+}
+
+@media (max-width: #{t.$bp-md}) {
+  :host {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding-bottom: 2rem;
+  }
+}

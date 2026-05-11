@@ -1,0 +1,137 @@
+# Snapdragon Systems — full stack compose.
+#
+# Adopts the same topology as snapdragon.games:
+#
+#   browser  ──→  snapdragon-id-gateway (Spring Cloud Gateway, OAuth2
+#                  login client + JWT resource server)
+#                  │
+#                  ├──→  snapdragon.systems Angular frontend (this repo's
+#                  │      Dockerfile builds the bundle; nginx serves it)
+#                  │
+#                  └──→  Casdoor (OAuth2 issuer + admin API for user
+#                         + role management)
+#
+#   Cassandra is shared across the gateway's revocation list + URL
+#   registry + resource-access cache (same patterns the
+#   snapdragon-gateway codebase implements).
+#
+# This compose deliberately reuses the published gateway image —
+# `snapdragon-systems/gateway:dev` — rather than building gateway code
+# from this repo. snapdragon.systems is the deployment artefact; the
+# gateway is a platform dependency consumed via image registry.
+#
+# Bring up:
+#   docker compose up -d
+# Access:
+#   browser  → http://localhost:8080/        (id-gateway → Angular SPA)
+#   Casdoor  → http://localhost:8001/        (admin console)
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       casdoor
+      POSTGRES_USER:     casdoor
+      POSTGRES_PASSWORD: casdoor
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casdoor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  casdoor:
+    image: casbin/casdoor:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      RUNNING_IN_DOCKER: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    ports:
+      - "127.0.0.1:8001:8000"
+
+  cassandra:
+    image: cassandra:5
+    environment:
+      CASSANDRA_CLUSTER_NAME: SnapdragonSystemsCluster
+      CASSANDRA_DC:           dc1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE:  128M
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  cassandra-init:
+    image: cassandra:5
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        cqlsh cassandra 9042 -e "
+          CREATE KEYSPACE IF NOT EXISTS snapdragon_systems_gateway
+            WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+        " && echo '✓ snapdragon_systems_gateway keyspace ready'
+    restart: "no"
+
+  # snapdragon.systems Angular frontend. Built from this repo's
+  # Dockerfile; nginx serves the bundle on port 8080 internally.
+  # Not directly exposed — the id-gateway is the public entry point.
+  frontend:
+    image: snapdragon-systems/snapdragon-systems-frontend:dev
+    build:
+      context: .
+    expose:
+      - "8080"
+
+  # The snapdragon platform gateway, configured as the snapdragon.systems
+  # identity layer. Same image the snapdragon-gateway repo publishes;
+  # SPRING_APPLICATION_NAME flips it to the systems instance. Routes
+  # `/api/auth/*` + `/login/*` to Casdoor and everything else to the
+  # frontend. The revocation list + URL registry + resource-access
+  # cache all sit on the same Cassandra keyspace.
+  snapdragon-id-gateway:
+    image: snapdragon-systems/gateway:dev
+    depends_on:
+      casdoor:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_APPLICATION_NAME: snapdragon-id-gateway
+      CASSANDRA_CONTACT_POINTS: cassandra:9042
+      CASSANDRA_KEYSPACE:       snapdragon_systems_gateway
+      CASSANDRA_LOCAL_DC:       dc1
+      CASDOOR_ISSUER_URI:       http://casdoor:8000
+      CASDOOR_JWKS_URI:         http://casdoor:8000/.well-known/jwks
+      # Frontend is the default upstream — everything that isn't an
+      # auth path goes here.
+      API_DOWNSTREAM_URI:       http://frontend:8080
+    ports:
+      # Loopback-only by default — flip the bind via env or a compose
+      # override for LAN / production exposure. Matches the
+      # snapdragon.games posture.
+      - "127.0.0.1:8080:8080"
+    restart: on-failure
+
+volumes:
+  pgdata:
+  cassandra_data:

@@ -1,52 +1,34 @@
-<nav class="navbar navbar-expand-lg navbar-dark">
+<nav class="navbar navbar-expand-lg navbar-dark" aria-label="Main navigation">
   <button
     class="navbar-toggler"
     type="button"
     data-bs-toggle="collapse"
-    data-bs-target="#navbarSupportedContent"
-    aria-controls="navbarSupportedContent"
+    data-bs-target="#navbarMain"
+    aria-controls="navbarMain"
     aria-expanded="false"
     aria-label="Toggle navigation"
   >
     <span class="navbar-toggler-icon"></span>
   </button>
 
-  <div class="collapse navbar-collapse" id="navbarSupportedContent">
-    <ul class="navbar-nav">
-      <li class="nav-item">
-        <button
-          tabindex="0"
-          class="nav-link"
-          routerLink="home"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-        >
-          Introduction
-        </button>
-      </li>
-      <li class="nav-item">
-        <button
-          tabindex="-1"
-          class="nav-link disabled"
-          aria-disabled="true"
-          routerLink="projects"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-        >
-          Projects
-        </button>
-      </li>
-      <li class="nav-item">
-        <button
-          tabindex="0"
-          class="nav-link"
-          routerLink="about"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-        >
-          About
-        </button>
-      </li>
+  <div class="collapse navbar-collapse" id="navbarMain">
+    <ul class="navbar-nav" role="menubar" aria-label="Site pages">
+      @for (item of items; track item.route; let i = $index) {
+        <li class="nav-item" role="none">
+          <button
+            role="menuitem"
+            class="nav-link"
+            [class.disabled]="item.disabled"
+            [attr.aria-disabled]="item.disabled || null"
+            [attr.tabindex]="item.disabled ? -1 : 0"
+            [attr.data-menu-index]="i"
+            [routerLink]="item.disabled ? null : item.route"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            (keydown)="onMenuKeydown($event, i)"
+          >{{ item.label }}</button>
+        </li>
+      }
     </ul>
   </div>
 </nav>

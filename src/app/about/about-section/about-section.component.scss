@@ -1,0 +1,21 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+.content {
+  font-family: t.$font-fancy;
+  font-style: italic;
+  font-weight: 700;
+  padding: 0.5rem;
+}
+
+h2 {
+  text-align: center;
+  color: t.$neon;
+  padding-top: 1rem;
+}
+
+.section-backpane {
+  @include m.card-surface;
+  font-family: t.$font-fancy;
+  font-weight: 400;
+}
