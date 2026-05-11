@@ -1,0 +1,315 @@
+[
+  {
+    "description": "  The Snapdragon Systems landing page should load correctly and be navigable.",
+    "elements": [
+      {
+        "description": "",
+        "id": "landing-page;page-loads-with-the-correct-title",
+        "keyword": "Scenario",
+        "line": 4,
+        "name": "Page loads with the correct title",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 579145248
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 52609
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 5,
+            "name": "I go to \"/\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:18"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 183797432
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 6,
+            "name": "the page title is \"Snapdragon Systems\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:23"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 5467760
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 139237
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 54723050
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "landing-page;navigation-bar-is-visible",
+        "keyword": "Scenario",
+        "line": 8,
+        "name": "Navigation bar is visible",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 270790886
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 100537
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 9,
+            "name": "I go to \"/\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:18"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 227611392
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 10,
+            "name": "I see the navigation bar",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:28"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 15396576
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 11,
+            "name": "the navigation contains \"Introduction\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:34"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4259309
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 12,
+            "name": "the navigation contains \"About\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:34"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2876193
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 53404
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 56404101
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "landing-page;skip-link-is-present-in-the-dom",
+        "keyword": "Scenario",
+        "line": 14,
+        "name": "Skip link is present in the DOM",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 259660464
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 43211
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 15,
+            "name": "I go to \"/\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:18"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 174764021
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 16,
+            "name": "the skip link is present",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:39"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 6877805
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 103372
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 53426587
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "landing-page;footer-renders-a-github-source-link",
+        "keyword": "Scenario",
+        "line": 18,
+        "name": "Footer renders a GitHub source link",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 210887809
+            }
+          },
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 36531
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 19,
+            "name": "I go to \"/\"",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:18"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 197185870
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 20,
+            "name": "the footer contains a link to the page source",
+            "match": {
+              "location": "e2e/step_definitions/basic.steps.js:44"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 5751276
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 48382
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 53098960
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "landing-page",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Landing Page",
+    "tags": [],
+    "uri": "e2e/features/landing.feature"
+  }
+]
