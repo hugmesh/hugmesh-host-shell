@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { AboutSectionComponent } from './about-section/about-section.component';
 
 @Component({
@@ -10,6 +10,7 @@ import { AboutSectionComponent } from './about-section/about-section.component';
     class: 'container mt-1 mb-5',
   },
   templateUrl: './about.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './about.component.scss',
 })
 export class AboutComponent {}

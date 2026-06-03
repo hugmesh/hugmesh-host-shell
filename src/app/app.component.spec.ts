@@ -1,11 +1,12 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { AppComponent } from './app.component';
 import { BackgroundComponent } from './background/background.component';
 
-@Component({ selector: 'app-background', template: '' })
+@Component({ selector: 'app-background', changeDetection: ChangeDetectionStrategy.Eager,
+ template: '' })
 class BackgroundStub {
   readonly paused = signal(false);
   toggle() {}
