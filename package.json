@@ -33,7 +33,7 @@
     "@angular/router": "^21.2.9",
     "bootstrap": "^5.3.8",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.3.2",
+    "express-rate-limit": "^8.5.2",
     "rxjs": "^7.8.2",
     "zone.js": "^0.16.1"
   },
@@ -71,7 +71,7 @@
     "karma-junit-reporter": "^2.0.1",
     "karma-spec-reporter": "^0.0.36",
     "mocha": "^11.7.5",
-    "nightwatch": "^3.12.3",
+    "nightwatch": "^3.16.0",
     "nightwatch-html-reporter": "^2.0.6",
     "sass": "^1.99.0",
     "ts-node": "^10.9.2",
