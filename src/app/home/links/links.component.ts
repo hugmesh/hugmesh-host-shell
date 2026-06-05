@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: '[links-grid]',
@@ -7,6 +7,7 @@ import { Component } from '@angular/core';
     class: 'links-grid container-sm',
   },
   templateUrl: './links.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './links.component.scss',
 })
 export class LinksComponent {}

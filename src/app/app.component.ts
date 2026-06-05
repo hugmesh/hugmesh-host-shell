@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { BackgroundComponent } from './background/background.component';
 import { HeaderComponent } from './header/header.component';
@@ -9,6 +9,7 @@ import { FooterComponent } from './footer/footer.component';
   selector: '[app-root]',
   imports: [RouterOutlet, BackgroundComponent, HeaderComponent, MenuComponent, FooterComponent],
   templateUrl: './app.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
