@@ -1,9 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-background',
   template: '',
   styleUrl: './background.component.scss',
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: { '[class.is-paused]': 'paused()' },
 })
 export class BackgroundComponent {
