@@ -71,6 +71,9 @@ module.exports = {
       desiredCapabilities: {
         browserName: 'chrome',
         'goog:chromeOptions': {
+          // CHROME_BIN is set in CI (setup-chrome) so chromedriver drives a
+          // version-matched Chrome; undefined locally -> Nightwatch's default.
+          binary: process.env.CHROME_BIN || undefined,
           args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
@@ -84,7 +87,8 @@ module.exports = {
 
       webdriver: {
         start_process: true,
-        server_path: '',
+        // CHROMEDRIVER_PATH (CI) pins the matched driver; '' -> auto-detect locally.
+        server_path: process.env.CHROMEDRIVER_PATH || '',
       },
     },
   },

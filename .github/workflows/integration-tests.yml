@@ -37,6 +37,9 @@ jobs:
   integration-tests:
     needs: build
     runs-on: ubuntu-latest
+    # Cap the job: Nightwatch was hanging until the 6h default when the browser
+    # never came up. Fail fast instead.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +72,20 @@ jobs:
             curl -sf http://localhost:8081/ && break || sleep 1
           done
 
+      # The runner ships no browser matched to the pinned chromedriver, so
+      # Nightwatch hung waiting for a webdriver. Install a matched Chrome +
+      # chromedriver pair and point Nightwatch at them (see nightwatch.conf.js).
+      - name: Set up matched Chrome + chromedriver
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+          install-chromedriver: true
+
       - name: Run integration tests
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+          CHROMEDRIVER_PATH: ${{ steps.chrome.outputs.chromedriver-path }}
         run: ./node_modules/.bin/nightwatch --env nginx --config ./nightwatch.conf.js
 
       - name: Stop nginx
