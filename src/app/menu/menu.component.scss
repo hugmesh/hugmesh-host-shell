@@ -7,6 +7,25 @@ nav.navbar {
   width: fit-content;
 }
 
+.federation-nav {
+  .federation-nav__user {
+    color: t.$offwhite;
+    cursor: default;
+
+    &::after { content: none; }
+  }
+
+  .federation-nav__logout {
+    background: none;
+    border: 0;
+  }
+
+  .federation-nav__todo {
+    color: t.$pastel-peach;
+    font-style: italic;
+  }
+}
+
 .nav-item {
   font-size: 1.125rem;
   font-weight: 700;
