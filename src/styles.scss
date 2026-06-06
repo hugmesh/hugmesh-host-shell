@@ -18,6 +18,28 @@ $font-family-base:           t.$font-sans;
 @import "bootstrap/scss/bootstrap";
 
 
+/* Snapdragon WCAG-AA/AAA palette — centralised as runtime :root custom
+ * properties (mirrors snapdragon.games/frontend/src/styles.scss). Each token
+ * carries its contrast ratio against #0a0a12 (the darkest shell background) in
+ * the comment so a future contrast regression is obvious at the source.
+ * Audit: snapdragon.games decisions/024-wcag-palette-audit.md.
+ * The host's neon SCSS tokens (styles/_tokens.scss) drive the visual theme;
+ * these --sd-* vars are the cross-repo Snapdragon contract any remote can reach
+ * for instead of pasting hex literals. */
+:root {
+  --sd-bg-0:        #0a0a12; /* shell + login backdrop */
+  --sd-bg-1:        #12121e; /* cards, panels */
+  --sd-bg-2:        #1a1a2e; /* scrollbar trough */
+  --sd-border:      #1e1e32;
+  --sd-text:        #e8e8f0; /* 15.9:1 AAA */
+  --sd-text-muted:  #a8acc4; /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
+  --sd-accent:      #7c4dff; /* backgrounds/borders only — 3.22:1 as text */
+  --sd-accent-soft: #b388ff; /*  7.38:1 AAA — use this for accent text */
+  --sd-success:     #4caf50;
+  --sd-error:       #ff6b6b;
+}
+
+
 html,
 body {
   max-width: 100%;
@@ -75,10 +97,50 @@ h2 {
   }
 }
 
+// WCAG 2.4.7: visible focus indicator for every keyboard-reachable control.
+// High-contrast two-layer ring (copied from usidiamond.dev) — a solid light
+// outline plus a dark halo so the ring stays visible on ANY background.
 :focus-visible {
-  outline: 2px solid t.$neon;
-  outline-offset: 3px;
-  border-radius: 3px;
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.75);
+}
+
+// WCAG 1.4.1 — links must be distinguishable beyond colour: underline by
+// default, thicker on hover/focus.
+a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration-thickness: 2px;
+  }
+}
+
+// WCAG 2.5.5 / 2.5.8 — touch targets stay at least 44px tall on coarse
+// pointers (touch screens).
+@media (pointer: coarse) {
+  .nav-link,
+  .navbar-toggler {
+    min-height: 44px;
+  }
+}
+
+// Visually-hidden utility for screen-reader-only text. Visually removes the
+// element while keeping it in the accessibility tree (companion to bootstrap's
+// .visually-hidden, exposed here as the standard Snapdragon .sr helper).
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .bg-toggle {
