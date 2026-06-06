@@ -1,0 +1,6 @@
+{
+  "login": "/login/remoteEntry.json",
+  "matrix": "/social/matrix/remoteEntry.json",
+  "mastodon": "/social/mastodon/remoteEntry.json",
+  "admin": "/admin/remoteEntry.json"
+}

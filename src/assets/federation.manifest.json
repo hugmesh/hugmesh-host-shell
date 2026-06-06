@@ -1,0 +1,6 @@
+{
+  "login": "http://localhost:4203/remoteEntry.json",
+  "matrix": "http://localhost:4201/remoteEntry.json",
+  "mastodon": "http://localhost:4202/remoteEntry.json",
+  "admin": "http://localhost:4204/remoteEntry.json"
+}

@@ -30,5 +30,46 @@
         </li>
       }
     </ul>
+
+    <!-- Phase 10 session/role-aware federation nav. Mirrors the route guards:
+         each entry is shown only when the live snap.session allows it. -->
+    <ul class="navbar-nav federation-nav ms-lg-auto" aria-label="Account">
+      @if (session.loggedIn()) {
+        @for (item of visibleFederationItems(); track item.route) {
+          <li class="nav-item" role="none">
+            <a
+              class="nav-link"
+              [class.federation-nav__todo]="item.todo"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              [attr.data-testid]="item.testid"
+            >{{ item.label }}</a>
+          </li>
+        }
+        <li class="nav-item" role="none">
+          <span class="nav-link federation-nav__user" data-testid="nav-user">
+            {{ session.session()?.label }}
+          </span>
+        </li>
+        <li class="nav-item" role="none">
+          <button
+            type="button"
+            class="nav-link federation-nav__logout"
+            data-testid="nav-logout"
+            (click)="logout()"
+          >Sign out</button>
+        </li>
+      } @else {
+        <li class="nav-item" role="none">
+          <a
+            class="nav-link"
+            routerLink="/login"
+            routerLinkActive="active"
+            data-testid="nav-login"
+          >Sign in</a>
+        </li>
+      }
+    </ul>
   </div>
 </nav>

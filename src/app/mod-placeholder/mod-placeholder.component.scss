@@ -1,0 +1,29 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+.mod-placeholder {
+  @include m.card-surface;
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-inline: auto;
+  max-width: 40rem;
+  padding: 1.5rem;
+
+  &__badge {
+    letter-spacing: 0.1em;
+  }
+
+  &__title {
+    color: t.$neon;
+  }
+
+  &__lead {
+    color: t.$light;
+
+    code {
+      color: t.$neon-bright;
+    }
+  }
+}

@@ -23,6 +23,7 @@
   },
   "private": true,
   "dependencies": {
+    "@angular-architects/native-federation": "^22.0.0",
     "@angular/animations": "^22.0.0",
     "@angular/common": "^22.0.0",
     "@angular/compiler": "^22.0.0",
@@ -31,7 +32,9 @@
     "@angular/platform-browser": "^22.0.0",
     "@angular/platform-browser-dynamic": "^22.0.0",
     "@angular/router": "^22.0.0",
+    "@softarc/native-federation-node": "^3.5.5",
     "bootstrap": "^5.3.8",
+    "es-module-shims": "^2.8.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "rxjs": "^7.8.2",

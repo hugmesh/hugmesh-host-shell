@@ -16,6 +16,20 @@
       "prefix": "app",
       "architect": {
         "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": {
+              "target": "snapdragon.systems:esbuild:production"
+            },
+            "development": {
+              "target": "snapdragon.systems:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "esbuild": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
             "outputPath": {
@@ -23,7 +37,8 @@
             },
             "index": "src/index.html",
             "polyfills": [
-              "src/polyfills.ts"
+              "zone.js",
+              "es-module-shims"
             ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -67,8 +82,8 @@
               "outputHashing": "all"
             },
             "development": {
-              "optimization": true,
-              "extractLicenses": true,
+              "optimization": false,
+              "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true
             }
@@ -76,13 +91,22 @@
           "defaultConfiguration": "production"
         },
         "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "snapdragon.systems:serve-original:development",
+            "rebuildDelay": 0,
+            "dev": true,
+            "port": 4200
+          }
+        },
+        "serve-original": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "snapdragon.systems:build:production"
+              "buildTarget": "snapdragon.systems:esbuild:production"
             },
             "development": {
-              "buildTarget": "snapdragon.systems:build:development"
+              "buildTarget": "snapdragon.systems:esbuild:development"
             }
           },
           "defaultConfiguration": "development"
