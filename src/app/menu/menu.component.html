@@ -12,21 +12,38 @@
   </button>
 
   <div class="collapse navbar-collapse" id="navbarMain">
-    <ul class="navbar-nav" role="menubar" aria-label="Site pages">
+    <ul
+      class="navbar-nav"
+      role="menubar"
+      aria-label="Site pages"
+      (keydown)="onMenuKeydown($event)"
+    >
       @for (item of items; track item.route; let i = $index) {
         <li class="nav-item" role="none">
-          <button
-            role="menuitem"
-            class="nav-link"
-            [class.disabled]="item.disabled"
-            [attr.aria-disabled]="item.disabled || null"
-            [attr.tabindex]="item.disabled ? -1 : 0"
-            [attr.data-menu-index]="i"
-            [routerLink]="item.disabled ? null : item.route"
-            routerLinkActive="active"
-            ariaCurrentWhenActive="page"
-            (keydown)="onMenuKeydown($event, i)"
-          >{{ item.label }}</button>
+          @if (item.disabled) {
+            <button
+              #navBtn
+              role="menuitem"
+              class="nav-link disabled"
+              tabindex="-1"
+              aria-disabled="true"
+              disabled
+              [attr.data-menu-index]="i"
+            >{{ item.label }}</button>
+          } @else {
+            <button
+              #navBtn
+              role="menuitem"
+              class="nav-link"
+              tabindex="0"
+              [attr.tabindex]="i === activeIndex ? 0 : -1"
+              [attr.data-menu-index]="i"
+              [attr.data-route]="item.route"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+            >{{ item.label }}</button>
+          }
         </li>
       }
     </ul>

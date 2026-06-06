@@ -1,4 +1,5 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { BackgroundComponent } from './background/background.component';
 import { HeaderComponent } from './header/header.component';
@@ -13,10 +14,19 @@ import { FooterComponent } from './footer/footer.component';
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
+  private readonly doc = inject(DOCUMENT);
+
+  /** Skip-link handler. Moves focus (not just the scroll position) to the routed
+   *  page's #maincontent so keyboard + screen-reader users land in the content,
+   *  per WCAG 2.4.1. The routed page component owns the #maincontent id. */
   skipToMain(event: Event): void {
     event.preventDefault();
-    const main = document.getElementById('maincontent') as HTMLElement | null;
-    main?.focus({ preventScroll: false });
-    main?.scrollIntoView();
+    const main = this.doc.getElementById('maincontent');
+    if (!main) return;
+    if (main.getAttribute('tabindex') === null) {
+      main.setAttribute('tabindex', '-1');
+    }
+    main.focus({ preventScroll: false });
+    main.scrollIntoView();
   }
 }

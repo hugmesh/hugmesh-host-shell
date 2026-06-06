@@ -2,7 +2,7 @@ import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'app-background',
-  template: '',
+  templateUrl: './background.component.html',
   styleUrl: './background.component.scss',
   changeDetection: ChangeDetectionStrategy.Eager,
   host: { '[class.is-paused]': 'paused()' },

@@ -7,6 +7,6 @@ import { Component, Input, ChangeDetectionStrategy } from '@angular/core';
   },
   templateUrl: './about-section.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
-  styleUrl: './about-section.component.css',
+  styleUrl: './about-section.component.scss',
 })
 export class AboutSectionComponent {}

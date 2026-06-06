@@ -1,7 +1,18 @@
-import { Component, DestroyRef, inject, computed, ChangeDetectionStrategy } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { DOCUMENT } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  QueryList,
+  ViewChildren,
+  computed,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
+
 import { SessionService } from '../session.service';
 
 interface MenuItem {
@@ -41,6 +52,17 @@ export class MenuComponent {
   readonly items = MENU_ITEMS;
   readonly session = inject(SessionService);
 
+  /** Roving-tabindex cursor for the primary menubar (WAI-ARIA menubar pattern):
+   *  exactly ONE menuitem is a tab stop (tabindex 0); the rest are tabindex -1
+   *  and reachable only with the arrow keys. Mirrors usidiamond.dev. */
+  activeIndex = 0;
+
+  @ViewChildren('navBtn', { read: ElementRef })
+  navButtonRefs!: QueryList<ElementRef<HTMLButtonElement>>;
+
+  private readonly doc = inject(DOCUMENT);
+  private readonly router = inject(Router);
+
   /** Federation entries, visibility-gated per role/registration exactly like the
    *  route guards: Matrix/Mastodon only when fullyRegistered, Admin only for
    *  admins, Mod (TODO) only for moderators. Sign in / Sign out handled in the
@@ -57,7 +79,21 @@ export class MenuComponent {
     this.federationItems.filter((i) => i.show()),
   );
 
-  private readonly router = inject(Router);
+  /** Indices of the enabled primary items (the arrow-key cycle skips disabled). */
+  private get enabledIndices(): number[] {
+    return this.items.map((item, i) => (item.disabled ? -1 : i)).filter((i) => i !== -1);
+  }
+
+  constructor() {
+    const destroyRef = inject(DestroyRef);
+
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(destroyRef),
+      )
+      .subscribe(() => this.doc.getElementById('maincontent')?.focus());
+  }
 
   /** Sign out: clear the shared session then return to the public landing. */
   logout(): void {
@@ -65,42 +101,29 @@ export class MenuComponent {
     this.router.navigateByUrl('/');
   }
 
-  constructor() {
-    inject(DestroyRef);
-
-    this.router.events
-      .pipe(
-        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-        takeUntilDestroyed(),
-      )
-      .subscribe(() => {
-        const main = document.getElementById('maincontent') as HTMLElement | null;
-        main?.focus();
-      });
-  }
-
-  onMenuKeydown(event: KeyboardEvent, index: number): void {
-    const enabledIndices = this.items
-      .map((item, i) => (!item.disabled ? i : -1))
-      .filter((i) => i !== -1);
-
-    const pos    = enabledIndices.indexOf(index);
-    let   target = -1;
+  /** Roving-tabindex keyboard handler for the primary menubar. Arrow/Home/End
+   *  move the active cursor across the enabled items (wrapping, skipping the
+   *  disabled ones) and move DOM focus to the new item. Other keys are no-ops so
+   *  Tab/Enter behave natively. */
+  onMenuKeydown(event: KeyboardEvent): void {
+    const enabled = this.enabledIndices;
+    const pos = enabled.indexOf(this.activeIndex);
+    let next: number | undefined;
 
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      target = enabledIndices[(pos + 1) % enabledIndices.length];
+      next = enabled[(pos + 1) % enabled.length];
     } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      target = enabledIndices[(pos - 1 + enabledIndices.length) % enabledIndices.length];
+      next = enabled[(pos - 1 + enabled.length) % enabled.length];
     } else if (event.key === 'Home') {
-      target = enabledIndices[0];
+      next = enabled[0];
     } else if (event.key === 'End') {
-      target = enabledIndices[enabledIndices.length - 1];
+      next = enabled[enabled.length - 1];
     }
 
-    if (target !== -1) {
+    if (next !== undefined) {
       event.preventDefault();
-      const btn = document.querySelector<HTMLElement>(`[data-menu-index="${target}"]`);
-      btn?.focus();
+      this.activeIndex = next;
+      this.navButtonRefs.get(next)?.nativeElement.focus();
     }
   }
 }
