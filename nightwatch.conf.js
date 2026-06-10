@@ -7,7 +7,12 @@ module.exports = {
     options: {
       feature_path: 'e2e/features',
       require: ['e2e/step_definitions'],
-      tags: 'not @skip',
+      // @skip is the existing manual skip. @integration marks scenarios that need
+      // the integrated env (the federation REMOTES served from their own dev
+      // servers / nginx — manifest ports 4203-4206) to render remote CONTENT; the
+      // default host-only run cannot serve those, so they are excluded here and
+      // run explicitly with `npm run e2e:integration` (tags 'not @skip').
+      tags: 'not @skip and not @integration',
       format: [
         'html:./integration-tests-report/cucumber-report.html',
         'json:./integration-tests-report/cucumber-report.json',

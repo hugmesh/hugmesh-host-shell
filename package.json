@@ -13,6 +13,7 @@
     "coverage": "ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI",
     "e2e": "nightwatch  -r ./e2e/html-reporter.js nightwatch.conf.js -e chrome",
     "e2e:test": "./node_modules/.bin/nightwatch --env 'chrome' --config './nightwatch.conf.js'",
+    "e2e:integration": "nightwatch -r ./e2e/html-reporter.js nightwatch.conf.js -e chrome --tag integration",
     "e2e:nginx": "bash scripts/e2e-nginx.sh",
     "e2e:firefox": "nightwatch -r e2e/html-reporter.js -c nightwatch.conf.js -e firefox",
     "e2e:safari": "nightwatch -r e2e/html-reporter.js -c nightwatch.conf.js -e safari",
