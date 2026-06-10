@@ -46,6 +46,33 @@ describe('SessionService', () => {
     expect(service.isAdmin()).toBeFalse();
   });
 
+  it('treats every logged-in identity as at least a ROLE_USER', () => {
+    expect(service.isUser()).withContext('anonymous is not a user').toBeFalse();
+    service.set(makeSession({ roles: [] }));
+    expect(service.isUser()).withContext('any logged-in session is a user').toBeTrue();
+  });
+
+  describe('role() — effective role-home (admin > mod > user)', () => {
+    it('is null when no one is signed in', () => {
+      expect(service.role()).toBeNull();
+    });
+
+    it('is "user" for a plain authenticated identity', () => {
+      service.set(makeSession({ roles: ['user'] }));
+      expect(service.role()).toBe('user');
+    });
+
+    it('is "mod" for a moderator without the admin role', () => {
+      service.set(makeSession({ roles: ['user', 'mod'] }));
+      expect(service.role()).toBe('mod');
+    });
+
+    it('is "admin" and OUTRANKS mod/user when the admin role is present', () => {
+      service.set(makeSession({ roles: ['user', 'mod', 'admin'] }));
+      expect(service.role()).toBe('admin');
+    });
+  });
+
   it('gates fullyRegistered on registrationComplete === true', () => {
     service.set(makeSession({ registrationComplete: false }));
     expect(service.fullyRegistered()).toBeFalse();

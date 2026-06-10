@@ -5,10 +5,18 @@ import { BackgroundComponent } from './background/background.component';
 import { HeaderComponent } from './header/header.component';
 import { MenuComponent } from './menu/menu.component';
 import { FooterComponent } from './footer/footer.component';
+import { ProfileModalComponent } from './profile-modal/profile-modal.component';
 
 @Component({
   selector: '[app-root]',
-  imports: [RouterOutlet, BackgroundComponent, HeaderComponent, MenuComponent, FooterComponent],
+  imports: [
+    RouterOutlet,
+    BackgroundComponent,
+    HeaderComponent,
+    MenuComponent,
+    FooterComponent,
+    ProfileModalComponent,
+  ],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.scss',

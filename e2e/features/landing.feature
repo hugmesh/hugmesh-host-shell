@@ -8,8 +8,8 @@ Feature: Landing Page
   Scenario: Navigation bar is visible
     Given I go to "/"
     Then I see the navigation bar
-    And the navigation contains "Introduction"
-    And the navigation contains "About"
+    And the navigation contains "Home"
+    And the navigation contains "Mastodon"
 
   Scenario: Skip link is present in the DOM
     Given I go to "/"

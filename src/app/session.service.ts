@@ -1,5 +1,11 @@
 import { Injectable, signal, computed } from '@angular/core';
 
+/** The host shell's three federated role-homes. Derived from the Casdoor role
+ *  claims with admin > mod > user precedence (an admin who also has 'user' still
+ *  lands on the admin role-home). Drives the default route's role-home redirect
+ *  and the conditional Admin/Moderation profile-menu entries. */
+export type ShellRole = 'admin' | 'mod' | 'user';
+
 export interface SnapSession {
   id: string;                 // casdoor identity, e.g. google:alice@gmail.com
   label: string;              // display (email or discord handle)
@@ -26,8 +32,21 @@ export class SessionService {
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
-  /** Moderator role -> the /mod entry (future snapdragon-mod-ui remote). */
+  /** Moderator role -> the /mod role-home (snapdragon-mod-ui remote). */
   readonly isMod = computed(() => (this.session()?.roles ?? []).includes('mod'));
+  /** Every authenticated identity is at least a ROLE_USER (the user role-home is
+   *  the baseline). True for any logged-in session even when the explicit 'user'
+   *  role string is absent, so the default route always resolves a role-home. */
+  readonly isUser = computed(() => this.loggedIn());
+  /** The current session's effective role-home, admin > mod > user. Null when no
+   *  one is signed in (the shell then renders the login flow). The default ('')
+   *  route's resolver redirects to `/${role()}`. */
+  readonly role = computed<ShellRole | null>(() => {
+    if (!this.loggedIn()) return null;
+    if (this.isAdmin()) return 'admin';
+    if (this.isMod()) return 'mod';
+    return 'user';
+  });
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
 

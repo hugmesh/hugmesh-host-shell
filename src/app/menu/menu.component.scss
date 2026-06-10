@@ -7,22 +7,52 @@ nav.navbar {
   width: fit-content;
 }
 
-.federation-nav {
-  .federation-nav__user {
-    color: t.$offwhite;
-    cursor: default;
-
+.account-nav {
+  .nav-link {
     &::after { content: none; }
   }
+}
 
-  .federation-nav__logout {
+.profile-menu {
+  position: relative;
+
+  &__trigger {
     background: none;
     border: 0;
+    color: t.$offwhite;
   }
 
-  .federation-nav__todo {
-    color: t.$pastel-peach;
-    font-style: italic;
+  &__name {
+    font-weight: 700;
+  }
+
+  &__list {
+    @include m.card-surface;
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 0.25rem);
+    z-index: t.$z-nav;
+    min-width: 12rem;
+    margin: 0;
+    padding: 0.5rem;
+    list-style: none;
+  }
+
+  &__item {
+    background: none;
+    border: 0;
+    color: t.$light;
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    width: 100%;
+
+    &:hover,
+    &:focus-visible {
+      color: t.$neon;
+    }
   }
 }
 
@@ -58,6 +88,8 @@ nav.navbar {
   }
 
   &.disabled {
+    background: none;
+    border: 0;
     color: rgba(t.$light, t.$opacity-muted);
     cursor: not-allowed;
   }

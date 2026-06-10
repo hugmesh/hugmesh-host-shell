@@ -5,7 +5,9 @@ import { provideRouter } from '@angular/router';
 import { adminGuard } from './admin.guard';
 import { registeredGuard } from './registration.guard';
 import { modGuard } from './mod.guard';
-import { SessionService } from '../session.service';
+import { userGuard } from './user.guard';
+import { roleHomeGuard } from './role-home.guard';
+import { SessionService, ShellRole } from '../session.service';
 
 /** Minimal SessionService double exposing the role/registration signals the
  *  guards read. We drive the boolean flags per-case and assert allow vs the
@@ -13,10 +15,14 @@ import { SessionService } from '../session.service';
 class SessionStub {
   admin = false;
   mod = false;
+  user = false;
   registered = false;
+  effectiveRole: ShellRole | null = null;
   isAdmin = () => this.admin;
   isMod = () => this.mod;
+  isUser = () => this.user;
   fullyRegistered = () => this.registered;
+  role = () => this.effectiveRole;
 }
 
 function run(guard: typeof adminGuard): boolean | UrlTree {
@@ -80,6 +86,40 @@ describe('federation route guards', () => {
       session.admin = true;
       session.mod = false;
       expect(run(modGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('userGuard', () => {
+    it('allows any authenticated identity into the user role-home', () => {
+      session.user = true;
+      expect(run(userGuard)).toBeTrue();
+    });
+
+    it('redirects an anonymous visitor to /login', () => {
+      session.user = false;
+      expect(run(userGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('roleHomeGuard (authgate + role-home redirect)', () => {
+    it('redirects an anonymous visitor to /login', () => {
+      session.effectiveRole = null;
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('redirects an admin to /admin', () => {
+      session.effectiveRole = 'admin';
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/admin'));
+    });
+
+    it('redirects a moderator to /mod', () => {
+      session.effectiveRole = 'mod';
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/mod'));
+    });
+
+    it('redirects a plain user to /user', () => {
+      session.effectiveRole = 'user';
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/user'));
     });
   });
 });
