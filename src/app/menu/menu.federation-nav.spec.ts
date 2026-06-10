@@ -88,6 +88,7 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     fixture.detectChanges();
     openProfile();
     expect(has('menu-admin')).toBeFalse();
+    expect(has('menu-apidocs')).toBeFalse();
     expect(has('menu-mod')).toBeFalse();
   });
 
@@ -98,6 +99,48 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     fixture.detectChanges();
     openProfile();
     expect(has('menu-admin')).toBeTrue();
+  });
+
+  it('ROLE_ADMIN: the profile menu shows the API docs entry (admin-only)', () => {
+    stub.loggedIn.set(true);
+    stub.isAdmin.set(true);
+    stub.session.set({ label: 'root' });
+    fixture.detectChanges();
+    openProfile();
+    const apidocs = el.querySelector('[data-testid="menu-apidocs"]') as HTMLElement;
+    expect(apidocs).withContext('API docs entry visible for admins').toBeTruthy();
+    expect(apidocs.textContent?.trim()).withContext('accessible name').toBe('API docs');
+    expect(apidocs.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+  });
+
+  it('plain user: the profile menu hides the API docs entry', () => {
+    stub.loggedIn.set(true);
+    stub.session.set({ label: 'alice' });
+    fixture.detectChanges();
+    openProfile();
+    expect(has('menu-apidocs')).toBeFalse();
+  });
+
+  it('ROLE_MOD: a moderator (non-admin) does not see the API docs entry', () => {
+    stub.loggedIn.set(true);
+    stub.isMod.set(true);
+    stub.session.set({ label: 'mod-user' });
+    fixture.detectChanges();
+    openProfile();
+    expect(has('menu-apidocs')).toBeFalse();
+  });
+
+  it('API docs entry navigates to /admin/docs and closes the menu', () => {
+    stub.loggedIn.set(true);
+    stub.isAdmin.set(true);
+    stub.session.set({ label: 'root' });
+    fixture.detectChanges();
+    const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+    openProfile();
+    (el.querySelector('[data-testid="menu-apidocs"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(navSpy).toHaveBeenCalledWith('/admin/docs');
+    expect(component.profileOpen()).toBeFalse();
   });
 
   it('ROLE_MOD: the profile menu shows the Moderation entry only for moderators', () => {

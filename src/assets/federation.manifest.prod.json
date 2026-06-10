@@ -4,5 +4,6 @@
   "mastodon": "/social/mastodon/remoteEntry.json",
   "admin": "/admin/remoteEntry.json",
   "mod": "/mod/remoteEntry.json",
-  "user": "/user/remoteEntry.json"
+  "user": "/user/remoteEntry.json",
+  "apidocs": "/apidocs/remoteEntry.json"
 }

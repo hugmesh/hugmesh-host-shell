@@ -17,9 +17,12 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *   mod      -> snapdragon-mod-ui       remote 'mod'      exposes ./routes (MOD_ROUTES)
  *   user     -> snapdragon-user-ui      remote 'user'     exposes ./routes (USER_ROUTES)
  *                                                         AND ./profile (ProfileComponent, modal)
+ *   apidocs  -> snapdragon-api-docs     remote 'apidocs'  exposes ./routes (API_DOCS_ROUTES)
+ *                                                         AND ./DocsShell (DocsShellComponent)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
- * /mod, /user. Matrix/Mastodon require full registration; Admin needs the admin
- * role; Mod needs the mod role; User is any authenticated identity.
+ * /mod, /user, /admin/docs. Matrix/Mastodon require full registration; Admin and
+ * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
+ * the mod role; User is any authenticated identity.
  *
  * ROLE-HOME: the host's home is the federated remote for the signed-in user's
  * ROLE — admin -> /admin, mod -> /mod, user -> /user. The default ('') route is a
@@ -42,6 +45,9 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
   { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [registeredGuard] },
   { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [registeredGuard] },
+  // admin/docs (the admin-only API-docs console) MUST precede 'admin': the more
+  // specific path has to match before the admin remote's loadChildren swallows it.
+  { path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES', canActivate: [adminGuard] },
   { path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES', canActivate: [adminGuard] },
   { path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES', canActivate: [modGuard] },
   { path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES', canActivate: [userGuard] },
