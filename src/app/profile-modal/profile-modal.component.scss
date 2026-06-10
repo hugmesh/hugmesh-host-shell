@@ -1,0 +1,70 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+.profile-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: t.$z-overlay;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+  background: rgba(t.$black, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.profile-modal__dialog {
+  @include m.glass-float;
+  width: min(40rem, 100%);
+  max-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  outline: none;
+
+  &:focus-visible {
+    @include m.neon-glow;
+  }
+}
+
+.profile-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-modal__title {
+  color: t.$neon;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.profile-modal__close {
+  background: none;
+  border: 0;
+  color: t.$light;
+  cursor: pointer;
+  font-size: 1.75rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+
+  &:hover,
+  &:focus-visible {
+    color: t.$neon;
+  }
+}
+
+.profile-modal__body {
+  overflow-y: auto;
+}
+
+.profile-modal__status {
+  color: t.$light;
+}
+
+.profile-modal__error {
+  color: t.$pastel-peach;
+}

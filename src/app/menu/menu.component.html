@@ -12,70 +12,87 @@
   </button>
 
   <div class="collapse navbar-collapse" id="navbarMain">
+    <!-- UNIVERSAL NAV: Home | Mastodon | Matrix. The router-outlet is the
+         swappable content region; each entry navigates to the matching remote.
+         Mastodon/Matrix are disabled until the session is fully registered. -->
     <ul
       class="navbar-nav"
       role="menubar"
-      aria-label="Site pages"
+      aria-label="Site sections"
       (keydown)="onMenuKeydown($event)"
     >
-      @for (item of items; track item.route; let i = $index) {
+      @for (entry of navEntries; track entry.route; let i = $index) {
         <li class="nav-item" role="none">
-          @if (item.disabled) {
+          @if (entry.enabled()) {
+            <a
+              #navBtn
+              role="menuitem"
+              class="nav-link"
+              [attr.tabindex]="i === activeIndex ? 0 : -1"
+              [attr.data-menu-index]="i"
+              [attr.data-route]="entry.route"
+              [attr.data-testid]="entry.testid"
+              [routerLink]="entry.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: entry.route === '/' }"
+              ariaCurrentWhenActive="page"
+            >{{ entry.label }}</a>
+          } @else {
             <button
               #navBtn
               role="menuitem"
+              type="button"
               class="nav-link disabled"
               tabindex="-1"
               aria-disabled="true"
               disabled
               [attr.data-menu-index]="i"
-            >{{ item.label }}</button>
-          } @else {
-            <button
-              #navBtn
-              role="menuitem"
-              class="nav-link"
-              tabindex="0"
-              [attr.tabindex]="i === activeIndex ? 0 : -1"
-              [attr.data-menu-index]="i"
-              [attr.data-route]="item.route"
-              [routerLink]="item.route"
-              routerLinkActive="active"
-              ariaCurrentWhenActive="page"
-            >{{ item.label }}</button>
+              [attr.data-testid]="entry.testid"
+            >{{ entry.label }}</button>
           }
         </li>
       }
     </ul>
 
-    <!-- Phase 10 session/role-aware federation nav. Mirrors the route guards:
-         each entry is shown only when the live snap.session allows it. -->
-    <ul class="navbar-nav federation-nav ms-lg-auto" aria-label="Account">
+    <!-- Account region: anonymous -> Sign in; authenticated -> the profile menu
+         (Profile modal + conditional Admin/Moderation + Sign out). -->
+    <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
       @if (session.loggedIn()) {
-        @for (item of visibleFederationItems(); track item.route) {
-          <li class="nav-item" role="none">
-            <a
-              class="nav-link"
-              [class.federation-nav__todo]="item.todo"
-              [routerLink]="item.route"
-              routerLinkActive="active"
-              ariaCurrentWhenActive="page"
-              [attr.data-testid]="item.testid"
-            >{{ item.label }}</a>
-          </li>
-        }
-        <li class="nav-item" role="none">
-          <span class="nav-link federation-nav__user" data-testid="nav-user">
-            {{ session.session()?.label }}
-          </span>
-        </li>
-        <li class="nav-item" role="none">
+        <li class="nav-item dropdown profile-menu" role="none">
           <button
+            #profileTrigger
             type="button"
-            class="nav-link federation-nav__logout"
-            data-testid="nav-logout"
-            (click)="logout()"
-          >Sign out</button>
+            class="nav-link profile-menu__trigger"
+            data-testid="profile-trigger"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="profileOpen()"
+            aria-controls="profile-menu-list"
+            (click)="toggleProfile()"
+          >
+            <span class="profile-menu__name" data-testid="nav-user">{{ session.session()?.label }}</span>
+          </button>
+
+          @if (profileOpen()) {
+            <ul
+              id="profile-menu-list"
+              class="profile-menu__list"
+              role="menu"
+              aria-label="Profile menu"
+              (keydown.escape)="closeProfile()"
+            >
+              @for (item of visibleProfileItems(); track item.testid) {
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    class="profile-menu__item"
+                    [attr.data-testid]="item.testid"
+                    (click)="onProfileItem(item)"
+                  >{{ item.label }}</button>
+                </li>
+              }
+            </ul>
+          }
         </li>
       } @else {
         <li class="nav-item" role="none">

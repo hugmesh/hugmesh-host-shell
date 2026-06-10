@@ -2,5 +2,7 @@
   "login": "/login/remoteEntry.json",
   "matrix": "/social/matrix/remoteEntry.json",
   "mastodon": "/social/mastodon/remoteEntry.json",
-  "admin": "/admin/remoteEntry.json"
+  "admin": "/admin/remoteEntry.json",
+  "mod": "/mod/remoteEntry.json",
+  "user": "/user/remoteEntry.json"
 }

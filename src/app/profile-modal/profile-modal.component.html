@@ -1,0 +1,48 @@
+@if (modal.isOpen()) {
+  <div
+    class="profile-modal__backdrop"
+    data-testid="profile-modal-backdrop"
+    (click)="onBackdropClick($event)"
+  >
+    <div
+      #dialog
+      class="profile-modal__dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="profile-modal-title"
+      tabindex="-1"
+      data-testid="profile-modal"
+      (keydown)="onDialogKeydown($event)"
+    >
+      <div class="profile-modal__header">
+        <h2 id="profile-modal-title" class="profile-modal__title">Your profile</h2>
+        <button
+          type="button"
+          class="profile-modal__close"
+          data-testid="profile-modal-close"
+          aria-label="Close profile"
+          (click)="close()"
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <div class="profile-modal__body">
+        @if (loading()) {
+          <p class="profile-modal__status" role="status" data-testid="profile-modal-loading">
+            Loading your profile…
+          </p>
+        } @else if (loadError()) {
+          <p class="profile-modal__error" role="alert" data-testid="profile-modal-error">
+            {{ loadError() }}
+          </p>
+        } @else if (profileComponent()) {
+          <ng-container
+            data-testid="profile-modal-content"
+            [ngComponentOutlet]="profileComponent()!"
+          />
+        }
+      </div>
+    </div>
+  </div>
+}

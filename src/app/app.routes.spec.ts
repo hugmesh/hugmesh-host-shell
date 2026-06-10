@@ -4,12 +4,14 @@ import { routes, REMOTE_ROUTES, federationLoader } from './app.routes';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
 import { modGuard } from './guards/mod.guard';
+import { userGuard } from './guards/user.guard';
+import { roleHomeGuard } from './guards/role-home.guard';
 
 /** These tests assert the FEDERATION WIRING: that each public path resolves its
  *  loadChildren via the native-federation loader using the correct remote name +
  *  exposed module + exported routes constant, and that the right guard protects
- *  each. The verbatim contract (login/matrix/mastodon/admin -> ./routes ->
- *  *_ROUTES) is declared in REMOTE_ROUTES and exercised end-to-end here. */
+ *  each. The verbatim contract (login/matrix/mastodon/admin/mod/user -> ./routes
+ *  -> *_ROUTES) is declared in REMOTE_ROUTES and exercised end-to-end here. */
 describe('app.routes federation wiring', () => {
   function routeFor(path: string): Route {
     const r = routes.find((x) => x.path === path);
@@ -23,6 +25,8 @@ describe('app.routes federation wiring', () => {
       jasmine.objectContaining({ path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES' }),
       jasmine.objectContaining({ path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES' }),
       jasmine.objectContaining({ path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES' }),
+      jasmine.objectContaining({ path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES' }),
+      jasmine.objectContaining({ path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES' }),
     ]);
   });
 
@@ -53,16 +57,23 @@ describe('app.routes federation wiring', () => {
     expect(routeFor('login').canActivate ?? []).toEqual([]);
   });
 
-  it('/mod is a guarded placeholder (modGuard) that loadComponents — NOT a remote mount', () => {
+  it('/mod is now a REAL remote mount guarded by modGuard (no placeholder)', () => {
     const mod = routeFor('mod');
     expect(mod.canActivate).toContain(modGuard);
-    expect(mod.loadComponent).withContext('placeholder is a local component').toBeDefined();
-    expect(mod.loadChildren).withContext('must NOT loadRemoteModule a mod remote').toBeUndefined();
+    expect(mod.loadChildren).withContext('mounts the mod remote via loadChildren').toBeDefined();
+    expect(mod.loadComponent).withContext('no longer a local placeholder component').toBeUndefined();
   });
 
-  it('default ("") path renders the role-aware landing component', () => {
+  it('/user is the user role-home remote mount guarded by userGuard', () => {
+    const user = routeFor('user');
+    expect(user.canActivate).toContain(userGuard);
+    expect(user.loadChildren).withContext('mounts the user remote via loadChildren').toBeDefined();
+  });
+
+  it('default ("") path is a pure AUTHGATE + role-home redirect (roleHomeGuard, no component)', () => {
     const root = routes.find((r) => r.path === '');
-    expect(root?.loadComponent).toBeDefined();
+    expect(root?.canActivate).withContext('default route is guarded').toContain(roleHomeGuard);
+    expect(root?.loadComponent).withContext('renders no host component at ""').toBeUndefined();
     expect(root?.loadChildren).toBeUndefined();
   });
 });

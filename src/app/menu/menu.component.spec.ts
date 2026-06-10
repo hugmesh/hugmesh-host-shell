@@ -1,30 +1,44 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { MenuComponent } from './menu.component';
-import { routes } from '../app.routes';
+import { SessionService } from '../session.service';
 
 /**
- * MENU_ITEMS (declared order): 0 Introduction (enabled), 1 Projects (disabled),
- * 2 About (enabled). So the enabled cycle the arrow keys walk is [0, 2] and the
- * disabled item at index 1 is never a tab stop nor an arrow target.
+ * The UNIVERSAL NAV menubar: Home | Mastodon | Matrix. Home is always enabled;
+ * Mastodon/Matrix are enabled only once the session is fully registered (matching
+ * the registeredGuard) — so the enabled arrow-key cycle is [0] when unregistered
+ * and [0, 1, 2] when registered.
  *
  * These specs assert the WAI-ARIA menubar contract end to end:
- *   - role=menubar on the ul, role=menuitem on each button,
+ *   - role=menubar on the ul, role=menuitem on each entry,
  *   - true ROVING tabindex (exactly one enabled item is tabindex 0),
- *   - disabled item gets aria-disabled=true + tabindex=-1 + the disabled attr,
- *   - the full onMenuKeydown keyboard suite (Arrow/Home/End/wrap/skip-disabled),
+ *   - disabled (unregistered) social entries get aria-disabled + tabindex -1,
+ *   - the onMenuKeydown keyboard suite (Arrow/Home/End/wrap/skip-disabled),
  *   - unrelated keys (Tab/Enter) are no-ops.
  */
-describe('MenuComponent', () => {
+class SessionStub {
+  loggedIn = signal(true);
+  fullyRegistered = signal(true);
+  isAdmin = signal(false);
+  isMod = signal(false);
+  session = signal<{ label: string } | null>({ label: 'alice' });
+  cleared = false;
+  clear() { this.cleared = true; }
+}
+
+describe('MenuComponent — universal nav menubar', () => {
   let component: MenuComponent;
   let fixture: ComponentFixture<MenuComponent>;
+  let stub: SessionStub;
   let el: HTMLElement;
 
   beforeEach(async () => {
+    stub = new SessionStub();
     await TestBed.configureTestingModule({
       imports: [MenuComponent],
-      providers: [provideRouter(routes)],
+      providers: [provideRouter([]), { provide: SessionService, useValue: stub }],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MenuComponent);
@@ -33,7 +47,7 @@ describe('MenuComponent', () => {
     el = fixture.nativeElement as HTMLElement;
   });
 
-  function navButtons(): HTMLButtonElement[] {
+  function navButtons(): HTMLElement[] {
     return component.navButtonRefs.map((ref) => ref.nativeElement);
   }
 
@@ -41,154 +55,131 @@ describe('MenuComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render a <nav> element', () => {
-    expect(el.querySelector('nav')).withContext('<nav> must be present').toBeTruthy();
+  it('renders a <nav> with a role="menubar" primary list', () => {
+    expect(el.querySelector('nav')).toBeTruthy();
+    expect(el.querySelector('ul[role="menubar"]')).toBeTruthy();
   });
 
-  it('should render one menuitem button per menu item', () => {
-    const buttons = el.querySelectorAll('button[role="menuitem"]');
-    expect(buttons.length).toBe(component.items.length);
-  });
-
-  it('should put role="menubar" on the primary ul', () => {
-    expect(el.querySelector('ul')?.getAttribute('role')).toBe('menubar');
-  });
-
-  it('should render an Introduction nav button pointing at home', () => {
-    const intro = navButtons().find((b) => b.textContent?.trim() === 'Introduction');
-    expect(intro).toBeTruthy();
-    expect(intro?.getAttribute('data-route'))
-      .withContext('Introduction links to home')
-      .toBe('home');
-  });
-
-  it('should render an About nav button', () => {
+  it('renders Home | Mastodon | Matrix as the menubar entries', () => {
     const labels = navButtons().map((b) => b.textContent?.trim());
-    expect(labels).toContain('About');
+    expect(labels).toEqual(['Home', 'Mastodon', 'Matrix']);
+  });
+
+  it('Home links to the role-home authgate at "/"', () => {
+    const home = navButtons().find((b) => b.textContent?.trim() === 'Home');
+    expect(home?.getAttribute('data-route')).toBe('/');
+  });
+
+  it('Mastodon and Matrix link to the social remotes', () => {
+    const byLabel = (l: string) => navButtons().find((b) => b.textContent?.trim() === l);
+    expect(byLabel('Mastodon')?.getAttribute('data-route')).toBe('/social/mastodon');
+    expect(byLabel('Matrix')?.getAttribute('data-route')).toBe('/social/matrix');
   });
 
   describe('roving tabindex (WAI-ARIA menubar)', () => {
-    it('makes exactly ONE enabled item a tab stop (tabindex 0)', () => {
+    it('makes exactly ONE enabled entry a tab stop (tabindex 0)', () => {
       const tabbable = navButtons().filter((b) => b.getAttribute('tabindex') === '0');
-      expect(tabbable.length).withContext('exactly one tab stop in the menubar').toBe(1);
+      expect(tabbable.length).toBe(1);
     });
 
-    it('the lone tab stop is the active item (Introduction at activeIndex 0)', () => {
+    it('the lone tab stop is Home (activeIndex 0)', () => {
       expect(component.activeIndex).toBe(0);
       expect(navButtons()[0].getAttribute('tabindex')).toBe('0');
     });
 
-    it('non-active enabled items are tabindex -1 (arrow-reachable only)', () => {
-      const about = navButtons().find((b) => b.textContent?.trim() === 'About');
-      expect(about?.getAttribute('tabindex')).toBe('-1');
-    });
-
-    it('renders the lone tab stop on whichever item activeIndex points at', () => {
-      // Re-create with the cursor already on About, so the first CD pass renders
-      // the moved tab stop without a mid-cycle mutation (which would trip the
-      // dev-mode ExpressionChanged double-check — a test artifact, not a bug).
-      const fresh = TestBed.createComponent(MenuComponent);
-      fresh.componentInstance.activeIndex = 2;
-      fresh.detectChanges();
-      const buttons = fresh.componentInstance.navButtonRefs.map((r) => r.nativeElement);
-      const tabbable = buttons.filter((b) => b.getAttribute('tabindex') === '0');
-      expect(tabbable.length).toBe(1);
-      expect(tabbable[0].textContent?.trim()).toBe('About');
+    it('non-active enabled entries are tabindex -1 (arrow-reachable only)', () => {
+      const mastodon = navButtons().find((b) => b.textContent?.trim() === 'Mastodon');
+      expect(mastodon?.getAttribute('tabindex')).toBe('-1');
     });
   });
 
-  describe('disabled item a11y', () => {
-    it('the Projects item is disabled with aria-disabled=true + tabindex=-1', () => {
-      const projects = navButtons().find((b) => b.textContent?.trim() === 'Projects');
-      expect(projects).toBeTruthy();
-      expect(projects?.hasAttribute('disabled')).toBeTrue();
-      expect(projects?.getAttribute('aria-disabled')).toBe('true');
-      expect(projects?.getAttribute('tabindex')).toBe('-1');
-      expect(projects?.classList.contains('disabled')).toBeTrue();
+  describe('registration-gated social entries', () => {
+    it('disables Mastodon/Matrix when the session is not fully registered', () => {
+      stub.fullyRegistered.set(false);
+      fixture.detectChanges();
+      const mastodon = navButtons().find((b) => b.textContent?.trim() === 'Mastodon')!;
+      expect(mastodon.hasAttribute('disabled')).toBeTrue();
+      expect(mastodon.getAttribute('aria-disabled')).toBe('true');
+      expect(mastodon.getAttribute('tabindex')).toBe('-1');
     });
 
-    it('a disabled item carries no routerLink', () => {
-      const projects = navButtons().find((b) => b.textContent?.trim() === 'Projects');
-      expect(projects?.getAttribute('routerlink')).toBeNull();
+    it('a disabled social entry carries no routerLink', () => {
+      stub.fullyRegistered.set(false);
+      fixture.detectChanges();
+      const matrix = navButtons().find((b) => b.textContent?.trim() === 'Matrix');
+      expect(matrix?.getAttribute('routerlink')).toBeNull();
+    });
+
+    it('enables Mastodon/Matrix once fully registered', () => {
+      stub.fullyRegistered.set(true);
+      fixture.detectChanges();
+      const matrix = navButtons().find((b) => b.textContent?.trim() === 'Matrix')!;
+      expect(matrix.hasAttribute('disabled')).toBeFalse();
     });
   });
 
   describe('mobile navbar toggler', () => {
     it('has an aria-label for the responsive collapse control', () => {
       const toggler = el.querySelector('.navbar-toggler');
-      expect(toggler).toBeTruthy();
       expect(toggler?.getAttribute('aria-label')).toBe('Toggle navigation');
     });
   });
 
-  describe('onMenuKeydown — keyboard navigation (enabled cycle = [0, 2])', () => {
+  describe('onMenuKeydown — keyboard navigation', () => {
     function press(key: string): void {
       component.onMenuKeydown(new KeyboardEvent('keydown', { key, bubbles: true }));
     }
 
     beforeEach(() => {
+      // Registered => enabled cycle is [0, 1, 2].
+      stub.fullyRegistered.set(true);
+      fixture.detectChanges();
       component.activeIndex = 0;
     });
 
-    it('ArrowRight advances to the next enabled item, skipping the disabled one', () => {
+    it('ArrowRight advances to the next enabled entry', () => {
       press('ArrowRight');
-      expect(component.activeIndex).toBe(2);
+      expect(component.activeIndex).toBe(1);
     });
 
-    it('ArrowDown advances to the next enabled item', () => {
-      press('ArrowDown');
-      expect(component.activeIndex).toBe(2);
-    });
-
-    it('ArrowLeft from the first item wraps to the last enabled item', () => {
+    it('ArrowLeft from the first entry wraps to the last', () => {
       press('ArrowLeft');
       expect(component.activeIndex).toBe(2);
     });
 
-    it('ArrowUp from the first item wraps to the last enabled item', () => {
-      press('ArrowUp');
-      expect(component.activeIndex).toBe(2);
-    });
-
-    it('ArrowRight from the last enabled item wraps back to the first', () => {
+    it('ArrowRight from the last entry wraps back to the first', () => {
       component.activeIndex = 2;
       press('ArrowRight');
       expect(component.activeIndex).toBe(0);
     });
 
-    it('ArrowLeft from the last enabled item skips the disabled one back to first', () => {
-      component.activeIndex = 2;
-      press('ArrowLeft');
-      expect(component.activeIndex).toBe(0);
-    });
-
-    it('Home jumps to the first enabled item', () => {
+    it('Home jumps to the first entry, End to the last', () => {
       component.activeIndex = 2;
       press('Home');
       expect(component.activeIndex).toBe(0);
-    });
-
-    it('End jumps to the last enabled item', () => {
       press('End');
       expect(component.activeIndex).toBe(2);
     });
 
-    it('moves DOM focus to the newly-active item', () => {
-      const focusSpy = spyOn(component.navButtonRefs.get(2)!.nativeElement, 'focus');
+    it('skips disabled social entries when unregistered (cycle = [0])', () => {
+      stub.fullyRegistered.set(false);
+      fixture.detectChanges();
+      component.activeIndex = 0;
+      press('ArrowRight');
+      expect(component.activeIndex).withContext('stays on Home, the only enabled entry').toBe(0);
+    });
+
+    it('moves DOM focus to the newly-active entry', () => {
+      const focusSpy = spyOn(component.navButtonRefs.get(1)!.nativeElement, 'focus');
       press('ArrowRight');
       expect(focusSpy).toHaveBeenCalled();
     });
 
-    it('Tab does not change activeIndex (native tab order preserved)', () => {
-      component.activeIndex = 2;
+    it('Tab and Enter do not change activeIndex', () => {
+      component.activeIndex = 1;
       press('Tab');
-      expect(component.activeIndex).toBe(2);
-    });
-
-    it('Enter does not change activeIndex', () => {
-      component.activeIndex = 2;
       press('Enter');
-      expect(component.activeIndex).toBe(2);
+      expect(component.activeIndex).toBe(1);
     });
   });
 });
