@@ -24,6 +24,7 @@ describe('app.routes federation wiring', () => {
       jasmine.objectContaining({ path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' }),
       jasmine.objectContaining({ path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES' }),
       jasmine.objectContaining({ path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES' }),
+      jasmine.objectContaining({ path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES' }),
       jasmine.objectContaining({ path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES' }),
       jasmine.objectContaining({ path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES' }),
       jasmine.objectContaining({ path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES' }),
@@ -51,6 +52,20 @@ describe('app.routes federation wiring', () => {
     expect(routeFor('social/matrix').canActivate).toContain(registeredGuard);
     expect(routeFor('social/mastodon').canActivate).toContain(registeredGuard);
     expect(routeFor('admin').canActivate).toContain(adminGuard);
+  });
+
+  it('/admin/docs mounts the api-docs remote behind the adminGuard', () => {
+    const docs = routeFor('admin/docs');
+    expect(docs.canActivate).withContext('admin-only console').toContain(adminGuard);
+    expect(docs.loadChildren).withContext('mounts the apidocs remote via loadChildren').toBeDefined();
+    expect(docs.loadComponent).withContext('not a local placeholder component').toBeUndefined();
+  });
+
+  it('/admin/docs is registered BEFORE /admin so the specific path matches first', () => {
+    const docsIdx = routes.findIndex((r) => r.path === 'admin/docs');
+    const adminIdx = routes.findIndex((r) => r.path === 'admin');
+    expect(docsIdx).toBeGreaterThanOrEqual(0);
+    expect(docsIdx).withContext('admin/docs precedes the admin remote mount').toBeLessThan(adminIdx);
   });
 
   it('/login is reachable by anyone (no guard)', () => {

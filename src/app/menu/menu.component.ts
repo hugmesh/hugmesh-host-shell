@@ -31,12 +31,13 @@ interface NavEntry {
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
- *  remote ('admin'/'mod'), opens the profile modal, or signs out. `show` gates
- *  the role-specific Admin/Moderation entries on the live session. */
+ *  remote ('admin'/'apidocs'/'mod'), opens the profile modal, or signs out.
+ *  `show` gates the role-specific Admin / API docs / Moderation entries on the
+ *  live session. */
 interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'mod' | 'logout';
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'logout';
   route?: string;
   show: () => boolean;
 }
@@ -66,13 +67,15 @@ export class MenuComponent {
     { label: 'Matrix',   route: '/social/matrix',    testid: 'nav-matrix',   enabled: () => this.session.fullyRegistered() },
   ];
 
-  /** Profile dropdown — Profile (modal) + the conditional Admin / Moderation
-   *  role-home shortcuts + Sign out. Admin/Moderation appear ONLY for the role. */
+  /** Profile dropdown — Profile (modal) + the conditional Admin / API docs /
+   *  Moderation role shortcuts + Sign out. Admin and the admin-only API docs
+   *  console appear ONLY for admins; Moderation ONLY for moderators. */
   readonly profileMenuItems: readonly ProfileMenuItem[] = [
     { label: 'Profile',    testid: 'menu-profile', action: 'profile', show: () => true },
-    { label: 'Admin',      testid: 'menu-admin',   action: 'admin', route: '/admin', show: () => this.session.isAdmin() },
-    { label: 'Moderation', testid: 'menu-mod',     action: 'mod',   route: '/mod',   show: () => this.session.isMod() },
-    { label: 'Sign out',   testid: 'menu-logout',  action: 'logout', show: () => true },
+    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdmin() },
+    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdmin() },
+    { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod() },
+    { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true },
   ];
 
   /** The profile-menu items the current session may see. */
@@ -127,6 +130,7 @@ export class MenuComponent {
         this.modal.open();
         break;
       case 'admin':
+      case 'apidocs':
       case 'mod':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
