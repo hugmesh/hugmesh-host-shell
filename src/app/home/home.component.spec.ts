@@ -46,6 +46,16 @@ describe('HomeComponent', () => {
     expect(el.querySelector('[links-grid]')).withContext('links-grid must be present').toBeTruthy();
   });
 
+  it('mounts the home-announcements banner above the home content', () => {
+    const banner = el.querySelector('[home-announcements]');
+    expect(banner).withContext('home-announcements mount point must be present').toBeTruthy();
+    // The banner must sit ABOVE the first home section in document order.
+    const firstSection = el.querySelector('.home-section');
+    expect(banner!.compareDocumentPosition(firstSection!) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .withContext('the announcements banner precedes the home content')
+      .toBeTruthy();
+  });
+
   it('paragraphs must not have tabindex (non-interactive elements must not be in tab order)', () => {
     expect(el.querySelectorAll('p[tabindex]').length).toBe(0);
   });
