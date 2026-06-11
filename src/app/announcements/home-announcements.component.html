@@ -1,0 +1,40 @@
+@if (announcements().length) {
+  <section
+    class="announcements"
+    role="region"
+    aria-label="Site announcements"
+    aria-live="polite"
+    data-testid="home-announcements"
+  >
+    @for (a of announcements(); track trackById($index, a)) {
+      <article class="announcement" data-testid="home-announcement">
+        <div class="announcement__bar">
+          <h2 class="announcement__title" data-testid="home-announcement-title">
+            {{ a.title }}
+          </h2>
+          @if (a.dismissible) {
+            <button
+              type="button"
+              class="announcement__dismiss"
+              data-testid="home-announcement-dismiss"
+              [attr.aria-label]="'Dismiss announcement: ' + a.title"
+              (click)="dismiss(a)"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          }
+        </div>
+
+        <iframe
+          class="announcement__body"
+          title="Announcement content"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+          sandbox=""
+          data-testid="home-announcement-body"
+          [srcdoc]="srcdoc(a)"
+        ></iframe>
+      </article>
+    }
+  </section>
+}
