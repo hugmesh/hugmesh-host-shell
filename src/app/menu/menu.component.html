@@ -48,7 +48,15 @@
               disabled
               [attr.data-menu-index]="i"
               [attr.data-testid]="entry.testid"
+              [attr.aria-describedby]="entry.disabledReason() ? entry.testid + '-help' : null"
             >{{ entry.label }}</button>
+            @if (entry.disabledReason()) {
+              <span
+                class="field-help"
+                [id]="entry.testid + '-help'"
+                [attr.data-testid]="entry.testid + '-help'"
+              >{{ entry.disabledReason() }}</span>
+            }
           }
         </li>
       }

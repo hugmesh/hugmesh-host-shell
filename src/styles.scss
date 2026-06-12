@@ -143,6 +143,22 @@ a {
   border: 0;
 }
 
+// Shared disabled+helptext convention (defense-in-depth UI-mirror rule): a
+// disabled control (aria-disabled / [disabled]) is paired with a .field-help
+// sibling wired via aria-describedby that STATES WHY it is disabled (service not
+// installed / sign in as … / complete registration), so the control is greyed +
+// EXPLAINED, never hidden or silently dead. Mirrors user-ui / mod-ui .field-help.
+// Kept in the accessibility tree (focusable text, not .sr-only) so it is read on
+// demand; muted + small so it doesn't shout.
+.field-help {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--sd-text-muted);
+}
+
 .bg-toggle {
   position: fixed;
   inset-inline-end: 1rem;

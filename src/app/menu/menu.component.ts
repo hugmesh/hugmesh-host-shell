@@ -17,17 +17,27 @@ import { filter } from 'rxjs';
 
 import { SessionService } from '../session.service';
 import { ProfileModalService } from '../profile-modal/profile-modal.service';
+import { CapabilitiesService } from '../capabilities/capabilities.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
- *  Mastodon/Matrix -> the social remotes. `enabled` reacts to the live session so
- *  Mastodon/Matrix are reachable only once the user is fully registered, matching
- *  the registeredGuard on those routes (visible-but-disabled, never a dead link). */
+ *  Mastodon/Matrix -> the social remotes. `enabled` reacts to the live session AND
+ *  the federation install-state so an entry is reachable only when BOTH its service
+ *  is installed AND the user is fully registered, matching the registeredGuard
+ *  (visible-but-disabled, never a dead link).
+ *
+ *  `slug` is the optional federation-capability slug an entry depends on (absent
+ *  for the always-present Home). `disabledReason()` returns the helptext explaining
+ *  WHY a disabled entry is disabled — not installed on this deployment vs the
+ *  session not yet registered — wired via aria-describedby (defense-in-depth: grey
+ *  + EXPLAIN, never hide). */
 interface NavEntry {
   label: string;
   route: string;
   testid: string;
+  slug?: string;
   enabled: () => boolean;
+  disabledReason: () => string;
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
@@ -57,15 +67,44 @@ export class MenuComponent {
   private readonly modal = inject(ProfileModalService);
   private readonly doc = inject(DOCUMENT);
   private readonly router = inject(Router);
+  private readonly capabilities = inject(CapabilitiesService);
 
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
-   *  outlet to the social remotes. */
+   *  outlet to the social remotes. A social entry is enabled only when its service
+   *  is INSTALLED (federation capability) AND the session is fully registered; an
+   *  uninstalled service greys out by install-state, a registered-gate by
+   *  registration — each with its own helptext reason. */
   readonly navEntries: readonly NavEntry[] = [
-    { label: 'Home',     route: '/',                 testid: 'nav-home',     enabled: () => true },
-    { label: 'Mastodon', route: '/social/mastodon',  testid: 'nav-mastodon', enabled: () => this.session.fullyRegistered() },
-    { label: 'Matrix',   route: '/social/matrix',    testid: 'nav-matrix',   enabled: () => this.session.fullyRegistered() },
+    {
+      label: 'Home', route: '/', testid: 'nav-home',
+      enabled: () => true,
+      disabledReason: () => '',
+    },
+    {
+      label: 'Mastodon', route: '/social/mastodon', testid: 'nav-mastodon', slug: 'mastodon',
+      enabled: () => this.capabilities.installed('mastodon') && this.session.fullyRegistered(),
+      disabledReason: () => this.socialDisabledReason('mastodon'),
+    },
+    {
+      label: 'Matrix', route: '/social/matrix', testid: 'nav-matrix', slug: 'matrix',
+      enabled: () => this.capabilities.installed('matrix') && this.session.fullyRegistered(),
+      disabledReason: () => this.socialDisabledReason('matrix'),
+    },
   ];
+
+  /** Why a social entry is disabled: NOT installed on this deployment takes
+   *  precedence over the registration gate (an absent service can't be unlocked by
+   *  registering). Surfaced as aria-describedby helptext on the disabled button. */
+  private socialDisabledReason(slug: string): string {
+    if (!this.capabilities.installed(slug)) {
+      return 'This service is not available on this deployment.';
+    }
+    if (!this.session.fullyRegistered()) {
+      return 'Complete your registration to use this.';
+    }
+    return '';
+  }
 
   /** Profile dropdown — Profile (modal) + the conditional Admin / API docs /
    *  Moderation role shortcuts + Sign out. Admin and the admin-only API docs
@@ -104,6 +143,12 @@ export class MenuComponent {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
+
+    // The menu is always mounted, so it is the host's natural owner for loading the
+    // PUBLIC federation capability list ONCE at startup (load-once + shared, so the
+    // home-services cards reuse the same fetch). Fire-and-forget: a failed/empty
+    // load greys every optional service rather than breaking the shell.
+    void this.capabilities.load();
 
     this.router.events
       .pipe(
