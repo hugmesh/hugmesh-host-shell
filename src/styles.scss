@@ -159,11 +159,60 @@ a {
   color: var(--sd-text-muted);
 }
 
-.bg-toggle {
+// The floating background-animation control: the icon button is the visible
+// affordance, and `.bg-toggle__help` is a palette-honoring, scalable help bubble
+// anchored to it. The help is ALWAYS in the accessibility tree (announced via
+// aria-describedby, never hover-only) and is REVEALED visually next to the button
+// on hover/focus-within so sighted users get the same guidance without the corner
+// being permanently crowded.
+.bg-toggle-control {
   position: fixed;
   inset-inline-end: 1rem;
   bottom: 1rem;
   z-index: t.$z-overlay;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.bg-toggle__help {
+  // Visually hidden until the control is hovered/focused (see reveal below), but
+  // ALWAYS present for assistive tech via the button's aria-describedby.
+  position: absolute;
+  inset-inline-end: 3rem;
+  max-width: min(16rem, 60vw);
+  margin-top: 0;
+  padding: 0.4rem 0.6rem;
+  background: rgba(t.$charcoal, 0.95);
+  border: 1px solid rgba(t.$neon, 0.4);
+  border-radius: 0.375rem;
+  color: var(--sd-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
+  text-align: end;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity t.$transition-base;
+}
+
+.bg-toggle-control:hover .bg-toggle__help,
+.bg-toggle-control:focus-within .bg-toggle__help {
+  opacity: 1;
+  visibility: visible;
+}
+
+// prefers-contrast / forced colors: keep the help readable with a solid backdrop.
+@media (prefers-contrast: more) {
+  .bg-toggle__help {
+    background: t.$black;
+    border-color: t.$offwhite;
+    color: t.$offwhite;
+  }
+}
+
+.bg-toggle {
+  position: static;
+  flex: 0 0 auto;
   background: rgba(t.$charcoal, 0.8);
   border: 1px solid rgba(t.$neon, 0.3);
   border-radius: 50%;

@@ -18,6 +18,7 @@ import { filter } from 'rxjs';
 import { SessionService } from '../session.service';
 import { ProfileModalService } from '../profile-modal/profile-modal.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
+import { accessibleName } from '../accessible-name';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -50,6 +51,10 @@ interface ProfileMenuItem {
   action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'logout';
   route?: string;
   show: () => boolean;
+  /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
+   *  as visible .field-help and wired to the item via aria-describedby so screen
+   *  readers announce it WITH the item. */
+  help: string;
 }
 
 @Component({
@@ -110,17 +115,34 @@ export class MenuComponent {
    *  Moderation role shortcuts + Sign out. Admin and the admin-only API docs
    *  console appear ONLY for admins; Moderation ONLY for moderators. */
   readonly profileMenuItems: readonly ProfileMenuItem[] = [
-    { label: 'Profile',    testid: 'menu-profile', action: 'profile', show: () => true },
-    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdmin() },
-    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdmin() },
-    { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod() },
-    { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true },
+    { label: 'Profile',    testid: 'menu-profile', action: 'profile', show: () => true,
+      help: 'Opens your profile editor in a dialog.' },
+    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdmin(),
+      help: 'Go to the admin console (administrators only).' },
+    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdmin(),
+      help: 'Browse the platform API documentation (administrators only).' },
+    { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod(),
+      help: 'Go to the moderation console (moderators only).' },
+    { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
+      help: 'Sign out and return to the login page.' },
   ];
 
   /** The profile-menu items the current session may see. */
   readonly visibleProfileItems = computed(() =>
     this.profileMenuItems.filter((i) => i.show()),
   );
+
+  /** Accessible NAME for the profile-menu trigger. The visible label is the user's
+   *  display name (email/discord handle, possibly NON-ASCII); the button itself has
+   *  no purpose text, so we announce a clean "Account menu for <name>" using the
+   *  shared {@link accessibleName} ASCII util — so a screen reader announces a
+   *  pronounceable name (the ASCII screen-reader name when the display name carries
+   *  characters AT cannot voice) plus what the control opens. */
+  readonly profileTriggerLabel = computed(() => {
+    const label = this.session.session()?.label ?? '';
+    const spoken = accessibleName(label, null);
+    return spoken ? `Account menu for ${spoken}` : 'Account menu';
+  });
 
   /** Roving-tabindex cursor for the primary menubar (WAI-ARIA menubar pattern):
    *  exactly ONE menuitem is a tab stop (tabindex 0); the rest are tabindex -1
