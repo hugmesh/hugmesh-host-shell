@@ -1,0 +1,107 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+// A consequential, time-sensitive alert (suspension/ban). Distinct from the
+// neon/info announcements banner: a warm danger accent so it reads as a warning,
+// while keeping the platform glass surface + AA-contrast offwhite text.
+$danger: #ff6b6b;
+$danger-dim: #c0392b;
+
+:host {
+  display: block;
+}
+
+.status-gate {
+  @include m.card-surface;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 1rem;
+  margin-bottom: 1.5rem;
+  border-color: rgba($danger, 0.55);
+  box-shadow: 0 0 12px rgba($danger, 0.18);
+  border-left: 4px solid $danger;
+}
+
+.status-gate__body {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.status-gate__title {
+  margin: 0 0 0.35rem;
+  color: $danger;
+  font-size: 1.25rem;
+}
+
+.status-gate__detail {
+  margin: 0 0 0.5rem;
+  color: t.$offwhite;
+}
+
+.status-gate__reason {
+  margin: 0 0 0.5rem;
+  color: t.$light;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.status-gate__reason-label {
+  color: t.$offwhite;
+  font-weight: 600;
+}
+
+.status-gate__appeal {
+  display: inline-block;
+  color: t.$neon;
+  // Links underlined (not colour-only) per the a11y standard.
+  text-decoration: underline;
+  font-weight: 600;
+
+  &:hover,
+  &:focus-visible {
+    color: t.$neon-bright;
+  }
+}
+
+.status-gate__dismiss {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid rgba($danger, t.$opacity-border + 0.2);
+  border-radius: t.$radius-sm;
+  color: t.$offwhite;
+  font-size: 1.25rem;
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  transition: t.$transition-base;
+
+  &:hover,
+  &:focus-visible {
+    @include m.neon-glow($danger);
+    color: $danger;
+  }
+}
+
+// 44px min touch target on coarse pointers (a11y standard).
+@media (pointer: coarse) {
+  .status-gate__dismiss {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-gate__dismiss {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .status-gate {
+    background: t.$black;
+    border-color: $danger-dim;
+  }
+}

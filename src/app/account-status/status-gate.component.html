@@ -1,0 +1,43 @@
+@if (visible()) {
+  <div
+    class="status-gate"
+    role="alert"
+    aria-live="assertive"
+    [attr.data-status]="banned() ? 'banned' : 'suspended'"
+    data-testid="status-gate"
+  >
+    <div class="status-gate__body">
+      <h2 class="status-gate__title" data-testid="status-gate-title">
+        {{ heading() }}
+      </h2>
+      <p class="status-gate__detail" data-testid="status-gate-detail">
+        {{ detail() }}
+      </p>
+      @if (reason(); as r) {
+        <p class="status-gate__reason" data-testid="status-gate-reason">
+          <span class="status-gate__reason-label">Reason:</span> {{ r }}
+        </p>
+      }
+      <a
+        class="status-gate__appeal"
+        [routerLink]="appealRoute"
+        data-testid="status-gate-appeal"
+        [attr.aria-label]="
+          banned()
+            ? 'Appeal your account ban'
+            : 'Appeal your account suspension'
+        "
+      >Appeal this decision</a>
+    </div>
+
+    <button
+      type="button"
+      class="status-gate__dismiss"
+      data-testid="status-gate-dismiss"
+      aria-label="Dismiss account status message"
+      (click)="dismiss()"
+    >
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+}
