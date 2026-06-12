@@ -27,6 +27,13 @@
 
 <header personal-header></header>
 <div menu></div>
+
+<!-- ACCOUNT-STATUS APPEAL-GATE: an assertive, dismissible alert shown ONLY when
+     the logged-in caller's OWN status (read off GET /bff/me) is suspended/banned;
+     active (or absent/fail-open) renders nothing. INFORMATIONAL — it explains the
+     state + links to the appeal page, it never blocks routing. -->
+<div status-gate></div>
+
 <router-outlet></router-outlet>
 <footer personal-footer></footer>
 

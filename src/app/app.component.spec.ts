@@ -1,6 +1,8 @@
 import { Component, signal, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { AppComponent } from './app.component';
 import { BackgroundComponent } from './background/background.component';
@@ -16,7 +18,14 @@ describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        // The mounted status-gate injects AccountStatusService -> HttpClient. The
+        // session is anonymous in this test so it issues NO request (load() is a
+        // no-op when signed out), but the HttpClient must still be provided.
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     })
       .overrideComponent(AppComponent, {
         remove: { imports: [BackgroundComponent] },
