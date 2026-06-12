@@ -31,3 +31,15 @@
 <footer personal-footer></footer>
 
 <app-profile-modal></app-profile-modal>
+
+<!-- TODO (DEFERRED — backend-gated, do NOT build until a user SSE endpoint exists):
+     The global ACTION-MESSAGE TOAST container would mount HERE (the global-overlay
+     seam, next to the profile modal): a role="region" aria-live container fed by a
+     bearer-fetch SSE stream (NOT raw EventSource — it can't send a Bearer), opened
+     only while session.loggedIn(). It is NOT built because (UI-wave verdict V1) the
+     ONLY SSE on the platform is the two ADMIN-only job streams (test-reports /
+     backups /{id}/events); there is NO user/mod-facing actions SSE endpoint, so the
+     toast would have nothing to subscribe to. The honest fallbacks are POLLING the
+     authed announcements pattern, or building a new Flux<ServerSentEvent> user-bff
+     endpoint FIRST. Do not invent an endpoint. -->
+

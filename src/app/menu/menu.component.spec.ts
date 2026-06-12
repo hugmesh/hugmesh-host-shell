@@ -4,6 +4,8 @@ import { provideRouter } from '@angular/router';
 
 import { MenuComponent } from './menu.component';
 import { SessionService } from '../session.service';
+import { CapabilitiesService } from '../capabilities/capabilities.service';
+import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 
 /**
  * The UNIVERSAL NAV menubar: Home | Mastodon | Matrix. Home is always enabled;
@@ -32,13 +34,19 @@ describe('MenuComponent — universal nav menubar', () => {
   let component: MenuComponent;
   let fixture: ComponentFixture<MenuComponent>;
   let stub: SessionStub;
+  let caps: CapabilitiesStub;
   let el: HTMLElement;
 
   beforeEach(async () => {
     stub = new SessionStub();
+    caps = new CapabilitiesStub();
     await TestBed.configureTestingModule({
       imports: [MenuComponent],
-      providers: [provideRouter([]), { provide: SessionService, useValue: stub }],
+      providers: [
+        provideRouter([]),
+        { provide: SessionService, useValue: stub },
+        { provide: CapabilitiesService, useValue: caps },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MenuComponent);
@@ -115,6 +123,61 @@ describe('MenuComponent — universal nav menubar', () => {
       fixture.detectChanges();
       const matrix = navButtons().find((b) => b.textContent?.trim() === 'Matrix')!;
       expect(matrix.hasAttribute('disabled')).toBeFalse();
+    });
+  });
+
+  describe('install-state gated social entries (federation capabilities)', () => {
+    const byLabel = (l: string) => navButtons().find((b) => b.textContent?.trim() === l)!;
+    const help = (testid: string) =>
+      el.querySelector(`[data-testid="${testid}-help"]`) as HTMLElement | null;
+
+    beforeEach(() => {
+      // Registered, so the ONLY remaining gate is install-state.
+      stub.fullyRegistered.set(true);
+    });
+
+    it('USER-SITUATIONAL: an ABSENT (uninstalled) service is greyed with "not available" helptext', () => {
+      caps.setAbsent('matrix');
+      fixture.detectChanges();
+      const matrix = byLabel('Matrix');
+      expect(matrix.hasAttribute('disabled')).toBeTrue();
+      expect(matrix.getAttribute('aria-disabled')).toBe('true');
+      const reason = help('nav-matrix');
+      expect(reason?.textContent).toContain('not available on this deployment');
+      expect(matrix.getAttribute('aria-describedby')).toBe('nav-matrix-help');
+    });
+
+    it('an installed-but-unregistered service is greyed with a REGISTRATION reason (not install)', () => {
+      stub.fullyRegistered.set(false); // installed by default, but not registered
+      fixture.detectChanges();
+      const mastodon = byLabel('Mastodon');
+      expect(mastodon.hasAttribute('disabled')).toBeTrue();
+      expect(help('nav-mastodon')?.textContent).toContain('registration');
+    });
+
+    it('install-state takes precedence over registration in the reason', () => {
+      caps.setAbsent('mastodon');
+      stub.fullyRegistered.set(false);
+      fixture.detectChanges();
+      // Both gates fail, but absence is the dominant (unrecoverable) reason.
+      expect(help('nav-mastodon')?.textContent).toContain('not available on this deployment');
+    });
+
+    it('an installed + registered service is enabled (real <a>, no helptext)', () => {
+      caps.installedSlugs.set(new Set(['matrix', 'mastodon']));
+      fixture.detectChanges();
+      const matrix = byLabel('Matrix');
+      expect(matrix.hasAttribute('disabled')).toBeFalse();
+      expect(help('nav-matrix')).toBeNull();
+    });
+
+    it('the arrow-key cycle skips an absent (uninstalled) service', () => {
+      caps.setAbsent('mastodon'); // matrix still installed
+      fixture.detectChanges();
+      component.activeIndex = 0;
+      component.onMenuKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      // index 1 (Mastodon) is absent/disabled -> skipped to index 2 (Matrix).
+      expect(component.activeIndex).toBe(2);
     });
   });
 

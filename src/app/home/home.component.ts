@@ -1,10 +1,11 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { LinksComponent } from './links/links.component';
 import { HomeAnnouncementsComponent } from '../announcements/home-announcements.component';
+import { HomeServicesComponent } from '../home-services/home-services.component';
 
 @Component({
   selector: '[home]',
-  imports: [LinksComponent, HomeAnnouncementsComponent],
+  imports: [LinksComponent, HomeAnnouncementsComponent, HomeServicesComponent],
   host: {
     id: 'maincontent',
     tabindex: '-1',

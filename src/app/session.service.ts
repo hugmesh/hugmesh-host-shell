@@ -6,6 +6,15 @@ import { Injectable, signal, computed } from '@angular/core';
  *  and the conditional Admin/Moderation profile-menu entries. */
 export type ShellRole = 'admin' | 'mod' | 'user';
 
+/** A principal's access status. ADDITIVE / FORWARD-LOOKING (no enforcement yet):
+ *  the appeal-on-login suspended-guard is DEFERRED — it needs a JWT status claim
+ *  that `/bff/login`/`/bff/me`/the token do NOT carry today (UI-wave verdict V3),
+ *  so the host CANNOT yet derive this server-side. Shipping the shape now (across
+ *  host + login-ui + user-ui session.service.ts, the shared `snap.session`
+ *  localStorage contract) so the later atomic backend bump doesn't require a
+ *  cross-tab-incompatible shape change. Defaults to 'active' when absent. */
+export type AccessStatus = 'active' | 'suspended' | 'banned';
+
 export interface SnapSession {
   id: string;                 // casdoor identity, e.g. google:alice@gmail.com
   label: string;              // display (email or discord handle)
@@ -15,6 +24,8 @@ export interface SnapSession {
   registrationComplete: boolean;
   matrix: { token: string; userId: string } | null;
   mastodon: { token: string } | null;
+  /** ADDITIVE (no enforcement yet) — see {@link AccessStatus}. Absent => 'active'. */
+  status?: AccessStatus;
 }
 
 /** Holds the logged-in session (persisted to localStorage under the canonical

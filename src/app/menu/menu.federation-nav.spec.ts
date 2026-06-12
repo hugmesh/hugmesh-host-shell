@@ -5,6 +5,8 @@ import { Router, provideRouter } from '@angular/router';
 import { MenuComponent } from './menu.component';
 import { SessionService } from '../session.service';
 import { ProfileModalService } from '../profile-modal/profile-modal.service';
+import { CapabilitiesService } from '../capabilities/capabilities.service';
+import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 
 /** Drives the menu's session-aware account region (Sign in vs the profile menu).
  *  Backed by signals so the component's computed visibleProfileItems() reacts
@@ -30,7 +32,11 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     stub = new SessionStub();
     await TestBed.configureTestingModule({
       imports: [MenuComponent],
-      providers: [provideRouter([]), { provide: SessionService, useValue: stub }],
+      providers: [
+        provideRouter([]),
+        { provide: SessionService, useValue: stub },
+        { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(MenuComponent);

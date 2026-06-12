@@ -1,0 +1,31 @@
+@for (card of cards(); track card.id) {
+  <div class="link-item service-card" role="listitem">
+    @if (card.state === 'enabled') {
+      <a
+        class="service-card__link"
+        [routerLink]="card.route"
+        [attr.data-testid]="'card-' + card.id"
+        [attr.data-state]="card.state"
+      >
+        <span class="service-card__label">{{ card.label }}</span>
+        <span class="service-card__desc">{{ card.description }}</span>
+      </a>
+    } @else {
+      <span
+        class="service-card__link service-card__link--disabled"
+        aria-disabled="true"
+        [attr.data-testid]="'card-' + card.id"
+        [attr.data-state]="card.state"
+        [attr.aria-describedby]="card.id + '-card-help'"
+      >
+        <span class="service-card__label">{{ card.label }}</span>
+        <span class="service-card__desc">{{ card.description }}</span>
+      </span>
+      <span
+        class="field-help"
+        [id]="card.id + '-card-help'"
+        [attr.data-testid]="'card-' + card.id + '-help'"
+      >{{ card.disabledReason }}</span>
+    }
+  </div>
+}
