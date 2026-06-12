@@ -188,6 +188,57 @@ describe('MenuComponent — universal nav menubar', () => {
     });
   });
 
+  describe('profile menu help text (sighted + low/no-sight)', () => {
+    const trigger = () =>
+      el.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!;
+
+    it('the account-menu trigger has an accessible name describing its PURPOSE', () => {
+      const label = trigger().getAttribute('aria-label');
+      expect(label).withContext('trigger needs an aria-label').toBeTruthy();
+      expect(label).toContain('Account menu');
+      // The visible name (alice) is folded into the accessible name.
+      expect(label).toContain('alice');
+    });
+
+    it('announces a NON-ASCII display name via the accessibleName ASCII util', () => {
+      // accessibleName falls back to the display name when no screen-reader name is
+      // set; here we simply prove the computed wires the session label through it.
+      stub.session.set({ label: '山田太郎' });
+      fixture.detectChanges();
+      expect(trigger().getAttribute('aria-label')).toBe('Account menu for 山田太郎');
+    });
+
+    it('the trigger has VISIBLE help wired via aria-describedby to an existing target', () => {
+      const describedby = trigger().getAttribute('aria-describedby');
+      expect(describedby).toBe('profile-trigger-help');
+      const help = el.querySelector('#profile-trigger-help');
+      expect(help).withContext('describedby target must exist').toBeTruthy();
+      expect(help!.textContent?.trim().length).toBeGreaterThan(10);
+    });
+
+    it('every open dropdown item has describedby help that EXISTS and is informative', () => {
+      stub.isAdmin.set(true);
+      stub.isMod.set(true);
+      fixture.detectChanges();
+      component.toggleProfile();
+      fixture.detectChanges();
+
+      const items = Array.from(
+        el.querySelectorAll<HTMLElement>('.profile-menu__item'),
+      );
+      expect(items.length).withContext('admin+mod sees all 5 items').toBe(5);
+      for (const item of items) {
+        const id = item.getAttribute('aria-describedby');
+        expect(id).withContext(`${item.textContent} needs describedby`).toBeTruthy();
+        const help = el.querySelector(`#${id}`);
+        expect(help).withContext(`help target ${id} must exist`).toBeTruthy();
+        expect(help!.textContent?.trim().length)
+          .withContext(`help for ${item.textContent} must be informative`)
+          .toBeGreaterThan(10);
+      }
+    });
+  });
+
   describe('onMenuKeydown — keyboard navigation', () => {
     function press(key: string): void {
       component.onMenuKeydown(new KeyboardEvent('keydown', { key, bubbles: true }));

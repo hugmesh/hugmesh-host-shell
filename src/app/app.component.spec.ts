@@ -66,6 +66,30 @@ describe('AppComponent', () => {
     expect(btn!.getAttribute('aria-pressed')).not.toBeNull();
   });
 
+  it('bg-toggle button carries an accessible name and help wired via aria-describedby', () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const btn = el.querySelector<HTMLButtonElement>('[data-testid="bg-toggle"]')!;
+
+    // The icon-only control has an accessible NAME (it has no visible text label).
+    const label = btn.getAttribute('aria-label');
+    expect(label).withContext('bg-toggle needs an aria-label').toBeTruthy();
+    expect(label).toContain('background animation');
+
+    // The visible help is PROGRAMMATICALLY ASSOCIATED so it is announced WITH the
+    // control, and the describedby target actually exists in the DOM.
+    const describedby = btn.getAttribute('aria-describedby');
+    expect(describedby).withContext('bg-toggle must reference its help').toBe('bg-toggle-help');
+    const help = el.querySelector('#bg-toggle-help');
+    expect(help).withContext('bg-toggle help target must exist').toBeTruthy();
+    expect(help!.textContent?.trim().length)
+      .withContext('bg-toggle help must be genuinely informative, not empty')
+      .toBeGreaterThan(10);
+    // Dynamic/contextual help announces state changes politely.
+    expect(help!.getAttribute('aria-live')).toBe('polite');
+  });
+
   it('skip link should point to #maincontent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();

@@ -66,7 +66,11 @@
          (Profile modal + conditional Admin/Moderation + Sign out). -->
     <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
       @if (session.loggedIn()) {
-        <li class="nav-item dropdown profile-menu" role="none">
+        <li
+          class="nav-item dropdown profile-menu"
+          [class.profile-menu--open]="profileOpen()"
+          role="none"
+        >
           <button
             #profileTrigger
             type="button"
@@ -75,10 +79,21 @@
             aria-haspopup="menu"
             [attr.aria-expanded]="profileOpen()"
             aria-controls="profile-menu-list"
+            [attr.aria-label]="profileTriggerLabel()"
+            aria-describedby="profile-trigger-help"
             (click)="toggleProfile()"
           >
             <span class="profile-menu__name" data-testid="nav-user">{{ session.session()?.label }}</span>
           </button>
+          <!-- VISIBLE, palette-honoring help (revealed on hover/focus, always in the
+               a11y tree via aria-describedby) telling BOTH sighted and screen-reader
+               users what this control opens — the icon-less name button is otherwise
+               unlabelled as to PURPOSE. -->
+          <span
+            id="profile-trigger-help"
+            class="field-help profile-menu__help"
+            data-testid="profile-trigger-help"
+          >Open your account menu: profile, role consoles, and sign out.</span>
 
           @if (profileOpen()) {
             <ul
@@ -95,8 +110,17 @@
                     role="menuitem"
                     class="profile-menu__item"
                     [attr.data-testid]="item.testid"
+                    [attr.aria-describedby]="item.testid + '-help'"
                     (click)="onProfileItem(item)"
                   >{{ item.label }}</button>
+                  <!-- VISIBLE help (palette-honoring .field-help) describing what the
+                       item does + where it goes, wired via aria-describedby so it is
+                       announced WITH the item by a screen reader. -->
+                  <span
+                    class="field-help profile-menu__item-help"
+                    [id]="item.testid + '-help'"
+                    [attr.data-testid]="item.testid + '-help'"
+                  >{{ item.help }}</span>
                 </li>
               }
             </ul>
