@@ -19,5 +19,19 @@ export const roleHomeGuard: CanActivateFn = () => {
   const router = inject(Router);
   const role = session.role();
   if (!role) return router.parseUrl('/login');
+
+  // TODO (DEFERRED — backend-gated, do NOT implement until the token carries status):
+  //   The appeal-on-login SUSPENDED-GUARD belongs HERE: a suspended principal would
+  //   short-circuit to /appeal (a user-remote surface loaded via loadRemoteModule)
+  //   BEFORE the role redirect, e.g.
+  //       if (session.session()?.status === 'suspended') return router.parseUrl('/appeal');
+  //   It is NOT wired because (UI-wave verdicts V2/V3): (a) /bff/login, /bff/me and
+  //   the JWT do NOT yet emit a suspend/ban status claim, so session.status is always
+  //   absent (=> 'active') and the guard could never fire; and (b) a fully banned
+  //   principal is hard-stopped at the gateway (403, no JWT) so there is no reachable
+  //   appeal POST — the canonical path is a permitAll GET appeal-contact resolver +
+  //   client-side mailto, which does not exist yet. The SnapSession.status field is
+  //   already shipped (additive) so enabling this later is a one-line guard + an
+  //   /appeal route, with NO cross-tab session-shape change. Do not invent endpoints.
   return router.parseUrl(`/${role}`);
 };
