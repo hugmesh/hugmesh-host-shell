@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { HomeComponent } from './home.component';
+import { CapabilitiesService } from '../capabilities/capabilities.service';
+import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 
 describe('HomeComponent', () => {
   let component: HomeComponent;
@@ -11,7 +13,10 @@ describe('HomeComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HomeComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(HomeComponent);
@@ -44,6 +49,12 @@ describe('HomeComponent', () => {
 
   it('should render the links-grid component', () => {
     expect(el.querySelector('[links-grid]')).withContext('links-grid must be present').toBeTruthy();
+  });
+
+  it('should render the home-services launcher grid', () => {
+    expect(el.querySelector('[home-services]'))
+      .withContext('home-services launcher grid must be present')
+      .toBeTruthy();
   });
 
   it('mounts the home-announcements banner above the home content', () => {

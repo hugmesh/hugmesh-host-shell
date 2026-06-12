@@ -1,0 +1,86 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+// Reuses the LinksComponent grid layout (links.component.scss) so the services
+// launcher visually matches the existing home links grid.
+:host {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 2rem;
+}
+
+.service-card {
+  @include m.card-surface;
+  margin: 1rem;
+  text-align: center;
+  min-height: 8rem;
+  min-width: 8rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  @media (min-width: #{t.$bp-sm}) {
+    margin: 2rem;
+    min-height: 12rem;
+    min-width: 12rem;
+  }
+}
+
+.service-card__link {
+  color: t.$light;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  transition: color t.$transition-base, filter t.$transition-base;
+
+  &:hover,
+  &:focus-visible {
+    color: t.$neon;
+    filter: drop-shadow(0 0 6px rgba(t.$neon, 0.7));
+  }
+
+  // A disabled (absent / role-gated / unregistered) card: muted, not-allowed, and
+  // explicitly NOT a link (no underline, no hover glow) — paired with the
+  // .field-help reason below it (defense-in-depth grey + EXPLAIN).
+  &--disabled {
+    color: rgba(t.$light, t.$opacity-muted);
+    cursor: not-allowed;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+      color: rgba(t.$light, t.$opacity-muted);
+      filter: none;
+    }
+  }
+}
+
+.service-card__label {
+  font-family: t.$font-fancy;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.service-card__desc {
+  font-size: 0.875rem;
+}
+
+@media (max-width: #{t.$bp-md}) {
+  :host {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding-bottom: 2rem;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .service-card {
+    border: 2px solid t.$offwhite !important;
+  }
+}
