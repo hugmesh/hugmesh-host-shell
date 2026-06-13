@@ -5,6 +5,7 @@ import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
+import { wikiGuard } from './guards/wiki.guard';
 import { roleHomeGuard } from './guards/role-home.guard';
 
 /** These tests assert the FEDERATION WIRING: that each public path resolves its
@@ -28,6 +29,9 @@ describe('app.routes federation wiring', () => {
       jasmine.objectContaining({ path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES' }),
       jasmine.objectContaining({ path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES' }),
       jasmine.objectContaining({ path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES' }),
+      // The wiki remote uses the './Wiki' exposed module (WIKI_ROUTES), NOT the
+      // './routes' convention of the role-homes.
+      jasmine.objectContaining({ path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES' }),
     ]);
   });
 
@@ -83,6 +87,21 @@ describe('app.routes federation wiring', () => {
     const user = routeFor('user');
     expect(user.canActivate).toContain(userGuard);
     expect(user.loadChildren).withContext('mounts the user remote via loadChildren').toBeDefined();
+  });
+
+  it('/wiki mounts the wiki management remote (./Wiki -> WIKI_ROUTES) behind wikiGuard', () => {
+    const wiki = routeFor('wiki');
+    expect(wiki.canActivate).withContext('wiki access tier gate').toContain(wikiGuard);
+    expect(wiki.loadChildren).withContext('mounts the wiki remote via loadChildren').toBeDefined();
+    expect(wiki.loadComponent).withContext('not a local placeholder component').toBeUndefined();
+  });
+
+  it('/wiki loadChildren loads remote \'wiki\' ./Wiki and returns WIKI_ROUTES', async () => {
+    const sentinel = ['WIKI_ROUTES_SENTINEL'];
+    const spy = spyOn(federationLoader, 'load').and.resolveTo({ WIKI_ROUTES: sentinel });
+    const resolved = await (routeFor('wiki').loadChildren as () => Promise<unknown>)();
+    expect(spy).toHaveBeenCalledWith('wiki', './Wiki');
+    expect(resolved).toBe(sentinel);
   });
 
   it('default ("") path is a pure AUTHGATE + role-home redirect (roleHomeGuard, no component)', () => {

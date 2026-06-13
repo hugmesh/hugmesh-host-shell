@@ -6,6 +6,7 @@ import { adminGuard } from './admin.guard';
 import { registeredGuard } from './registration.guard';
 import { modGuard } from './mod.guard';
 import { userGuard } from './user.guard';
+import { wikiGuard } from './wiki.guard';
 import { roleHomeGuard } from './role-home.guard';
 import { SessionService, ShellRole } from '../session.service';
 
@@ -16,11 +17,15 @@ class SessionStub {
   admin = false;
   mod = false;
   user = false;
+  superadmin = false;
+  roles: string[] = [];
   registered = false;
   effectiveRole: ShellRole | null = null;
   isAdmin = () => this.admin;
   isMod = () => this.mod;
   isUser = () => this.user;
+  isSuperadmin = () => this.superadmin;
+  hasRole = (role: string) => this.roles.some((r) => r.toLowerCase() === role.toLowerCase());
   fullyRegistered = () => this.registered;
   role = () => this.effectiveRole;
 }
@@ -98,6 +103,39 @@ describe('federation route guards', () => {
     it('redirects an anonymous visitor to /login', () => {
       session.user = false;
       expect(run(userGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('wikiGuard (admin | superadmin | mod+ROLE_WIKI)', () => {
+    it('ALLOWS an admin', () => {
+      session.admin = true;
+      expect(run(wikiGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a superadmin', () => {
+      session.superadmin = true;
+      expect(run(wikiGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a moderator granted ROLE_WIKI', () => {
+      session.mod = true;
+      session.roles = ['mod', 'wiki'];
+      expect(run(wikiGuard)).toBeTrue();
+    });
+
+    it('DENIES a bare moderator WITHOUT ROLE_WIKI (redirect to /login)', () => {
+      session.mod = true;
+      session.roles = ['mod'];
+      expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES a plain user (redirect to /login)', () => {
+      session.user = true;
+      expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES an anonymous visitor (redirect to /login)', () => {
+      expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
     });
   });
 

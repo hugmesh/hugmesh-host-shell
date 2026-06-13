@@ -42,13 +42,13 @@ interface NavEntry {
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
- *  remote ('admin'/'apidocs'/'mod'), opens the profile modal, or signs out.
- *  `show` gates the role-specific Admin / API docs / Moderation entries on the
- *  live session. */
+ *  remote ('admin'/'apidocs'/'mod'/'wiki'), opens the profile modal, or signs out.
+ *  `show` gates the role-specific Admin / API docs / Moderation / Wiki entries on
+ *  the live session. */
 interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'logout';
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'logout';
   route?: string;
   show: () => boolean;
   /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
@@ -123,6 +123,12 @@ export class MenuComponent {
       help: 'Browse the platform API documentation (administrators only).' },
     { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod(),
       help: 'Go to the moderation console (moderators only).' },
+    // WIKI management console — shown to the wiki access tier: admins + superadmins
+    // always, plus a moderator additionally granted the per-service ROLE_WIKI
+    // (a bare mod does NOT see it). Mirrors the wikiGuard that protects the /wiki
+    // mount, so the entry is never a dead link.
+    { label: 'Wiki',       testid: 'menu-wiki',    action: 'wiki',    route: '/wiki',       show: () => this.canAccessWiki(),
+      help: 'Manage the platform wiki (admins, superadmins, and granted moderators).' },
     { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
       help: 'Sign out and return to the login page.' },
   ];
@@ -131,6 +137,18 @@ export class MenuComponent {
   readonly visibleProfileItems = computed(() =>
     this.profileMenuItems.filter((i) => i.show()),
   );
+
+  /** The WIKI access tier (mirrors the host wikiGuard exactly): an admin or
+   *  superadmin always, or a moderator additionally granted the per-service
+   *  ROLE_WIKI. A plain user / bare moderator is excluded — they never see the
+   *  Wiki entry and could not pass the guard if they reached /wiki directly. */
+  private canAccessWiki(): boolean {
+    return (
+      this.session.isAdmin() ||
+      this.session.isSuperadmin() ||
+      (this.session.isMod() && this.session.hasRole('WIKI'))
+    );
+  }
 
   /** Accessible NAME for the profile-menu trigger. The visible label is the user's
    *  display name (email/discord handle, possibly NON-ASCII); the button itself has
@@ -275,6 +293,7 @@ export class MenuComponent {
       case 'admin':
       case 'apidocs':
       case 'mod':
+      case 'wiki':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
       case 'logout':
