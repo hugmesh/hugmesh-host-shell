@@ -45,6 +45,14 @@ const CARD_CATALOG: readonly CardSpec[] = [
     route: '/games', slug: 'games',
   },
   {
+    id: 'tube', label: 'My Tube', description: 'YouTube subscription archive',
+    route: '/tube', slug: 'tube',
+  },
+  {
+    id: 'owncast', label: 'Live Stream', description: 'Owncast broadcast console',
+    route: '/owncast', slug: 'owncast',
+  },
+  {
     id: 'admin', label: 'Admin', description: 'Administration console',
     route: '/admin', requiresRole: 'admin', roleLabel: 'an administrator',
   },
