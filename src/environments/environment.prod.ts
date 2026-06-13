@@ -10,4 +10,9 @@ export const environment = {
   federationManifest: 'assets/federation.manifest.prod.json',
   /** Same-origin in prod — the fe-gateway proxies /api/* to federation-api. */
   federationApiBase: '',
+  /** DB-driven DYNAMIC manifest endpoint, fetched first by the bootstrap; on ANY
+   *  failure it falls back to the BUNDLED `federationManifest` above (the static
+   *  fe-gateway-paths json) so the prod shell always boots. Same-origin in prod —
+   *  the fe-gateway proxies /api/* to federation-api with the session cookie. */
+  federationManifestUrl: '/api/federation/manifest',
 };

@@ -12,4 +12,13 @@ export const environment = {
    *  prod (the fe-gateway proxies /api/* to federation-api); empty here means the
    *  host issues a relative request that the dev proxy / gateway routes. */
   federationApiBase: '',
+  /** DB-driven DYNAMIC manifest endpoint (federation-api GET /api/federation/manifest).
+   *  The bootstrap fetches THIS first and feeds its remotes into initFederation, so
+   *  new/disabled/kill-switched remotes land WITHOUT redeploying the host shell.
+   *  Relative so the id/fe-gateway routes /api/* to federation-api with the session
+   *  cookie (dev proxy + prod gateway alike); `federationApiBase` is '' (same-origin)
+   *  today but kept configurable for a future cross-origin host. On ANY failure the
+   *  bootstrap falls back to the BUNDLED static `federationManifest` above so the
+   *  shell always boots — the static json is the documented fallback artifact. */
+  federationManifestUrl: '/api/federation/manifest',
 };
