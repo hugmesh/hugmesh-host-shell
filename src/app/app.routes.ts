@@ -22,9 +22,9 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *                                                         AND ./profile (ProfileComponent, modal)
  *   apidocs  -> snapdragon-api-docs     remote 'apidocs'  exposes ./routes (API_DOCS_ROUTES)
  *                                                         AND ./DocsShell (DocsShellComponent)
- *   wiki     -> snapdragon-wiki-ui      remote 'wiki'     exposes ./Wiki  (WIKI_ROUTES)
- *   tube     -> snapdragon-tube-ui     remote 'tube'     exposes ./routes (TUBE_ROUTES)
- *   owncast  -> snapdragon-owncast-ui  remote 'owncast'  exposes ./routes (OWNCAST_ROUTES)
+ *   wiki     -> snapdragon-wiki-ui      remote 'wiki'     exposes ./Wiki    (WIKI_ROUTES)
+ *   tube     -> snapdragon-tube-ui      remote 'tube'     exposes ./Tube    (TUBE_ROUTES)
+ *   owncast  -> snapdragon-owncast-ui   remote 'owncast'  exposes ./Owncast (OWNCAST_ROUTES)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
  * /mod, /user, /admin/docs. Matrix/Mastodon require full registration; Admin and
  * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
@@ -65,18 +65,25 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // internal, requiresRole wiki) unioned over the static floor — no static-manifest
   // edit is needed for an authed role-holder to resolve it.
   { path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES', canActivate: [wikiGuard] },
-  // TUBE management remote (snapdragon-tube-ui): optional, DEFAULT-OFF, GPU-gated.
-  // Mounted at /tube behind tubeGuard (admin|superadmin|ROLE_TUBE). The service is
-  // registered in the federation_modules registry (slug='tube', enabled=false) and is
-  // greyed-out by the CapabilitiesService when not installed (no GPU node + superadmin
-  // enable). The remote's own child guards enforce per-view boundaries (user vs admin).
-  { path: 'tube', remoteName: 'tube', exposed: './routes', routesConst: 'TUBE_ROUTES', canActivate: [tubeGuard] },
-  // OWNCAST management remote (snapdragon-owncast-ui): optional, DEFAULT-OFF, GPU-gated.
-  // Mounted at /owncast behind owncastGuard (admin|superadmin|ROLE_OWNCAST). Registered
-  // in the federation_modules registry (slug='owncast', enabled=false). Greyed-out when
-  // not installed (per-streamer Owncast Deployment provisioned by ApplicationSet on grant
-  // flip; requires GPU node + superadmin per-domain enable).
-  { path: 'owncast', remoteName: 'owncast', exposed: './routes', routesConst: 'OWNCAST_ROUTES', canActivate: [owncastGuard] },
+  // TUBE management remote (snapdragon-tube-ui): exposes ./Tube -> TUBE_ROUTES,
+  // mirroring the wiki './Wiki' convention (NOT the './routes' of the role-homes).
+  // Optional, DEFAULT-OFF, GPU-gated. Mounted at /tube behind tubeGuard
+  // (admin|superadmin|ROLE_TUBE). The service is registered in the federation_modules
+  // registry (slug='tube', enabled=false) and is greyed-out by the CapabilitiesService
+  // when not installed (no GPU node + superadmin enable). The remote's own child guards
+  // enforce per-view boundaries (user vs admin). The remoteEntry is supplied at runtime
+  // by the DYNAMIC federation manifest (visibility internal, requiresRole TUBE) — no
+  // static-manifest edit is needed for an authed role-holder to resolve it.
+  { path: 'tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES', canActivate: [tubeGuard] },
+  // OWNCAST management remote (snapdragon-owncast-ui): exposes ./Owncast ->
+  // OWNCAST_ROUTES, mirroring the wiki './Wiki' convention. Optional, DEFAULT-OFF,
+  // GPU-gated. Mounted at /owncast behind owncastGuard (admin|superadmin|ROLE_OWNCAST).
+  // Registered in the federation_modules registry (slug='owncast', enabled=false).
+  // Greyed-out when not installed (per-streamer Owncast Deployment provisioned by
+  // ApplicationSet on grant flip; requires GPU node + superadmin per-domain enable). The
+  // remoteEntry is supplied at runtime by the DYNAMIC federation manifest (visibility
+  // internal, requiresRole OWNCAST) — kept OFF the static floor like wiki.
+  { path: 'owncast', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES', canActivate: [owncastGuard] },
 ];
 
 /** Resolve a remote's exported routes constant via native-federation. Indirected

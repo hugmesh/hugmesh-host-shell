@@ -42,13 +42,13 @@ interface NavEntry {
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
- *  remote ('admin'/'apidocs'/'mod'/'wiki'), opens the profile modal, or signs out.
- *  `show` gates the role-specific Admin / API docs / Moderation / Wiki entries on
- *  the live session. */
+ *  remote ('admin'/'apidocs'/'mod'/'wiki'/'owncast'/'tube'), opens the profile
+ *  modal, or signs out. `show` gates the role-specific Admin / API docs /
+ *  Moderation / Wiki / Owncast / Tube entries on the live session. */
 interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'logout';
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'logout';
   route?: string;
   show: () => boolean;
   /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
@@ -129,6 +129,18 @@ export class MenuComponent {
     // mount, so the entry is never a dead link.
     { label: 'Wiki',       testid: 'menu-wiki',    action: 'wiki',    route: '/wiki',       show: () => this.canAccessWiki(),
       help: 'Manage the platform wiki (admins, superadmins, and granted moderators).' },
+    // OWNCAST live-stream console — shown to the Owncast access tier: streamers
+    // granted the per-service ROLE_OWNCAST, plus admins/superadmins (grant
+    // management) and moderators (stream moderation). Mirrors the owncastGuard that
+    // protects the /owncast mount, so the entry is never a dead link.
+    { label: 'Owncast',    testid: 'menu-owncast', action: 'owncast', route: '/owncast',    show: () => this.canAccessOwncast(),
+      help: 'Manage your live stream (streamers, moderators, admins, and superadmins).' },
+    // TUBE subscription-archive console — shown to the Tube access tier: users
+    // granted the per-service ROLE_TUBE, plus admins/superadmins (quota/retention
+    // management). A bare moderator does NOT see it. Mirrors the tubeGuard that
+    // protects the /tube mount, so the entry is never a dead link.
+    { label: 'Tube',       testid: 'menu-tube',    action: 'tube',    route: '/tube',       show: () => this.canAccessTube(),
+      help: 'Manage your YouTube subscription archive (granted users, admins, and superadmins).' },
     { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
       help: 'Sign out and return to the login page.' },
   ];
@@ -147,6 +159,35 @@ export class MenuComponent {
       this.session.isAdmin() ||
       this.session.isSuperadmin() ||
       (this.session.isMod() && this.session.hasRole('WIKI'))
+    );
+  }
+
+  /** The OWNCAST access tier (mirrors the host owncastGuard's role gate PLUS the
+   *  menu's broader visibility intent): a streamer granted the per-service
+   *  ROLE_OWNCAST, an admin or superadmin (grant management), OR a moderator
+   *  (stream moderation). A plain user without ROLE_OWNCAST never sees the entry;
+   *  a bare moderator sees it for the moderation surface (the guard then admits
+   *  admin|superadmin|ROLE_OWNCAST, so a bare mod is bounced at /owncast — the BFF
+   *  is the real boundary). */
+  private canAccessOwncast(): boolean {
+    return (
+      this.session.hasRole('OWNCAST') ||
+      this.session.isAdmin() ||
+      this.session.isSuperadmin() ||
+      this.session.isMod()
+    );
+  }
+
+  /** The TUBE access tier (mirrors the host tubeGuard exactly): a user granted the
+   *  per-service ROLE_TUBE, or an admin or superadmin (quota/retention management).
+   *  A bare moderator is excluded — they never see the Tube entry and could not pass
+   *  the guard if they reached /tube directly (mod-side tube moderation lives in
+   *  mod-bff, not this remote). */
+  private canAccessTube(): boolean {
+    return (
+      this.session.hasRole('TUBE') ||
+      this.session.isAdmin() ||
+      this.session.isSuperadmin()
     );
   }
 
@@ -294,6 +335,8 @@ export class MenuComponent {
       case 'apidocs':
       case 'mod':
       case 'wiki':
+      case 'owncast':
+      case 'tube':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
       case 'logout':
