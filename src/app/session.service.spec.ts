@@ -46,6 +46,35 @@ describe('SessionService', () => {
     expect(service.isAdmin()).toBeFalse();
   });
 
+  it('derives isSuperadmin from the lowercase superadmin role string', () => {
+    service.set(makeSession({ roles: ['user', 'admin'] }));
+    expect(service.isSuperadmin()).withContext('admin is not superadmin').toBeFalse();
+    service.set(makeSession({ roles: ['user', 'superadmin'] }));
+    expect(service.isSuperadmin()).toBeTrue();
+  });
+
+  describe('hasRole(role) — per-service access sub-role (e.g. ROLE_WIKI)', () => {
+    it('is false when the session lacks the role', () => {
+      service.set(makeSession({ roles: ['user', 'mod'] }));
+      expect(service.hasRole('wiki')).toBeFalse();
+    });
+
+    it('is true when the session carries the lowercase role string', () => {
+      service.set(makeSession({ roles: ['user', 'mod', 'wiki'] }));
+      expect(service.hasRole('wiki')).toBeTrue();
+    });
+
+    it('matches case-insensitively (Casdoor ROLE_WIKI vs lowercase wiki)', () => {
+      service.set(makeSession({ roles: ['user', 'WIKI'] }));
+      expect(service.hasRole('wiki')).toBeTrue();
+      expect(service.hasRole('WIKI')).toBeTrue();
+    });
+
+    it('is false for an anonymous session', () => {
+      expect(service.hasRole('wiki')).toBeFalse();
+    });
+  });
+
   it('treats every logged-in identity as at least a ROLE_USER', () => {
     expect(service.isUser()).withContext('anonymous is not a user').toBeFalse();
     service.set(makeSession({ roles: [] }));

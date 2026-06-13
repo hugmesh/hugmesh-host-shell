@@ -25,8 +25,11 @@ class SessionStub {
   fullyRegistered = signal(true);
   isAdmin = signal(false);
   isMod = signal(false);
+  isSuperadmin = signal(false);
+  roles = signal<string[]>([]);
   session = signal<{ label: string } | null>({ label: 'alice' });
   cleared = false;
+  hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
   clear() { this.cleared = true; }
 }
 
@@ -226,7 +229,8 @@ describe('MenuComponent — universal nav menubar', () => {
       const items = Array.from(
         el.querySelectorAll<HTMLElement>('.profile-menu__item'),
       );
-      expect(items.length).withContext('admin+mod sees all 5 items').toBe(5);
+      // Profile, Admin, API docs, Moderation, Wiki (admin reaches it), Sign out.
+      expect(items.length).withContext('admin+mod sees all 6 items').toBe(6);
       for (const item of items) {
         const id = item.getAttribute('aria-describedby');
         expect(id).withContext(`${item.textContent} needs describedby`).toBeTruthy();

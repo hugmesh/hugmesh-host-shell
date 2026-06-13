@@ -45,6 +45,11 @@ export class SessionService {
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
   /** Moderator role -> the /mod role-home (snapdragon-mod-ui remote). */
   readonly isMod = computed(() => (this.session()?.roles ?? []).includes('mod'));
+  /** Superadmin role (cross-domain manage-all, sits ABOVE admin in the cascade
+   *  SUPERADMIN > ADMIN > MOD > USER). Lowercase 'superadmin' role string, mirroring
+   *  isAdmin/isMod. Used by service guards that grant superadmins unconditional
+   *  access (e.g. the wiki management remote: superadmin manages ALL wiki features). */
+  readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
   /** Every authenticated identity is at least a ROLE_USER (the user role-home is
    *  the baseline). True for any logged-in session even when the explicit 'user'
    *  role string is absent, so the default route always resolves a role-home. */
@@ -60,6 +65,20 @@ export class SessionService {
   });
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
+
+  /** Does the session carry the given PER-SERVICE access role? The role-home
+   *  flags (admin/mod/user) are the broad cascade tiers; a SERVICE sub-role like
+   *  ROLE_WIKI (sibling of ROLE_FORUM) is an additional opt-in grant that lets a
+   *  MOD reach a service the cascade alone would not (e.g. WIKI_READ =
+   *  ADMIN|SUPERADMIN|(MOD+ROLE_WIKI)). The Casdoor label is ROLE_<NAME>; the
+   *  in-session role STRINGS are lowercase ('wiki'), so we match case-insensitively
+   *  on either the bare name or the lowercase form — robust to either casing the
+   *  login remote happens to persist. Reads the reactive `session` signal so guards
+   *  and the menu re-evaluate when the session changes. */
+  hasRole(role: string): boolean {
+    const want = role.toLowerCase();
+    return (this.session()?.roles ?? []).some((r) => r.toLowerCase() === want);
+  }
 
   constructor() {
     // The host shell and each federated remote each hold their OWN SessionService

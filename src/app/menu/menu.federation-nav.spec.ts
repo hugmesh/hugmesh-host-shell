@@ -16,8 +16,11 @@ class SessionStub {
   fullyRegistered = signal(false);
   isAdmin = signal(false);
   isMod = signal(false);
+  isSuperadmin = signal(false);
+  roles = signal<string[]>([]);
   session = signal<{ label: string } | null>(null);
   cleared = false;
+  hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
   clear() { this.cleared = true; }
 }
 
@@ -88,7 +91,7 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     expect(has('menu-logout')).toBeTrue();
   });
 
-  it('plain user: the profile menu hides Admin and Moderation', () => {
+  it('plain user: the profile menu hides Admin, Moderation, and Wiki', () => {
     stub.loggedIn.set(true);
     stub.session.set({ label: 'alice' });
     fixture.detectChanges();
@@ -96,6 +99,7 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     expect(has('menu-admin')).toBeFalse();
     expect(has('menu-apidocs')).toBeFalse();
     expect(has('menu-mod')).toBeFalse();
+    expect(has('menu-wiki')).toBeFalse();
   });
 
   it('ROLE_ADMIN: the profile menu shows the Admin entry', () => {
@@ -157,6 +161,61 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     openProfile();
     expect(has('menu-mod')).toBeTrue();
     expect(has('menu-admin')).toBeFalse();
+  });
+
+  describe('Wiki management entry (role-gated: admin | superadmin | mod+ROLE_WIKI)', () => {
+    function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; roles: string[] }> = {}) {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'user' });
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.roles.set(over.roles ?? []);
+      fixture.detectChanges();
+    }
+
+    it('SHOWN for an admin', () => {
+      login({ admin: true });
+      openProfile();
+      expect(has('menu-wiki')).toBeTrue();
+    });
+
+    it('SHOWN for a superadmin', () => {
+      login({ superadmin: true });
+      openProfile();
+      expect(has('menu-wiki')).toBeTrue();
+    });
+
+    it('SHOWN for a moderator granted ROLE_WIKI', () => {
+      login({ mod: true, roles: ['mod', 'wiki'] });
+      openProfile();
+      const wiki = el.querySelector('[data-testid="menu-wiki"]') as HTMLElement;
+      expect(wiki).withContext('Wiki entry visible for mod+ROLE_WIKI').toBeTruthy();
+      expect(wiki.textContent?.trim()).withContext('accessible name').toBe('Wiki');
+      expect(wiki.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+    });
+
+    it('HIDDEN for a bare moderator WITHOUT ROLE_WIKI', () => {
+      login({ mod: true, roles: ['mod'] });
+      openProfile();
+      expect(has('menu-wiki')).toBeFalse();
+    });
+
+    it('HIDDEN for a plain user', () => {
+      login();
+      openProfile();
+      expect(has('menu-wiki')).toBeFalse();
+    });
+
+    it('navigates to /wiki and closes the menu', () => {
+      login({ admin: true });
+      const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+      openProfile();
+      (el.querySelector('[data-testid="menu-wiki"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(navSpy).toHaveBeenCalledWith('/wiki');
+      expect(component.profileOpen()).toBeFalse();
+    });
   });
 
   it('Profile entry opens the host profile modal', () => {

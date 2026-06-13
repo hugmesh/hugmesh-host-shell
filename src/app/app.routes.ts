@@ -4,6 +4,7 @@ import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
+import { wikiGuard } from './guards/wiki.guard';
 import { roleHomeGuard } from './guards/role-home.guard';
 
 /**
@@ -19,6 +20,7 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *                                                         AND ./profile (ProfileComponent, modal)
  *   apidocs  -> snapdragon-api-docs     remote 'apidocs'  exposes ./routes (API_DOCS_ROUTES)
  *                                                         AND ./DocsShell (DocsShellComponent)
+ *   wiki     -> snapdragon-wiki-ui      remote 'wiki'     exposes ./Wiki  (WIKI_ROUTES)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
  * /mod, /user, /admin/docs. Matrix/Mastodon require full registration; Admin and
  * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
@@ -51,6 +53,14 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES', canActivate: [adminGuard] },
   { path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES', canActivate: [modGuard] },
   { path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES', canActivate: [userGuard] },
+  // WIKI management remote (snapdragon-wiki-ui): exposes ./Wiki -> WIKI_ROUTES, NOT
+  // the './routes' convention the role-homes use. Mounted at /wiki behind wikiGuard
+  // (admin|superadmin|mod+ROLE_WIKI); the remote's own child guards then enforce the
+  // per-view WIKI_READ/WRITE/MANAGE boundary. The remoteEntry is supplied at runtime
+  // by the DYNAMIC federation manifest (federation-api wiki row #16, visibility
+  // internal, requiresRole wiki) unioned over the static floor — no static-manifest
+  // edit is needed for an authed role-holder to resolve it.
+  { path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES', canActivate: [wikiGuard] },
 ];
 
 /** Resolve a remote's exported routes constant via native-federation. Indirected
