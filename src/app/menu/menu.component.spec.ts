@@ -239,6 +239,118 @@ describe('MenuComponent — universal nav menubar', () => {
     });
   });
 
+  describe('profile dropdown — WAI-ARIA menu keyboard operability', () => {
+    const trigger = () =>
+      el.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!;
+    const items = () =>
+      Array.from(el.querySelectorAll<HTMLElement>('.profile-menu__item'));
+    const triggerKey = (key: string) =>
+      trigger().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const menuKey = (key: string) => {
+      const list = el.querySelector<HTMLElement>('#profile-menu-list')!;
+      list.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    };
+
+    beforeEach(() => {
+      // Anonymous-by-default + admin/mod off => only Profile + Sign out visible (2).
+      stub.isAdmin.set(false);
+      stub.isMod.set(false);
+      fixture.detectChanges();
+    });
+
+    it('opens closed (no item is a tab stop while closed)', () => {
+      expect(component.profileOpen()).toBeFalse();
+      expect(component.profileActiveIndex()).toBe(-1);
+    });
+
+    it('ArrowDown on the trigger opens the menu and lands the cursor on the FIRST item', () => {
+      triggerKey('ArrowDown');
+      fixture.detectChanges();
+      expect(component.profileOpen()).toBeTrue();
+      expect(component.profileActiveIndex()).toBe(0);
+    });
+
+    it('ArrowUp on the trigger opens the menu and lands the cursor on the LAST item', () => {
+      triggerKey('ArrowUp');
+      fixture.detectChanges();
+      expect(component.profileOpen()).toBeTrue();
+      expect(component.profileActiveIndex()).toBe(component.visibleProfileItems().length - 1);
+    });
+
+    it('Enter/Space (native click) opens the menu with the cursor on the first item', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      expect(component.profileOpen()).toBeTrue();
+      expect(component.profileActiveIndex()).toBe(0);
+    });
+
+    it('exactly ONE menu item is a tab stop (tabindex 0) while open — true roving tabindex', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      const tabbable = items().filter((b) => b.getAttribute('tabindex') === '0');
+      expect(tabbable.length).toBe(1);
+      expect(items()[0].getAttribute('tabindex')).toBe('0');
+      expect(items()[1].getAttribute('tabindex')).toBe('-1');
+    });
+
+    it('ArrowDown in the open menu advances the roving cursor and wraps at the end', () => {
+      component.toggleProfile(); // cursor at 0
+      fixture.detectChanges();
+      const last = component.visibleProfileItems().length - 1;
+      menuKey('ArrowDown');
+      expect(component.profileActiveIndex()).toBe(1);
+      // Walk to the last item, then wrap to the first.
+      component.profileActiveIndex.set(last);
+      menuKey('ArrowDown');
+      expect(component.profileActiveIndex()).toBe(0);
+    });
+
+    it('ArrowUp in the open menu retreats and wraps from the first to the last', () => {
+      component.toggleProfile(); // cursor at 0
+      fixture.detectChanges();
+      menuKey('ArrowUp');
+      expect(component.profileActiveIndex()).toBe(component.visibleProfileItems().length - 1);
+    });
+
+    it('Home/End jump the roving cursor to the first/last item', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      menuKey('End');
+      expect(component.profileActiveIndex()).toBe(component.visibleProfileItems().length - 1);
+      menuKey('Home');
+      expect(component.profileActiveIndex()).toBe(0);
+    });
+
+    it('moves DOM focus to the newly-active item as the cursor moves', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      const focusSpy = spyOn(component.profileItemRefs.get(1)!.nativeElement, 'focus');
+      menuKey('ArrowDown');
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    it('Escape from the open menu closes it AND restores focus to the trigger', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      const focusSpy = spyOn(component.profileTriggerRef!.nativeElement, 'focus');
+      const list = el.querySelector<HTMLElement>('#profile-menu-list')!;
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      expect(component.profileOpen()).toBeFalse();
+      expect(component.profileActiveIndex()).toBe(-1);
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    it('activating an item with click closes the menu and clears the roving cursor', () => {
+      component.toggleProfile();
+      fixture.detectChanges();
+      items()[0].click();
+      fixture.detectChanges();
+      expect(component.profileOpen()).toBeFalse();
+      expect(component.profileActiveIndex()).toBe(-1);
+    });
+  });
+
   describe('onMenuKeydown — keyboard navigation', () => {
     function press(key: string): void {
       component.onMenuKeydown(new KeyboardEvent('keydown', { key, bubbles: true }));

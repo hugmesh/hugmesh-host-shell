@@ -158,6 +158,14 @@ export class MenuComponent {
   @ViewChild('profileTrigger', { read: ElementRef })
   profileTriggerRef?: ElementRef<HTMLButtonElement>;
 
+  @ViewChildren('profileItem', { read: ElementRef })
+  profileItemRefs!: QueryList<ElementRef<HTMLButtonElement>>;
+
+  /** Roving-tabindex cursor for the OPEN profile dropdown (WAI-ARIA menu pattern):
+   *  exactly ONE menuitem is a tab stop (tabindex 0), the rest tabindex -1, and the
+   *  arrow keys move DOM focus. -1 while the menu is closed (no item is a stop). */
+  readonly profileActiveIndex = signal(-1);
+
   /** Indices of the enabled primary entries (the arrow-key cycle skips disabled). */
   private get enabledIndices(): number[] {
     return this.navEntries.map((e, i) => (e.enabled() ? i : -1)).filter((i) => i !== -1);
@@ -180,18 +188,86 @@ export class MenuComponent {
       .subscribe(() => {
         // Close the profile menu on navigation, then focus the routed content.
         this.profileOpen.set(false);
+        this.profileActiveIndex.set(-1);
         this.doc.getElementById('maincontent')?.focus();
       });
   }
 
-  /** Open the profile dropdown menu (the button is aria-haspopup="menu"). */
+  /** Toggle the profile dropdown menu (the button is aria-haspopup="menu"). When
+   *  opening, place the roving cursor on the FIRST item and move focus into the
+   *  menu (WAI-ARIA menu-button: a pointer/Enter/Space open lands on the first
+   *  item). When closing, drop the cursor. */
   toggleProfile(): void {
     this.profileOpen.update((v) => !v);
+    if (this.profileOpen()) {
+      this.openProfileAt(0);
+    } else {
+      this.profileActiveIndex.set(-1);
+    }
+  }
+
+  /** Open the dropdown (if closed) with the roving cursor at `index` and move DOM
+   *  focus to that item. `index` -1 means the LAST item (ArrowUp-to-open). */
+  private openProfileAt(index: number): void {
+    const count = this.visibleProfileItems().length;
+    if (count === 0) return;
+    const target = index < 0 ? count - 1 : Math.min(index, count - 1);
+    this.profileOpen.set(true);
+    this.profileActiveIndex.set(target);
+    // Wait for the @if-guarded menu list to render before focusing the item.
+    queueMicrotask(() => this.focusProfileItem(target));
+  }
+
+  private focusProfileItem(index: number): void {
+    this.profileItemRefs?.get(index)?.nativeElement.focus();
+  }
+
+  /** Keyboard handler for the trigger BUTTON. ArrowDown/ArrowUp open the menu and
+   *  land on the first/last item per the WAI-ARIA menu-button pattern; Enter/Space
+   *  fall through to the native (click)=toggleProfile. Escape closes if open. */
+  onTriggerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.openProfileAt(0);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.openProfileAt(-1);
+    } else if (event.key === 'Escape' && this.profileOpen()) {
+      event.preventDefault();
+      this.closeProfile();
+    }
+  }
+
+  /** Roving-tabindex keyboard handler for the OPEN profile dropdown menu (WAI-ARIA
+   *  menu pattern). ArrowUp/ArrowDown move the cursor (wrapping), Home/End jump to
+   *  the ends, and DOM focus follows. Escape is handled separately on the list. */
+  onProfileMenuKeydown(event: KeyboardEvent): void {
+    const count = this.visibleProfileItems().length;
+    if (count === 0) return;
+    const cur = this.profileActiveIndex();
+    let next: number | undefined;
+
+    if (event.key === 'ArrowDown') {
+      next = (cur + 1) % count;
+    } else if (event.key === 'ArrowUp') {
+      next = (cur - 1 + count) % count;
+    } else if (event.key === 'Home') {
+      next = 0;
+    } else if (event.key === 'End') {
+      next = count - 1;
+    }
+
+    if (next !== undefined) {
+      event.preventDefault();
+      this.profileActiveIndex.set(next);
+      this.focusProfileItem(next);
+    }
   }
 
   /** Handle a profile-menu item activation. */
   onProfileItem(item: ProfileMenuItem): void {
     this.profileOpen.set(false);
+    this.profileActiveIndex.set(-1);
     switch (item.action) {
       case 'profile':
         this.modal.open();
@@ -210,6 +286,7 @@ export class MenuComponent {
   /** Close the dropdown and return focus to its trigger (Escape from the menu). */
   closeProfile(restoreFocus = true): void {
     this.profileOpen.set(false);
+    this.profileActiveIndex.set(-1);
     if (restoreFocus) this.profileTriggerRef?.nativeElement.focus();
   }
 
@@ -218,6 +295,7 @@ export class MenuComponent {
   logout(): void {
     this.session.clear();
     this.profileOpen.set(false);
+    this.profileActiveIndex.set(-1);
     this.router.navigateByUrl('/');
   }
 

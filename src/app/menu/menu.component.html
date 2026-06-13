@@ -82,6 +82,7 @@
             [attr.aria-label]="profileTriggerLabel()"
             aria-describedby="profile-trigger-help"
             (click)="toggleProfile()"
+            (keydown)="onTriggerKeydown($event)"
           >
             <span class="profile-menu__name" data-testid="nav-user">{{ session.session()?.label }}</span>
           </button>
@@ -102,13 +103,16 @@
               role="menu"
               aria-label="Profile menu"
               (keydown.escape)="closeProfile()"
+              (keydown)="onProfileMenuKeydown($event)"
             >
-              @for (item of visibleProfileItems(); track item.testid) {
+              @for (item of visibleProfileItems(); track item.testid; let i = $index) {
                 <li role="none">
                   <button
+                    #profileItem
                     type="button"
                     role="menuitem"
                     class="profile-menu__item"
+                    [attr.tabindex]="i === profileActiveIndex() ? 0 : -1"
                     [attr.data-testid]="item.testid"
                     [attr.aria-describedby]="item.testid + '-help'"
                     (click)="onProfileItem(item)"
