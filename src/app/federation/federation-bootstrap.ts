@@ -27,13 +27,22 @@ import { environment } from '../../environments/environment';
  * pre-login caller gets 401. That is FINE and is exactly why the static fallback
  * exists: on a 401 (or any network/5xx/parse/empty failure) we hand
  * `initFederation` the BUNDLED static manifest URL string instead, so the shell
- * ALWAYS boots (never a white screen). The static manifest already lists every
- * remote (login/admin/mod/user/…); role gating is done by the per-route GUARDS
- * (adminGuard/modGuard/userGuard), NOT by manifest presence — so a one-shot
- * bootstrap fetch is sufficient and no post-login manifest re-init is required to
- * resolve role-gated remotes (see README / PR body). The ONLY thing an
- * authenticated reload additionally unlocks is `visibility=internal` remotes, which
- * the bearer carries here.
+ * ALWAYS boots (never a white screen).
+ *
+ * THE STATIC FLOOR (union, not replace). On dynamic SUCCESS we do NOT simply
+ * return the dynamic remotes — we return the UNION of the bundled static manifest
+ * (the build-time FLOOR, every baked remote) and the dynamic overlay, with the
+ * dynamic overlay OVERRIDING matching slugs and ADDING new ones. This guarantees a
+ * successful DB read is never strictly worse than the static build: even while the
+ * `federation_modules` seed is incomplete (today it omits mod/user/matrix/mastodon/
+ * apidocs), those remotes always resolve from the floor, AND the DB can still ADD
+ * remotes (e.g. a future wiki) without a host redeploy. Role gating is done by the
+ * per-route GUARDS (adminGuard/modGuard/userGuard) + BFF authz, NOT by manifest
+ * presence — so unioning the public entry-URL map is not an authz weakening, and a
+ * one-shot bootstrap fetch is sufficient (no post-login re-init needed to resolve
+ * role-gated remotes). The ONLY thing an authenticated reload additionally adds via
+ * the bearer is the domain/visibility-scoped DB overlay (e.g. `visibility=internal`
+ * rows like admin).
  *
  * The returned shape is the in-memory `Record<remoteName, remoteEntryUrl>` that
  * `initFederation(remotesOrManifestUrl)` accepts directly (it also accepts a URL
@@ -134,16 +143,33 @@ export async function fetchDynamicRemotes(
 }
 
 /**
- * Resolve what to hand `initFederation`: the DYNAMIC remotes map when the DB read
- * succeeds, else the BUNDLED static manifest URL string (which initFederation
- * fetches itself). Both are valid initFederation arguments (object | url-string).
- * Pure resolution — does not call initFederation, so it is trivially testable.
+ * Resolve what to hand `initFederation`.
+ *
+ * ON DYNAMIC SUCCESS: the UNION of the bundled static FLOOR and the dynamic
+ * overlay — `{ ...staticFloor, ...dynamic }`. The static floor (every remote baked
+ * at build) is therefore ALWAYS present; the dynamic overlay OVERRIDES the URL for
+ * any matching slug and ADDS brand-/DB-only slugs (e.g. a future `wiki`). This
+ * guarantees a successful DB read is NEVER strictly worse than the static build —
+ * if the federation_modules seed is incomplete (today it omits mod/user/matrix/
+ * mastodon/apidocs) those remotes still resolve from the floor, while the DB can
+ * still ADD remotes without a host redeploy. Unioning entry URLs is not an authz
+ * weakening: the manifest only maps name -> public bundle URL, and route guards +
+ * BFF authz do all gating — this matches the prior static-for-everyone behavior.
+ *
+ * ON DYNAMIC FAILURE (401 anonymous / 5xx / network / parse / empty): the BUNDLED
+ * static manifest URL string (which initFederation fetches itself) — UNCHANGED
+ * fallback so the shell ALWAYS boots. Both returns are valid initFederation
+ * arguments (object | url-string). Pure resolution — does not call initFederation,
+ * so it is trivially testable.
  */
 export async function resolveFederationSource(
   fetchImpl?: typeof fetch,
 ): Promise<RemotesMap | string> {
   const dynamic = await fetchDynamicRemotes(fetchImpl);
-  if (dynamic) return dynamic;
+  if (dynamic) {
+    // Static floor UNION dynamic overlay: floor first, dynamic overrides/adds.
+    return { ...environment.federationStaticManifest, ...dynamic };
+  }
   // Fallback: the bundled static asset path (dev json / file-replaced prod json).
   return environment.federationManifest;
 }

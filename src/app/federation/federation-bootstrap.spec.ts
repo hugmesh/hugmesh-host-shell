@@ -168,14 +168,62 @@ describe('federation-bootstrap', () => {
     });
   });
 
-  describe('resolveFederationSource — (b) dynamic-first, static-fallback', () => {
-    it('returns the DYNAMIC remotes OBJECT when the DB read succeeds', async () => {
+  describe('resolveFederationSource — (b) dynamic-first, static-FLOOR, static-fallback', () => {
+    const floor = environment.federationStaticManifest;
+
+    it('on dynamic SUCCESS returns the UNION { ...staticFloor, ...dynamic } (object)', async () => {
       const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
       const source = await resolveFederationSource(fetchSpy as unknown as typeof fetch);
+      // Every baked static remote is present, with the two dynamic rows overriding
+      // their slugs' URLs (login/admin), and all other floor remotes untouched.
       expect(source).toEqual({
+        ...floor,
         login: '/login/remoteEntry.json',
         admin: '/admin/remoteEntry.json',
       });
+    });
+
+    it('(floor guarantee) a baked remote OMITTED by the dynamic response is STILL present from the floor', async () => {
+      // manifestBody() omits matrix/mastodon/user/mod/apidocs (the incomplete-seed
+      // case VERIFY found). The union must still register them from the static floor.
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
+      const source = (await resolveFederationSource(
+        fetchSpy as unknown as typeof fetch,
+      )) as Record<string, string>;
+      expect(source['matrix']).toBe(floor['matrix']);
+      expect(source['mastodon']).toBe(floor['mastodon']);
+      expect(source['user']).toBe(floor['user']);
+      expect(source['mod']).toBe(floor['mod']);
+      expect(source['apidocs']).toBe(floor['apidocs']);
+    });
+
+    it('(override) a dynamic row OVERRIDES the static URL for a matching slug', async () => {
+      const overlay = {
+        generatedAt: '2026-06-13T00:00:00Z',
+        remotes: [{ slug: 'login', remoteEntryUrl: '/db/login/remoteEntry.json' }],
+      };
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(overlay));
+      const source = (await resolveFederationSource(
+        fetchSpy as unknown as typeof fetch,
+      )) as Record<string, string>;
+      expect(source['login']).toBe('/db/login/remoteEntry.json'); // dynamic wins
+      expect(source['login']).not.toBe(floor['login']);
+      expect(source['matrix']).toBe(floor['matrix']); // untouched floor slug
+    });
+
+    it('(add) a dynamic-ONLY new slug (e.g. wiki) APPEARS in the union', async () => {
+      const overlay = {
+        generatedAt: '2026-06-13T00:00:00Z',
+        remotes: [{ slug: 'wiki', remoteEntryUrl: '/wiki/remoteEntry.json' }],
+      };
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(overlay));
+      const source = (await resolveFederationSource(
+        fetchSpy as unknown as typeof fetch,
+      )) as Record<string, string>;
+      expect(source['wiki']).toBe('/wiki/remoteEntry.json'); // DB added it, no redeploy
+      // ...and the floor is still fully present alongside the new slug.
+      expect(source['login']).toBe(floor['login']);
+      expect(source['matrix']).toBe(floor['matrix']);
     });
 
     it('(b) FALLS BACK to the bundled static manifest URL on dynamic failure (still boots)', async () => {
@@ -183,6 +231,7 @@ describe('federation-bootstrap', () => {
       const source = await resolveFederationSource(fetchSpy as unknown as typeof fetch);
       // A STRING (the bundled static asset path) is a valid initFederation argument;
       // initFederation fetches it itself, so the shell boots even with the API down.
+      // The failure path is UNCHANGED — still the path string, not the union object.
       expect(source).toBe(environment.federationManifest);
       expect(typeof source).toBe('string');
     });
