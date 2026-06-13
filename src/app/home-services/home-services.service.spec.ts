@@ -39,9 +39,9 @@ describe('HomeServicesService — card projection', () => {
 
   const card = (id: string): ServiceCard => service.cards().find((c) => c.id === id)!;
 
-  it('always renders the full catalog (matrix/mastodon/forum/games/admin/mod)', () => {
+  it('always renders the full catalog (matrix/mastodon/forum/games/tube/owncast/admin/mod)', () => {
     expect(service.cards().map((c) => c.id)).toEqual([
-      'matrix', 'mastodon', 'forum', 'games', 'admin', 'mod',
+      'matrix', 'mastodon', 'forum', 'games', 'tube', 'owncast', 'admin', 'mod',
     ]);
   });
 
@@ -87,9 +87,11 @@ describe('HomeServicesService — card projection', () => {
       expect(card('matrix').disabledReason).toContain('registration');
     });
 
-    it('still enables non-social installed services (forum/games need no registration)', () => {
+    it('still enables non-social installed services (forum/games/tube/owncast need no registration)', () => {
       expect(card('forum').state).toBe('enabled');
       expect(card('games').state).toBe('enabled');
+      expect(card('tube').state).toBe('enabled');
+      expect(card('owncast').state).toBe('enabled');
     });
   });
 
@@ -113,6 +115,18 @@ describe('HomeServicesService — card projection', () => {
       caps.setAbsent('games');
       expect(card('games').state).toBe('absent');
       expect(card('games').disabledReason).toContain('not available on this deployment');
+    });
+
+    it('tube absent (no GPU node) renders absent for admin', () => {
+      caps.setAbsent('tube');
+      expect(card('tube').state).toBe('absent');
+      expect(card('tube').disabledReason).toContain('not available on this deployment');
+    });
+
+    it('owncast absent (no GPU node) renders absent for admin', () => {
+      caps.setAbsent('owncast');
+      expect(card('owncast').state).toBe('absent');
+      expect(card('owncast').disabledReason).toContain('not available on this deployment');
     });
 
     it('install-state ABSENCE dominates over the registration gate', () => {

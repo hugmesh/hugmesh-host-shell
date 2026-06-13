@@ -9,7 +9,7 @@ import { signal } from '@angular/core';
 export class CapabilitiesStub {
   /** Mutable installed-slug set. Defaults to the optional services the host knows. */
   readonly installedSlugs = signal<Set<string>>(
-    new Set(['matrix', 'mastodon', 'forum', 'games']),
+    new Set(['matrix', 'mastodon', 'forum', 'games', 'tube', 'owncast']),
   );
   readonly loaded = signal(true);
   readonly loadError = signal('');

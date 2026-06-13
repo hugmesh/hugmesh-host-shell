@@ -7,6 +7,8 @@ import { registeredGuard } from './registration.guard';
 import { modGuard } from './mod.guard';
 import { userGuard } from './user.guard';
 import { wikiGuard } from './wiki.guard';
+import { tubeGuard } from './tube.guard';
+import { owncastGuard } from './owncast.guard';
 import { roleHomeGuard } from './role-home.guard';
 import { SessionService, ShellRole } from '../session.service';
 
@@ -136,6 +138,80 @@ describe('federation route guards', () => {
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
       expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('tubeGuard (tube management remote at /tube)', () => {
+    it('ALLOWS an administrator', () => {
+      session.admin = true;
+      expect(run(tubeGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a superadmin', () => {
+      session.superadmin = true;
+      expect(run(tubeGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a user granted ROLE_TUBE', () => {
+      session.user = true;
+      session.roles = ['user', 'tube'];
+      expect(run(tubeGuard)).toBeTrue();
+    });
+
+    it('DENIES a plain user WITHOUT ROLE_TUBE (redirect to /login)', () => {
+      session.user = true;
+      session.roles = ['user'];
+      expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES a bare moderator WITHOUT ROLE_TUBE (redirect to /login)', () => {
+      session.mod = true;
+      session.roles = ['mod'];
+      expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES an anonymous visitor (redirect to /login)', () => {
+      expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('owncastGuard (owncast management remote at /owncast)', () => {
+    it('ALLOWS an administrator', () => {
+      session.admin = true;
+      expect(run(owncastGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a superadmin', () => {
+      session.superadmin = true;
+      expect(run(owncastGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a user granted ROLE_OWNCAST', () => {
+      session.user = true;
+      session.roles = ['user', 'owncast'];
+      expect(run(owncastGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a moderator granted ROLE_OWNCAST', () => {
+      session.mod = true;
+      session.roles = ['mod', 'owncast'];
+      expect(run(owncastGuard)).toBeTrue();
+    });
+
+    it('DENIES a plain user WITHOUT ROLE_OWNCAST (redirect to /login)', () => {
+      session.user = true;
+      session.roles = ['user'];
+      expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES a bare moderator WITHOUT ROLE_OWNCAST (redirect to /login)', () => {
+      session.mod = true;
+      session.roles = ['mod'];
+      expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES an anonymous visitor (redirect to /login)', () => {
+      expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
     });
   });
 
