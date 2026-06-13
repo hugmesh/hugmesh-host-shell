@@ -6,6 +6,8 @@ import { registeredGuard } from './guards/registration.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
 import { wikiGuard } from './guards/wiki.guard';
+import { tubeGuard } from './guards/tube.guard';
+import { owncastGuard } from './guards/owncast.guard';
 import { roleHomeGuard } from './guards/role-home.guard';
 
 /** These tests assert the FEDERATION WIRING: that each public path resolves its
@@ -32,6 +34,10 @@ describe('app.routes federation wiring', () => {
       // The wiki remote uses the './Wiki' exposed module (WIKI_ROUTES), NOT the
       // './routes' convention of the role-homes.
       jasmine.objectContaining({ path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES' }),
+      // The tube + owncast management remotes follow the wiki './<Pascal>' precedent:
+      // ./Tube -> TUBE_ROUTES and ./Owncast -> OWNCAST_ROUTES (NOT './routes').
+      jasmine.objectContaining({ path: 'tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES' }),
+      jasmine.objectContaining({ path: 'owncast', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES' }),
     ]);
   });
 
@@ -101,6 +107,36 @@ describe('app.routes federation wiring', () => {
     const spy = spyOn(federationLoader, 'load').and.resolveTo({ WIKI_ROUTES: sentinel });
     const resolved = await (routeFor('wiki').loadChildren as () => Promise<unknown>)();
     expect(spy).toHaveBeenCalledWith('wiki', './Wiki');
+    expect(resolved).toBe(sentinel);
+  });
+
+  it('/tube mounts the tube management remote (./Tube -> TUBE_ROUTES) behind tubeGuard', () => {
+    const tube = routeFor('tube');
+    expect(tube.canActivate).withContext('tube access tier gate').toContain(tubeGuard);
+    expect(tube.loadChildren).withContext('mounts the tube remote via loadChildren').toBeDefined();
+    expect(tube.loadComponent).withContext('not a local placeholder component').toBeUndefined();
+  });
+
+  it('/tube loadChildren loads remote \'tube\' ./Tube and returns TUBE_ROUTES', async () => {
+    const sentinel = ['TUBE_ROUTES_SENTINEL'];
+    const spy = spyOn(federationLoader, 'load').and.resolveTo({ TUBE_ROUTES: sentinel });
+    const resolved = await (routeFor('tube').loadChildren as () => Promise<unknown>)();
+    expect(spy).toHaveBeenCalledWith('tube', './Tube');
+    expect(resolved).toBe(sentinel);
+  });
+
+  it('/owncast mounts the owncast management remote (./Owncast -> OWNCAST_ROUTES) behind owncastGuard', () => {
+    const owncast = routeFor('owncast');
+    expect(owncast.canActivate).withContext('owncast access tier gate').toContain(owncastGuard);
+    expect(owncast.loadChildren).withContext('mounts the owncast remote via loadChildren').toBeDefined();
+    expect(owncast.loadComponent).withContext('not a local placeholder component').toBeUndefined();
+  });
+
+  it('/owncast loadChildren loads remote \'owncast\' ./Owncast and returns OWNCAST_ROUTES', async () => {
+    const sentinel = ['OWNCAST_ROUTES_SENTINEL'];
+    const spy = spyOn(federationLoader, 'load').and.resolveTo({ OWNCAST_ROUTES: sentinel });
+    const resolved = await (routeFor('owncast').loadChildren as () => Promise<unknown>)();
+    expect(spy).toHaveBeenCalledWith('owncast', './Owncast');
     expect(resolved).toBe(sentinel);
   });
 

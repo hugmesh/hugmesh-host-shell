@@ -91,7 +91,7 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     expect(has('menu-logout')).toBeTrue();
   });
 
-  it('plain user: the profile menu hides Admin, Moderation, and Wiki', () => {
+  it('plain user: the profile menu hides Admin, Moderation, Wiki, Owncast, and Tube', () => {
     stub.loggedIn.set(true);
     stub.session.set({ label: 'alice' });
     fixture.detectChanges();
@@ -100,6 +100,8 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     expect(has('menu-apidocs')).toBeFalse();
     expect(has('menu-mod')).toBeFalse();
     expect(has('menu-wiki')).toBeFalse();
+    expect(has('menu-owncast')).toBeFalse();
+    expect(has('menu-tube')).toBeFalse();
   });
 
   it('ROLE_ADMIN: the profile menu shows the Admin entry', () => {
@@ -214,6 +216,116 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
       (el.querySelector('[data-testid="menu-wiki"]') as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(navSpy).toHaveBeenCalledWith('/wiki');
+      expect(component.profileOpen()).toBeFalse();
+    });
+  });
+
+  describe('Owncast management entry (role-gated: ROLE_OWNCAST | admin | superadmin | mod)', () => {
+    function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; roles: string[] }> = {}) {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'user' });
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.roles.set(over.roles ?? []);
+      fixture.detectChanges();
+    }
+
+    it('SHOWN for a streamer granted ROLE_OWNCAST', () => {
+      login({ roles: ['user', 'owncast'] });
+      openProfile();
+      const owncast = el.querySelector('[data-testid="menu-owncast"]') as HTMLElement;
+      expect(owncast).withContext('Owncast entry visible for ROLE_OWNCAST').toBeTruthy();
+      expect(owncast.textContent?.trim()).withContext('accessible name').toBe('Owncast');
+      expect(owncast.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+    });
+
+    it('SHOWN for an admin (grant management)', () => {
+      login({ admin: true });
+      openProfile();
+      expect(has('menu-owncast')).toBeTrue();
+    });
+
+    it('SHOWN for a superadmin', () => {
+      login({ superadmin: true });
+      openProfile();
+      expect(has('menu-owncast')).toBeTrue();
+    });
+
+    it('SHOWN for a moderator (stream moderation)', () => {
+      login({ mod: true, roles: ['mod'] });
+      openProfile();
+      expect(has('menu-owncast')).toBeTrue();
+    });
+
+    it('HIDDEN for a plain user WITHOUT ROLE_OWNCAST', () => {
+      login({ roles: ['user'] });
+      openProfile();
+      expect(has('menu-owncast')).toBeFalse();
+    });
+
+    it('navigates to /owncast and closes the menu', () => {
+      login({ roles: ['user', 'owncast'] });
+      const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+      openProfile();
+      (el.querySelector('[data-testid="menu-owncast"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(navSpy).toHaveBeenCalledWith('/owncast');
+      expect(component.profileOpen()).toBeFalse();
+    });
+  });
+
+  describe('Tube management entry (role-gated: ROLE_TUBE | admin | superadmin)', () => {
+    function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; roles: string[] }> = {}) {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'user' });
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.roles.set(over.roles ?? []);
+      fixture.detectChanges();
+    }
+
+    it('SHOWN for a user granted ROLE_TUBE', () => {
+      login({ roles: ['user', 'tube'] });
+      openProfile();
+      const tube = el.querySelector('[data-testid="menu-tube"]') as HTMLElement;
+      expect(tube).withContext('Tube entry visible for ROLE_TUBE').toBeTruthy();
+      expect(tube.textContent?.trim()).withContext('accessible name').toBe('Tube');
+      expect(tube.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+    });
+
+    it('SHOWN for an admin (quota/retention management)', () => {
+      login({ admin: true });
+      openProfile();
+      expect(has('menu-tube')).toBeTrue();
+    });
+
+    it('SHOWN for a superadmin', () => {
+      login({ superadmin: true });
+      openProfile();
+      expect(has('menu-tube')).toBeTrue();
+    });
+
+    it('HIDDEN for a plain user WITHOUT ROLE_TUBE', () => {
+      login({ roles: ['user'] });
+      openProfile();
+      expect(has('menu-tube')).toBeFalse();
+    });
+
+    it('HIDDEN for a bare moderator WITHOUT ROLE_TUBE', () => {
+      login({ mod: true, roles: ['mod'] });
+      openProfile();
+      expect(has('menu-tube')).toBeFalse();
+    });
+
+    it('navigates to /tube and closes the menu', () => {
+      login({ roles: ['user', 'tube'] });
+      const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+      openProfile();
+      (el.querySelector('[data-testid="menu-tube"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(navSpy).toHaveBeenCalledWith('/tube');
       expect(component.profileOpen()).toBeFalse();
     });
   });

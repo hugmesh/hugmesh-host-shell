@@ -229,8 +229,9 @@ describe('MenuComponent — universal nav menubar', () => {
       const items = Array.from(
         el.querySelectorAll<HTMLElement>('.profile-menu__item'),
       );
-      // Profile, Admin, API docs, Moderation, Wiki (admin reaches it), Sign out.
-      expect(items.length).withContext('admin+mod sees all 6 items').toBe(6);
+      // Profile, Admin, API docs, Moderation, Wiki, Owncast, Tube (admin reaches
+      // them all), Sign out.
+      expect(items.length).withContext('admin+mod sees all 8 items').toBe(8);
       for (const item of items) {
         const id = item.getAttribute('aria-describedby');
         expect(id).withContext(`${item.textContent} needs describedby`).toBeTruthy();
