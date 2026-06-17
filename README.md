@@ -224,7 +224,7 @@ cross-cutting surface:
   **Cassandra** keyspace (`snapdragon_systems_gateway`) for the gateway's
   revocation list / URL registry / resource-access cache. The frontend is not
   exposed directly — the gateway is the public entry point. See
-  [`docs/games-stack-adoption.md`](docs/games-stack-adoption.md).
+  [`docs/platform-topology.md`](docs/platform-topology.md).
 - **Container:** multi-stage `Dockerfile` builds the prod bundle and serves it
   from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback.
 - **CI:** GitLab (`.gitlab-ci.yml`) — the GitHub repo is pull-mirrored into the
@@ -270,8 +270,7 @@ Gateways `snapdragon-gateway` / `snapdragon-id-gateway` · identity **Casdoor** 
 federation `snapdragon-federation-api` + `snapdragon-remote-fragment` · the
 remotes `snapdragon-{login,user,mod,admin}-ui`, `snapdragon-{matrix,mastodon}-ui`,
 `snapdragon-{wiki,tube,owncast}-ui`, `snapdragon-api-docs` · role BFFs
-`snapdragon-{user,mod,admin}-bff-api` · cross-realm sync `snapdragon-actions` ·
-games stack `snapdragon.games`.
+`snapdragon-{user,mod,admin}-bff-api` · cross-realm sync `snapdragon-actions`.
 
 ---
 

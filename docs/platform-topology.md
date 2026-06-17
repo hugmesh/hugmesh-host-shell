@@ -1,13 +1,12 @@
-# Games-Stack Adoption
+# Platform Topology — where this host sits
 
-snapdragon.systems ships as part of the same multi-tier topology
-as snapdragon.games: a platform gateway in front, Casdoor as the OAuth2
-issuer, Cassandra for the gateway's revocation + URL-registry cache,
-and the Angular **native-federation host shell** (this repo) as the
-user-facing front door served behind the gateway. As of `main` this repo
-is itself a federation **host** mounting nine remotes (see the
-[README](../README.md)), the same shape as snapdragon.games — it is no
-longer a monolithic single-page app.
+snapdragon.systems ships as part of the platform's multi-tier topology:
+a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
+gateway's revocation + URL-registry cache, and the Angular **native-federation
+host shell** (this repo) as the user-facing front door served behind the
+gateway. As of `main` this repo is itself a federation **host** mounting nine
+remotes (see the [README](../README.md)) — it is no longer a monolithic
+single-page app.
 
 ## Topology
 
@@ -36,23 +35,22 @@ flowchart TB
 > per-service `/bff/{wiki,tube,owncast}/**`) and the public federation API
 > (`/api/federation/{manifest,capabilities}`).
 
-## Differences from snapdragon.games
+## This instance's identifiers
 
-| Concern | snapdragon.games | snapdragon.systems |
-|---|---|---|
-| Gateway instance name | `snapdragon-games-gateway` | `snapdragon-id-gateway` |
-| Cassandra keyspace | `threewizards` | `snapdragon_systems_gateway` |
-| Casdoor organization | `threewizards` | `snapdragon-systems` |
-| Frontend stack | Angular host + federated remotes | Angular native-federation host + 9 remotes (this repo) |
-| Identity-layer responsibility | self-hosted player/mod/publisher | domain-scoped `superadmin > admin > mod > user` cascade |
+| Concern | Value |
+|---|---|
+| Gateway instance name | `snapdragon-id-gateway` |
+| Cassandra keyspace | `snapdragon_systems_gateway` |
+| Casdoor organization | `snapdragon-systems` |
+| Frontend stack | Angular native-federation host + 9 remotes (this repo) |
+| Identity-layer responsibility | domain-scoped `superadmin > admin > mod > user` cascade |
 
-Same patterns, same Cassandra cache shape, same Casdoor authority
-converter. A JWT issued by either Casdoor instance is recognised
+A JWT issued by any of the platform's Casdoor instances is recognised
 consistently across the platform because the
 `casdoorAuthoritiesConverter()` code is identical in
-[snapdragon-gateway](https://github.com/Snapdragon-Systems/snapdragon-gateway/),
-[snapdragon-id-gateway](https://github.com/Snapdragon-Systems/snapdragon-id-gateway/),
-and the snapdragon.games BFF.
+[snapdragon-gateway](https://github.com/Snapdragon-Systems/snapdragon-gateway/)
+and
+[snapdragon-id-gateway](https://github.com/Snapdragon-Systems/snapdragon-id-gateway/).
 
 ## Role model
 
@@ -64,18 +62,22 @@ roles (`isSuperadmin`/`isAdmin`/`isMod` + the baseline user; `role()` precedence
 `admin > mod > user` drives the role-home redirect), plus per-service sub-roles
 like `ROLE_WIKI`/`ROLE_TUBE`/`ROLE_OWNCAST`.
 
-The games studio is a separate optional surface: games default to a
-`games.<domain>` subdomain and instance creation is **superadmin-gated** via the
-games app-store control plane (see the platform roadmap).
+### Cross-stack role-join: `game-master → games admin` (optional games service)
 
-> ⚠ **Legacy / historical.** Earlier revisions of this doc described a
-> platform-wide `game-master` role propagated by
-> [snapdragon-actions](https://github.com/Snapdragon-Systems/snapdragon-actions/)
-> (a 60 s Casdoor poll) into `admin` on snapdragon.games. **`game-master` is not a
-> role this host recognises** — no guard or `SessionService` flag references it.
-> This section is retained as historical design only; verify against
-> `snapdragon-actions` before treating any `game-master → admin` propagation as
-> current behaviour.
+The games studio is a **separate, optional, opt-in** service — **off by default**
+in the build, enabled with `--enable-games` / `ENABLE_GAMES=true` (generator
+PR #112), and the `games.<domain>` subdomain is only baked when games is enabled.
+It is not part of the default build.
+
+When games **is** enabled, a domain `admin`/`superadmin` who additionally holds the
+platform `game-master` role is propagated into the games realm as a games **admin**
+by the [snapdragon-actions](https://github.com/Snapdragon-Systems/snapdragon-actions/)
+`GameMasterAdminSyncAction` — a cross-stack reconciler (a ~60 s Casdoor poll) that
+keeps the games realm's admin set in sync with the platform `game-master` holders.
+This propagation is **role-gated** (only `game-master` holders are eligible) and is
+entirely contingent on the optional games service being deployed; `game-master` is
+not a role this host shell itself guards on (no `SessionService` flag references it)
+— it is consumed by the games stack via the reconciler.
 
 ## Running locally
 
@@ -96,11 +98,11 @@ The gateway's edge nginx (or a managed LB upstream) holds the public
 edge cert from a publicly-trusted CA. The internal cert hierarchy
 between services is chained from the snapdragon.systems root CA —
 see
-[snapdragon-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/Snapdragon-Systems/snapdragon-gateway/blob/feature/snapdragon-games-gateway-alignment/docs/decisions/001-cert-chain-hierarchy.md).
+[snapdragon-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/Snapdragon-Systems/snapdragon-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
 
 snapdragon.systems is the canonical root: the cert chain script in
 the gateway repo (`scripts/pki/build-chained-cert.sh`) takes this
-root + key and emits a snapdragon-games intermediate signed by it.
+root + key and emits the per-service intermediates signed by it.
 
 ## History: migration from the single-container topology (completed)
 
