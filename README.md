@@ -6,7 +6,10 @@ chrome (header / menu / footer / background, the accessible skip-link and the
 shared profile modal), the authgate, the universal navigation, and the
 role-home routing. It **exposes nothing** of its own feature surface — every
 page under it is a separate repo loaded at runtime as a **native-federation
-remote** (login, user, mod, admin, api-docs, matrix, mastodon).
+remote**. ✅ On `main` it mounts **nine** remotes via the data-driven
+`REMOTE_ROUTES` table: login, user, mod, admin, api-docs, matrix, mastodon, plus
+the **optional** services wiki, tube and owncast (tube/owncast are default-off and
+GPU-gated; all three grey out via federation install-state when absent).
 
 In the platform's two service tiers this sits in the **architecture tier**
 (core, always present) alongside the gateways, Casdoor + PKI, and the
@@ -29,10 +32,23 @@ remotes.
   RxJS singletons, `strictVersion`, the RxJS skip list) lives in
   `federation-base.js` so the host and remotes can't drift into a
   "shared is not a function" runtime break.
-- **Boot order:** `src/main.ts` runs `initFederation('assets/federation.manifest.json')`
-  to resolve every remote's `remoteEntry.json` **before** Angular bootstraps in
-  `src/bootstrap.ts`. Routing is **path-based** (no hash) so the host's paths
-  line up with the fe-gateway prefixes and each remote's nginx.
+- **Boot order:** ✅ `src/main.ts` resolves the federation source **dynamic-first
+  with a static floor** before Angular bootstraps in `src/bootstrap.ts`.
+  `resolveFederationSource()` (`src/app/federation/federation-bootstrap.ts`) first
+  fetches the DB-driven manifest `GET /api/federation/manifest` (federation-api,
+  the `federation_modules` table) — attaching `Authorization: Bearer <bffToken>`
+  when a `snap.session` is persisted (so an authenticated reload gets its
+  domain/visibility-scoped overlay) and always sending `credentials: 'include'`.
+  On success it returns the **union** of the bundled static manifest (the
+  build-time floor — every baked remote) and the dynamic overlay (overrides
+  matching slugs, adds new ones), so a successful read is never strictly worse than
+  the static build. On **any** failure — the `401` an anonymous pre-login caller
+  gets from the `authenticated()` endpoint, or network/5xx/parse/empty — it falls
+  back to the **bundled static manifest** (`src/assets/federation.manifest{,.prod}.json`)
+  so the shell always boots. The resolved value is fed to `initFederation(...)`,
+  which maps each remote name → `remoteEntry.json` before bootstrap. Routing is
+  **path-based** (no hash) so the host's paths line up with the fe-gateway
+  prefixes and each remote's nginx.
 
 The host keeps the original static marketing pages (`/home`, `/about`) as
 public, unguarded routes; everything else is federated and gated.
@@ -41,14 +57,25 @@ public, unguarded routes; everything else is federated and gated.
 
 ## Where it sits — gateway, Casdoor, federation, multi-tenancy
 
+```mermaid
+flowchart LR
+  browser["browser"] --> ingress["ingress (TLS)"]
+  ingress --> fe["fe-gateway"]
+  fe --> host["snapdragon.systems<br/>(this host)"]
+  host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
+  host -.->|"loadRemoteModule(...) — optional"| opt["wiki · tube · owncast<br/>(default-off / GPU-gated)"]
+  fe --> be["be-gateway"]
+  be --> bff["role BFFs (/bff/*)"]
+  bff --> svc["Casdoor / services"]
+
+  classDef planned stroke-dasharray:4
+  class opt planned
 ```
-browser ──▶ ingress (TLS) ──▶ fe-gateway ──▶ snapdragon.systems (this host)
-                                   │                  │  loadRemoteModule(...)
-                                   │                  ▼
-                                   │           login · user · mod · admin
-                                   │           api-docs · matrix · mastodon  (remotes)
-                                   └──▶ be-gateway ──▶ role BFFs (/bff/*) ──▶ Casdoor / services
-```
+
+The seven core remotes (login/user/mod/admin/api-docs/matrix/mastodon) are always
+mounted; the three optional remotes (wiki/tube/owncast, dashed) are mounted but
+**greyed-out via federation install-state** when the service is not deployed —
+see *Capabilities / graceful degrade* below.
 
 - **Gateways:** the host is the fe-gateway `/**` catch-all upstream. Its in-app
   paths (`/login`, `/social/matrix`, `/social/mastodon`, `/admin`, `/mod`,
@@ -63,10 +90,21 @@ browser ──▶ ingress (TLS) ──▶ fe-gateway ──▶ snapdragon.system
   host and each remote each hold their own `SessionService` over the same
   storage key and stay in sync via a same-document `snap-session-change`
   broadcast and cross-tab `storage` events (so the login remote finishing
-  registration immediately unlocks the host's social nav).
-- **Federation:** routes are loaded from remotes via `loadRemoteModule` —
+  registration immediately unlocks the host's social nav). ✅ For its typed
+  calls the host wires `provideHttpClient` + a single
+  `bearerInterceptor` (`src/app/http/bearer.interceptor.ts`): it sets
+  `withCredentials: true` **always** and attaches `Authorization: Bearer
+  <bffToken>` **opportunistically** — only when the session holds one and the
+  request doesn't already set an `Authorization` header (never clobbering an
+  explicit header, never sending an empty Bearer for an anonymous caller). This
+  is the host's single Bearer/credentials seam; the legacy raw-fetch
+  announcements service keeps its own `credentials: 'include'`. (Bearer tokens
+  living in `localStorage` is a platform-wide security backlog item.)
+- **Federation:** ✅ routes are loaded from remotes via `loadRemoteModule` —
   see `REMOTE_ROUTES` in `src/app/app.routes.ts`, the single declarative table
   of `path → remote name → exposed module → exported routes constant → guard`.
+  The role-home remotes expose `./routes`; the wiki/tube/owncast remotes expose
+  `./Wiki` / `./Tube` / `./Owncast` respectively.
 - **Multi-tenancy:** this repo is brand-agnostic. Per-brand instances are
   provisioned from a handlebars-rendered repo (ArgoCD-reconciled), each pointed
   at its own gateway / Casdoor issuer / remote manifest. Domain scoping is
@@ -90,6 +128,9 @@ loadRemoteModule(remote, './routes')`:
 | `/admin/docs` | `apidocs` (`snapdragon-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
 | `/social/matrix` | `matrix` (`snapdragon-matrix-ui`) | `registeredGuard` | requires full registration |
 | `/social/mastodon` | `mastodon` (`snapdragon-mastodon-ui`) | `registeredGuard` | requires full registration |
+| `/wiki` | `wiki` (`snapdragon-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
+| `/tube` | `tube` (`snapdragon-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
+| `/owncast` | `owncast` (`snapdragon-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
 
 Guards live in `src/app/guards/` and read `SessionService`:
 
@@ -103,6 +144,18 @@ Guards live in `src/app/guards/` and read `SessionService`:
   this only blocks anonymous visitors.
 - **`registeredGuard`** — Matrix/Mastodon are usable only after the login
   remote mints the per-service tokens (`registrationComplete === true`).
+- **`wikiGuard`** — admits `admin`/`superadmin`, or a `mod` who also holds the
+  per-service `ROLE_WIKI`; everyone else is bounced to `/login`. The wiki
+  remote's own child guards then enforce the per-view `WIKI_READ`/`WRITE`/`MANAGE`
+  boundary, and the BFF (`/bff/wiki/**` → `ROLE_WIKI`) is the real authorization.
+- **`tubeGuard`** — admits `admin`/`superadmin`, or any identity holding
+  `ROLE_TUBE` (a plain user with `ROLE_TUBE` can connect Google and browse their
+  downloads). Backed by `/bff/tube/**` → `ROLE_TUBE` (admin routes
+  `ADMIN`/`SUPERADMIN`).
+- **`owncastGuard`** — admits `admin`/`superadmin`, or any identity holding
+  `ROLE_OWNCAST` (a streamer reaches their own console; a `mod` with `ROLE_OWNCAST`
+  reaches the moderation view). Backed by `/bff/owncast/**` → `ROLE_OWNCAST`
+  (admin routes `ADMIN`/`SUPERADMIN`).
 
 The **menu** (`src/app/menu/menu.component.ts`) mirrors these gates in the
 chrome: a universal `Home | Mastodon | Matrix` menubar (Mastodon/Matrix
@@ -130,6 +183,30 @@ cross-cutting surface:
   inside a **sandboxed null-origin `srcdoc` iframe** (no `allow-scripts`, no
   `allow-same-origin`) as a second line of defence — never via raw `innerHTML`.
   The banner is a labelled `aria-live="polite"` region.
+- **Capabilities / graceful degrade** ✅ — `CapabilitiesService`
+  (`src/app/capabilities/`) reads the **public** install-state endpoint
+  `GET /api/federation/capabilities` (works anonymously; an unknown/failed read
+  reports "nothing installed" rather than a dead link). The single predicate
+  `installed(slug)` is consumed by the menu and the home-services cards so that
+  absent/disabled **optional** services (matrix/mastodon/forum/games/tube/owncast/
+  wiki) are **greyed-out with explain-why helptext**, never silently hidden.
+- **Home-services launcher** ✅ (`src/app/home-services/`) — a data-driven,
+  role + install-state-gated launcher-card grid mounted on the home page
+  (`<div home-services>`). The `CARD_CATALOG` covers the optional services
+  matrix/mastodon/forum/games (slug-gated) plus the core role-homes admin/mod
+  (role-gated). Each card carries one of four `CardState` kinds, each with
+  accessible helptext: `enabled` (a real link), `absent` (optional service not
+  installed on this deployment), `role` (a role-gated card the principal lacks —
+  "sign in as …"), and `registration` (an installed social service not yet fully
+  registered — "complete your registration").
+- **Account-status appeal-gate** ✅ (`src/app/account-status/`) — the
+  `StatusGateComponent` (mounted in `app.component.html`) reads `GET /bff/me`
+  via `AccountStatusService` and renders an assertive `role="alert"` banner
+  **only** when the caller's own status is `suspended`/`banned` (it **fails open**
+  to active on any error). The banner links to the appeal page
+  (`APPEAL_ROUTE = '/login/appeal'`). 🚧 NOTE: the login-ui `/login/appeal`
+  child route is still a deferred TODO on the login remote, so today the link
+  resolves to the login surface rather than a dedicated appeal page.
 - **Accessibility baseline** — a skip-link that moves focus (not just scroll)
   to `#maincontent` per WCAG 2.4.1, the WAI-ARIA menubar roving-tabindex
   pattern, and the modal dialog contract above.
@@ -170,15 +247,20 @@ cross-cutting surface:
 
 ```
 src/app/
-  app.routes.ts            REMOTE_ROUTES table + authgate/role-home + federationLoader
-  session.service.ts       snap.session reader; role precedence + registration gate
-  guards/                  roleHome · admin · mod · user · registration (authgate + role-gates)
+  app.routes.ts            REMOTE_ROUTES table (9 remotes) + authgate/role-home + federationLoader
+  session.service.ts       snap.session reader; role precedence (superadmin>admin>mod>user) + registration gate
+  guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
+  federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
+  http/bearer.interceptor.ts          withCredentials always + opportunistic Bearer (host HttpClient seam)
+  capabilities/            CapabilitiesService — public /api/federation/capabilities install-state (grey-out)
+  home-services/           data-driven launcher-card catalog (CardState: enabled/absent/role/registration)
+  account-status/          StatusGateComponent — /bff/me suspended/banned appeal-gate banner (fail-open)
   menu/                    universal nav + role-gated profile dropdown (a11y menubar)
   profile-modal/           host modal mounting the user remote's ./profile editor
   announcements/           /bff/announcements/home banner (sandboxed srcdoc, dismiss-once)
   header/ footer/ background/ home/ about/   chrome + public marketing pages
-src/main.ts                initFederation(manifest) → ./bootstrap
-src/assets/federation.manifest{,.prod}.json  remote name → remoteEntry URL (dev ports / gateway paths)
+src/main.ts                resolveFederationSource() → initFederation(source) → ./bootstrap
+src/assets/federation.manifest{,.prod}.json  static FLOOR + fallback (remote name → remoteEntry URL)
 federation.config.js + federation-base.js    host federation config (consumer; shared-deps surface)
 ```
 
@@ -187,5 +269,40 @@ federation.config.js + federation-base.js    host federation config (consumer; s
 Gateways `snapdragon-gateway` / `snapdragon-id-gateway` · identity **Casdoor** ·
 federation `snapdragon-federation-api` + `snapdragon-remote-fragment` · the
 remotes `snapdragon-{login,user,mod,admin}-ui`, `snapdragon-{matrix,mastodon}-ui`,
-`snapdragon-api-docs` · role BFFs `snapdragon-{user,mod,admin}-bff-api` ·
-cross-realm sync `snapdragon-actions` · games stack `snapdragon.games`.
+`snapdragon-{wiki,tube,owncast}-ui`, `snapdragon-api-docs` · role BFFs
+`snapdragon-{user,mod,admin}-bff-api` · cross-realm sync `snapdragon-actions` ·
+games stack `snapdragon.games`.
+
+---
+
+## Roadmap (planned / in-flight — NOT yet shipped)
+
+These items are designed or in-flight at the platform level and would surface
+through this host shell when they land. They are **not** in the code on `main`
+today.
+
+- 🔭 **Casdoor MFA (design-done, 9-PR plan).** WebAuthn + TOTP + recovery with
+  `amr`/`acr` → `MFA_SATISFIED` and `gateway_route_access.mfa_required`
+  (fail-closed) + BFF-driven step-up. This host would gain a future BFF-driven MFA
+  challenge surface and step-up prompts for sudo / SSH-via-UI / superadmin ops.
+  **No MFA challenge flow exists in the host today.**
+- 🚧 **Notifications — external channels (in-flight).** Matrix DM / Akkoma feed /
+  phpBB / email adapters on top of the shipped in-app MVP. The host currently
+  renders only the announcements banner; external-channel prefs/silencing are
+  future.
+- 🚧 **Workload Console (in-flight).** A podman/OpenShift-like
+  pod-management + live-log + exec federated admin-ui module that would appear as a
+  future remote/route resolved through this host's dynamic manifest. **Not in
+  `REMOTE_ROUTES` today.**
+- 🔭 **Desktop app governance (design + queued).** Admin-curated Plasma Discover
+  store + user install-requests + in-UI SSH terminal; any host-side launcher entry
+  is future.
+- 🚧 **Superadmin app-store — TAILNET-ONLY federated remotes.** The data layer is
+  on `main` (in the admin-bff); the infra legs are in-flight. Future app-store
+  remotes would be registered in the federation registry and resolved by this
+  host's **dynamic manifest TAILNET-ONLY** (off the public UI). The dynamic-manifest
+  mechanism is the shipped delivery path; the app-store remotes themselves are
+  roadmap.
+- 🚧 **Login appeal page.** The account-status appeal-gate already links to
+  `/login/appeal`, but the login-ui appeal child route is still a deferred TODO on
+  the login remote (so the link resolves to the login surface today).
