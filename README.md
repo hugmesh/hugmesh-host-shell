@@ -19,6 +19,58 @@ remotes.
 
 ---
 
+## Current State
+
+✅ Shipped on `main` today:
+
+- **Nine remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven core
+  (login/user/mod/admin/api-docs/matrix/mastodon) always present, three optional
+  (wiki/tube/owncast) that grey out via federation install-state when the service
+  is absent.
+- **Dynamic-first federation** — `resolveFederationSource()` reads the DB-driven
+  manifest `GET /api/federation/manifest` and unions it over the bundled static
+  floor, falling back to the static manifest on any failure so the shell always
+  boots (PR #78).
+- **Authgate + role-home routing + universal nav + profile modal**, plus the
+  **home announcements banner** (sandboxed `srcdoc` iframe, dismiss-once),
+  **capabilities / graceful-degrade** install-state grey-out, the **home-services
+  launcher**, and the **account-status appeal-gate** banner.
+- A single `bearerInterceptor` Bearer/credentials seam and an accessibility
+  baseline (skip-link, ARIA menubar, modal-dialog contract).
+
+**Auth model (current).** The browser never holds a Casdoor JWT. login-ui runs a
+Casdoor OIDC **authorization-code (PKCE)** redirect; **user-bff** performs the
+server-side code→token exchange and holds per-session JWT custody + refresh. The
+browser holds only an **opaque `bff_`-prefixed session** (in `localStorage` or an
+httpOnly cookie). The gateway is a **pure Casdoor-JWT OAuth2 resource server**: a
+pre-security exchange filter swaps the `bff_` reference → the internal custody JWT
+so the gateway's JWT validation + role gate run unchanged. Authorization is
+data-driven by the **`gateway_route_access` Postgres table** (source of truth) via
+`GatewayRouteAccessFilter` — `ADMIN`/`GAME-MASTER` bypass within their own domain,
+`SUPERADMIN` cross-domain. Login / session / account logic is being **relocated
+from admin-bff to user-bff**, with the shared account/session/MFA/Casdoor-admin
+infra extracted into the new **snapdragon-auth-core** artifact; account/session
+**data** stays in admin-bff-db (user-bff reaches it via admin-bff `/bff/internal`
+over mTLS + `X-Internal-Token`). Cloudflare fronts prod.
+
+From this host's point of view that means: the persisted session it reads is an
+opaque `bff_` reference (it must **not** be treated as, or decoded as, a JWT), and
+the Bearer it attaches via `bearerInterceptor` is that opaque `bff_` value which
+the gateway swaps server-side. (Bearer tokens living in `localStorage` remains a
+platform-wide security backlog item; the httpOnly-cookie custody path is the
+preferred end state.)
+
+**Ecosystem baseline.** The Java services this host talks to (gateways, federation
+API, role BFFs) run **Spring Boot 4.0.2 / Spring Cloud 2025.1** on the shared
+Maven artifacts `snapdragon-parent` (metapom 2.0.0), `snapdragon-commons` (2.0.0)
+and `snapdragon-auth-core` (2.0.0, consumed by user-bff + admin-bff). Spring Cloud
+Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
+(the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
+gateways + generator route templates were corrected, so the prod federation
+manifest's gateway-served remote paths bind as intended.
+
+---
+
 ## What it is
 
 - **Stack:** Angular 22 standalone components + signals, `@angular-architects/native-federation`
@@ -37,18 +89,18 @@ remotes.
   `resolveFederationSource()` (`src/app/federation/federation-bootstrap.ts`) first
   fetches the DB-driven manifest `GET /api/federation/manifest` (federation-api,
   the `federation_modules` table) — attaching `Authorization: Bearer <bffToken>`
-  when a `snap.session` is persisted (so an authenticated reload gets its
-  domain/visibility-scoped overlay) and always sending `credentials: 'include'`.
-  On success it returns the **union** of the bundled static manifest (the
-  build-time floor — every baked remote) and the dynamic overlay (overrides
-  matching slugs, adds new ones), so a successful read is never strictly worse than
-  the static build. On **any** failure — the `401` an anonymous pre-login caller
-  gets from the `authenticated()` endpoint, or network/5xx/parse/empty — it falls
-  back to the **bundled static manifest** (`src/assets/federation.manifest{,.prod}.json`)
-  so the shell always boots. The resolved value is fed to `initFederation(...)`,
-  which maps each remote name → `remoteEntry.json` before bootstrap. Routing is
-  **path-based** (no hash) so the host's paths line up with the fe-gateway
-  prefixes and each remote's nginx.
+  (the opaque `bff_` session value) when a `snap.session` is persisted (so an
+  authenticated reload gets its domain/visibility-scoped overlay) and always
+  sending `credentials: 'include'`. On success it returns the **union** of the
+  bundled static manifest (the build-time floor — every baked remote) and the
+  dynamic overlay (overrides matching slugs, adds new ones), so a successful read
+  is never strictly worse than the static build. On **any** failure — the `401` an
+  anonymous pre-login caller gets from the `authenticated()` endpoint, or
+  network/5xx/parse/empty — it falls back to the **bundled static manifest**
+  (`src/assets/federation.manifest{,.prod}.json`) so the shell always boots. The
+  resolved value is fed to `initFederation(...)`, which maps each remote name →
+  `remoteEntry.json` before bootstrap. Routing is **path-based** (no hash) so the
+  host's paths line up with the fe-gateway prefixes and each remote's nginx.
 
 The host keeps the original static marketing pages (`/home`, `/about`) as
 public, unguarded routes; everything else is federated and gated.
@@ -59,13 +111,15 @@ public, unguarded routes; everything else is federated and gated.
 
 ```mermaid
 flowchart LR
-  browser["browser"] --> ingress["ingress (TLS)"]
+  browser["browser (opaque bff_ session only)"] --> ingress["Cloudflare / ingress (TLS)"]
   ingress --> fe["fe-gateway"]
   fe --> host["snapdragon.systems<br/>(this host)"]
   host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
   host -.->|"loadRemoteModule(...) — optional"| opt["wiki · tube · owncast<br/>(default-off / GPU-gated)"]
-  fe --> be["be-gateway"]
+  fe --> be["be-gateway (bff_ → JWT swap + gateway_route_access)"]
+  be --> ubff["user-bff (Casdoor OIDC token custody/refresh)"]
   be --> bff["role BFFs (/bff/*)"]
+  ubff -.->|"/bff/internal mTLS + X-Internal-Token"| abff["admin-bff-db (account/session data)"]
   bff --> svc["Casdoor / services"]
 
   classDef planned stroke-dasharray:4
@@ -81,25 +135,33 @@ see *Capabilities / graceful degrade* below.
   paths (`/login`, `/social/matrix`, `/social/mastodon`, `/admin`, `/mod`,
   `/user`, `/admin/docs`) mirror the gateway path prefixes, and the **prod**
   federation manifest (`federation.manifest.prod.json`) points each remote at
-  those same gateway-served paths (`/login/remoteEntry.json`, …).
-- **Casdoor / session:** the host does **not** speak OAuth itself. The login
-  remote completes the Casdoor flow and writes the canonical `snap.session`
-  object to `localStorage`; `SessionService` (`src/app/session.service.ts`)
-  reads it. That session carries the Casdoor `roles` plus the per-service
-  tokens (`bffToken`, `matrix`, `mastodon`) and `registrationComplete`. The
-  host and each remote each hold their own `SessionService` over the same
+  those same gateway-served paths (`/login/remoteEntry.json`, …). The be-gateway
+  is a pure Casdoor-JWT resource server: a pre-security filter swaps the opaque
+  `bff_` session reference → the internal custody JWT, and `GatewayRouteAccessFilter`
+  enforces the data-driven `gateway_route_access` table.
+- **Casdoor / session:** the host does **not** speak OAuth itself, and **never
+  holds a Casdoor JWT**. The login remote starts the Casdoor OIDC
+  authorization-code (PKCE) redirect; **user-bff** does the server-side
+  code→token exchange and owns per-session JWT custody/refresh. What lands in the
+  browser is the canonical `snap.session` object carrying an **opaque
+  `bff_`-prefixed** session reference plus the per-service handles
+  (`bffToken` = that opaque reference, `matrix`, `mastodon`) and
+  `registrationComplete`; `SessionService` (`src/app/session.service.ts`) reads
+  it. The host and each remote each hold their own `SessionService` over the same
   storage key and stay in sync via a same-document `snap-session-change`
   broadcast and cross-tab `storage` events (so the login remote finishing
   registration immediately unlocks the host's social nav). ✅ For its typed
   calls the host wires `provideHttpClient` + a single
   `bearerInterceptor` (`src/app/http/bearer.interceptor.ts`): it sets
   `withCredentials: true` **always** and attaches `Authorization: Bearer
-  <bffToken>` **opportunistically** — only when the session holds one and the
-  request doesn't already set an `Authorization` header (never clobbering an
-  explicit header, never sending an empty Bearer for an anonymous caller). This
-  is the host's single Bearer/credentials seam; the legacy raw-fetch
-  announcements service keeps its own `credentials: 'include'`. (Bearer tokens
-  living in `localStorage` is a platform-wide security backlog item.)
+  <bffToken>` (the opaque `bff_` value, swapped to the custody JWT at the gateway)
+  **opportunistically** — only when the session holds one and the request doesn't
+  already set an `Authorization` header (never clobbering an explicit header,
+  never sending an empty Bearer for an anonymous caller). This is the host's
+  single Bearer/credentials seam; the legacy raw-fetch announcements service keeps
+  its own `credentials: 'include'`. (Bearer tokens living in `localStorage` is a
+  platform-wide security backlog item; httpOnly-cookie custody is the preferred
+  end state.)
 - **Federation:** ✅ routes are loaded from remotes via `loadRemoteModule` —
   see `REMOTE_ROUTES` in `src/app/app.routes.ts`, the single declarative table
   of `path → remote name → exposed module → exported routes constant → guard`.
@@ -121,7 +183,7 @@ loadRemoteModule(remote, './routes')`:
 
 | Path | Remote | Guard | Gate |
 |---|---|---|---|
-| `/login` | `login` (`snapdragon-login-ui`) | — | public (the Casdoor login + registration flow) |
+| `/login` | `login` (`snapdragon-login-ui`) | — | public (the Casdoor OIDC PKCE login + registration flow) |
 | `/user` | `user` (`snapdragon-user-ui`) | `userGuard` | any authenticated identity (the USER role-home; also exposes `./profile`) |
 | `/mod` | `mod` (`snapdragon-mod-ui`) | `modGuard` | Casdoor `mod` role |
 | `/admin` | `admin` (`snapdragon-admin-ui`) | `adminGuard` | Casdoor `admin` role |
@@ -157,6 +219,10 @@ Guards live in `src/app/guards/` and read `SessionService`:
   reaches the moderation view). Backed by `/bff/owncast/**` → `ROLE_OWNCAST`
   (admin routes `ADMIN`/`SUPERADMIN`).
 
+Client-side guards are UX only; the gateway's `gateway_route_access` table +
+`GatewayRouteAccessFilter` and each BFF's role checks are the real authorization
+boundary.
+
 The **menu** (`src/app/menu/menu.component.ts`) mirrors these gates in the
 chrome: a universal `Home | Mastodon | Matrix` menubar (Mastodon/Matrix
 visible-but-disabled until fully registered) plus a profile dropdown whose
@@ -177,12 +243,12 @@ cross-cutting surface:
 - **Home announcements banner** (`src/app/announcements/`) — the logged-in home
   top banner. `AnnouncementsService` GETs the same-origin admin-bff endpoint
   **`/bff/announcements/home`** (routed `/bff/*` → BFF by the id-gateway, with
-  the session cookie/JWT), renders only active, home-targeted announcements in
-  server-supplied priority order, and supports **dismiss-once** (persisted to
-  `localStorage`). Each announcement's server-sanitized `body_html` is rendered
-  inside a **sandboxed null-origin `srcdoc` iframe** (no `allow-scripts`, no
-  `allow-same-origin`) as a second line of defence — never via raw `innerHTML`.
-  The banner is a labelled `aria-live="polite"` region.
+  the opaque `bff_` session cookie/Bearer), renders only active, home-targeted
+  announcements in server-supplied priority order, and supports **dismiss-once**
+  (persisted to `localStorage`). Each announcement's server-sanitized `body_html`
+  is rendered inside a **sandboxed null-origin `srcdoc` iframe** (no
+  `allow-scripts`, no `allow-same-origin`) as a second line of defence — never
+  via raw `innerHTML`. The banner is a labelled `aria-live="polite"` region.
 - **Capabilities / graceful degrade** ✅ — `CapabilitiesService`
   (`src/app/capabilities/`) reads the **public** install-state endpoint
   `GET /api/federation/capabilities` (works anonymously; an unknown/failed read
@@ -219,11 +285,12 @@ cross-cutting surface:
   (`federation.manifest.json`) points each remote at a `localhost:420x` port;
   run the remotes you need alongside the host.
 - **Full stack:** `docker compose up -d` brings up the
-  **snapdragon-id-gateway** (Spring Cloud Gateway, OAuth2 login client + JWT
-  resource server) in front of this frontend, plus **Casdoor** (issuer) and a
-  **Cassandra** keyspace (`snapdragon_systems_gateway`) for the gateway's
-  revocation list / URL registry / resource-access cache. The frontend is not
-  exposed directly — the gateway is the public entry point. See
+  **snapdragon-id-gateway** (Spring Cloud Gateway 5 — Casdoor-JWT OAuth2
+  resource server with the `bff_` → custody-JWT pre-security swap and the
+  `gateway_route_access` route gate) in front of this frontend, plus **Casdoor**
+  (issuer) and the gateway's backing store for its revocation / URL-registry /
+  resource-access state. The frontend is not exposed directly — the gateway is
+  the public entry point. See
   [`docs/platform-topology.md`](docs/platform-topology.md).
 - **Container:** multi-stage `Dockerfile` builds the prod bundle and serves it
   from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback.
@@ -231,7 +298,7 @@ cross-cutting surface:
   in-cluster GitLab, which builds + pushes this service's image to the
   in-cluster registry on push of the default branch / a tag. **No keys ship in
   the image** — key material is supplied from the operator key-USB at first
-  boot. (GitHub Actions are intentionally not used.)
+  boot. **GitHub Actions are intentionally not used anywhere in the platform.**
 
 | Script | What |
 |---|---|
@@ -248,7 +315,7 @@ cross-cutting surface:
 ```
 src/app/
   app.routes.ts            REMOTE_ROUTES table (9 remotes) + authgate/role-home + federationLoader
-  session.service.ts       snap.session reader; role precedence (superadmin>admin>mod>user) + registration gate
+  session.service.ts       snap.session reader (opaque bff_ session); role precedence (superadmin>admin>mod>user) + registration gate
   guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
   http/bearer.interceptor.ts          withCredentials always + opportunistic Bearer (host HttpClient seam)
@@ -266,11 +333,17 @@ federation.config.js + federation-base.js    host federation config (consumer; s
 
 ## Related repos
 
-Gateways `snapdragon-gateway` / `snapdragon-id-gateway` · identity **Casdoor** ·
+Gateways `snapdragon-gateway` / `snapdragon-id-gateway` (Casdoor-JWT resource
+servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** ·
 federation `snapdragon-federation-api` + `snapdragon-remote-fragment` · the
 remotes `snapdragon-{login,user,mod,admin}-ui`, `snapdragon-{matrix,mastodon}-ui`,
 `snapdragon-{wiki,tube,owncast}-ui`, `snapdragon-api-docs` · role BFFs
-`snapdragon-{user,mod,admin}-bff-api` · cross-realm sync `snapdragon-actions`.
+`snapdragon-{user,mod,admin}-bff-api` (**user-bff** owns the Casdoor OIDC
+code→token exchange + per-session JWT custody/refresh; login/session/account
+logic is being relocated admin-bff → user-bff) · shared Maven artifacts
+`snapdragon-parent` (metapom), `snapdragon-commons`, **`snapdragon-auth-core`**
+(shared account/session/MFA/Casdoor-admin infra) · cross-realm sync
+`snapdragon-actions`.
 
 ---
 
@@ -280,28 +353,43 @@ These items are designed or in-flight at the platform level and would surface
 through this host shell when they land. They are **not** in the code on `main`
 today.
 
+- 🚧 **SSO end-to-end live + e2e (in progress).** The Casdoor OIDC PKCE →
+  user-bff token-custody → opaque `bff_` session → gateway `bff_`→JWT-swap flow
+  is the canonical model; wiring it live end-to-end (incl. an e2e suite that
+  exercises a real SSO login through this host) is in progress.
 - 🔭 **Casdoor MFA (design-done, 9-PR plan).** WebAuthn + TOTP + recovery with
-  `amr`/`acr` → `MFA_SATISFIED` and `gateway_route_access.mfa_required`
-  (fail-closed) + BFF-driven step-up. This host would gain a future BFF-driven MFA
-  challenge surface and step-up prompts for sudo / SSH-via-UI / superadmin ops.
-  **No MFA challenge flow exists in the host today.**
+  per-role defaults, `amr`/`acr` → `MFA_SATISFIED` and
+  `gateway_route_access.mfa_required` (fail-closed) + BFF-driven step-up. This
+  host would gain a future BFF-driven MFA challenge surface and step-up prompts
+  for sudo / SSH-via-UI / superadmin ops. **No MFA challenge flow exists in the
+  host today.**
 - 🚧 **Notifications — external channels (in-flight).** Matrix DM / Akkoma feed /
   phpBB / email adapters on top of the shipped in-app MVP. The host currently
   renders only the announcements banner; external-channel prefs/silencing are
   future.
 - 🚧 **Workload Console (in-flight).** A podman/OpenShift-like
-  pod-management + live-log + exec federated admin-ui module that would appear as a
-  future remote/route resolved through this host's dynamic manifest. **Not in
+  pod-management + live-log + exec federated admin-ui module that would appear as
+  a future remote/route resolved through this host's dynamic manifest. **Not in
   `REMOTE_ROUTES` today.**
-- 🔭 **Desktop app governance (design + queued).** Admin-curated Plasma Discover
-  store + user install-requests + in-UI SSH terminal; any host-side launcher entry
-  is future.
+- 🔭 **Desktop app governance (design + queued).** SSO-enforced sudo + admin-curated
+  Plasma Discover store + user install-requests + in-UI SSH terminal; any
+  host-side launcher entry is future.
+- 🔭 **Encrypted versioned backups (design + queued).** Per-domain + superadmin
+  Velero + kopia/restic backups with step-up-gated restore.
+- 🔭 **Egress VPN / per-node attached storage / device-license registry
+  (design + queued).** WireGuard/OpenVPN .conf drop-in egress; admin-attached
+  per-node storage; per-device SSH operate-licenses.
+- 🔭 **A/V via coturn / TURN.** Matrix/Owncast audio-video is currently LAN-only
+  (no TURN/SFU); a coturn relay optional-service is roadmap.
 - 🚧 **Superadmin app-store — TAILNET-ONLY federated remotes.** The data layer is
   on `main` (in the admin-bff); the infra legs are in-flight. Future app-store
   remotes would be registered in the federation registry and resolved by this
-  host's **dynamic manifest TAILNET-ONLY** (off the public UI). The dynamic-manifest
-  mechanism is the shipped delivery path; the app-store remotes themselves are
-  roadmap.
+  host's **dynamic manifest TAILNET-ONLY** (off the public UI). The
+  dynamic-manifest mechanism is the shipped delivery path; the app-store remotes
+  themselves are roadmap.
 - 🚧 **Login appeal page.** The account-status appeal-gate already links to
-  `/login/appeal`, but the login-ui appeal child route is still a deferred TODO on
-  the login remote (so the link resolves to the login surface today).
+  `/login/appeal`, but the login-ui appeal child route is still a deferred TODO
+  on the login remote (so the link resolves to the login surface today).
+- 🔭 **OWASP pen-test + nuclei in CI / binhost fleet auto-update.** CI-pipeline
+  security scanning and Gentoo binhost-driven fleet distribution are platform
+  roadmap.
