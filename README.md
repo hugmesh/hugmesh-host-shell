@@ -6,7 +6,7 @@ chrome (header / menu / footer / background, the accessible skip-link and the
 shared profile modal), the authgate, the universal navigation, and the
 role-home routing. It **exposes nothing** of its own feature surface — every
 page under it is a separate repo loaded at runtime as a **native-federation
-remote**. ✅ On `main` it mounts **nine** remotes via the data-driven
+remote**. ✅ On `main` it mounts **ten** remotes via the data-driven
 `REMOTE_ROUTES` table: login, user, mod, admin, api-docs, matrix, mastodon, plus
 the **optional** services wiki, tube and owncast (tube/owncast are default-off and
 GPU-gated; all three grey out via federation install-state when absent).
@@ -23,7 +23,7 @@ remotes.
 
 ✅ Shipped on `main` today:
 
-- **Nine remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven core
+- **Ten remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven core
   (login/user/mod/admin/api-docs/matrix/mastodon) always present, three optional
   (wiki/tube/owncast) that grey out via federation install-state when the service
   is absent.
@@ -67,9 +67,10 @@ platform-wide security backlog item; the httpOnly-cookie custody path is the
 preferred end state.)
 
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
-API, role BFFs) run **Spring Boot 4.0.2 / Spring Cloud 2025.1** on the shared
-Maven artifacts `snapdragon-parent` (metapom 2.0.0), `snapdragon-commons` (2.0.0)
-and `snapdragon-auth-core` (2.0.0, consumed by user-bff + admin-bff). Spring Cloud
+API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
+built on the shared Maven artifacts `snapdragon-parent` (metapom 2.7.0),
+`snapdragon-commons` (2.0.0) and `snapdragon-auth-core` (2.3.0, consumed by
+user-bff + admin-bff). Spring Cloud
 Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
 gateways + generator route templates were corrected, so the prod federation
@@ -276,9 +277,11 @@ cross-cutting surface:
   via `AccountStatusService` and renders an assertive `role="alert"` banner
   **only** when the caller's own status is `suspended`/`banned` (it **fails open**
   to active on any error). The banner links to the appeal page
-  (`APPEAL_ROUTE = '/login/appeal'`). 🚧 NOTE: the login-ui `/login/appeal`
-  child route is still a deferred TODO on the login remote, so today the link
-  resolves to the login surface rather than a dedicated appeal page.
+  (`APPEAL_ROUTE = '/login/appeal'`). 🚧 NOTE: the permitAll appeal-contact
+  resolver now **exists** as admin-bff `GET /bff/public/appeal-contact`, but the
+  login-ui `/login/appeal` child route + component is still a deferred TODO on the
+  login remote, so today the link resolves to the login surface rather than a
+  dedicated appeal page.
 - **Notification bell** ✅ (`src/app/bell/`) — the menu's account region shows a
   bell button (authenticated users only) with an unread-count badge.
   `BellNotificationsService` polls the same-origin BFF endpoint
@@ -330,7 +333,7 @@ cross-cutting surface:
 
 ```
 src/app/
-  app.routes.ts            REMOTE_ROUTES table (9 remotes) + authgate/role-home + federationLoader
+  app.routes.ts            REMOTE_ROUTES table (10 remotes) + authgate/role-home + federationLoader
   session.service.ts       snap.session reader (opaque bff_ session); role precedence (superadmin>admin>mod>user) + registration gate
   guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback

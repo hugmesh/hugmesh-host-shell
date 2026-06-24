@@ -4,7 +4,7 @@ snapdragon.systems ships as part of the platform's multi-tier topology:
 a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
 gateway's revocation + URL-registry cache, and the Angular **native-federation
 host shell** (this repo) as the user-facing front door served behind the
-gateway. As of `main` this repo is itself a federation **host** mounting nine
+gateway. As of `main` this repo is itself a federation **host** mounting ten
 remotes (see the [README](../README.md)) — it is no longer a monolithic
 single-page app.
 
@@ -113,27 +113,28 @@ login/OIDC endpoints; **snapdragon-gateway** owns the `BffJwtExchangeWebFilter` 
 the PUBLIC `/bff/auth/callback` route seed; **login-ui** owns the Casdoor
 authorization-code + PKCE redirect.
 
-### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-20)
+### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-24)
 
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 
-- ✅ **shipped:** auth-core extracted + published **2.0.0** (account/session/MFA +
-  the custody seams); admin-bff **adopted auth-core** (PR #111, behavior-preserving,
-  1517 tests green); admin-bff **`/bff/internal` account/session API** (PR #113,
-  ships inert behind `InternalTokenWebFilter`); the gateway is live with raw-API
-  security proven and the SCG-5 route-namespace bug fixed.
-- 🚧 **in-flight (open draft PRs, all dark):** auth-core **2.1.0** (`BffSession`
-  custody columns + `stampCustody`/`clearCustody`); gateway **PR-C**
-  (`BffJwtExchangeWebFilter`, `snapdragon.gateway.bff-exchange.enabled`); login-ui
-  **PR-4** (Casdoor OIDC + PKCE + `/login/callback`, `__SNAP_OIDC_ENABLED__`);
-  user-bff **PR-A3** (OIDC login relocation + admin-bff internal client,
-  `app.bff.oidc.enabled`).
-- 🔭 **planned / next:** admin-bff **custody tail** (Liquibase band-180
-  `bff_session` custody columns + `/bff/internal/sessions/{token}/custody/stamp` +
-  `/bff/internal/session/exchange`; bumps the auth-core dep to 2.1.0 in lockstep);
-  generator **#156** (`app-user-bff` Casdoor OIDC client + PUBLIC
-  `/bff/auth/callback` route seed); a cross-repo **NetworkPolicy egress peer**
+- ✅ **shipped:** auth-core extracted + published — now at **2.3.0** (account/session/MFA +
+  the full custody seams: `BffSession` custody columns + `stampCustody`/`clearCustody`);
+  admin-bff **adopted auth-core** (PR #111, behavior-preserving, 1517 tests green);
+  admin-bff **`/bff/internal` account/session API** (PR #113, ships inert behind
+  `InternalTokenWebFilter`); the gateway is live with raw-API security proven and the
+  SCG-5 route-namespace bug fixed.
+- ✅ **shipped (the SSO BFF-custody flow has since merged, all dark behind default-off
+  flags):** gateway `BffJwtExchangeWebFilter` + `BffJwtExchangeConfig`
+  (`snapdragon.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` /
+  `SsoAuthController` / `AdminBffInternalClient` / `OidcCustodyBootGuard` (OIDC login
+  relocation + admin-bff internal client, `app.bff.oidc.enabled`); login-ui Casdoor
+  OIDC + PKCE + `/login/callback` (`__SNAP_OIDC_ENABLED__`) with the `login-oidc`
+  e2e feature; admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
+  columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
+  auth-core 2.1.0 → since advanced to 2.3.0).
+- 🔭 **planned / next:** generator **#156** (`app-user-bff` Casdoor OIDC client +
+  PUBLIC `/bff/auth/callback` route seed); a cross-repo **NetworkPolicy egress peer**
   user-bff → admin-bff internal `:8080`; **SSO end-to-end live e2e** (kind +
   Playwright, proving the browser holds only `bff_`).
 
@@ -144,7 +145,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 | Gateway instance name | `snapdragon-id-gateway` |
 | Cassandra keyspace | `snapdragon_systems_gateway` |
 | Casdoor organization | `snapdragon-systems` |
-| Frontend stack | Angular native-federation host + 9 remotes (this repo) |
+| Frontend stack | Angular native-federation host + 10 remotes (this repo) |
 | Browser-held credential | opaque `bff_` session only — never a Casdoor JWT |
 | Token custody | user-bff exchanges code→token; admin-bff-db holds the encrypted custody JWT (`bff_session.*_enc`); gateway swaps `bff_`→JWT pre-security |
 | Identity-layer responsibility | domain-scoped `superadmin > admin > mod > user` cascade |
