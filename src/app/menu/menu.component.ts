@@ -1,4 +1,4 @@
-import { DOCUMENT } from '@angular/common';
+import { AsyncPipe, DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,6 +8,7 @@ import {
   ViewChild,
   ViewChildren,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -19,6 +20,7 @@ import { SessionService } from '../session.service';
 import { ProfileModalService } from '../profile-modal/profile-modal.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { accessibleName } from '../accessible-name';
+import { BellNotificationsService } from '../bell/bell-notifications.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -59,7 +61,7 @@ interface ProfileMenuItem {
 
 @Component({
   selector: '[menu]',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, AsyncPipe],
   host: {
     id: 'menu',
   },
@@ -73,6 +75,11 @@ export class MenuComponent {
   private readonly doc = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly capabilities = inject(CapabilitiesService);
+  private readonly bellNotifications = inject(BellNotificationsService);
+
+  /** Unread notification count — drives the bell badge. Emits 0 when unauthenticated
+   *  (polling is stopped and the BehaviorSubject is reset by stopPolling()). */
+  readonly unreadCount$ = this.bellNotifications.unreadCount$;
 
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
@@ -233,6 +240,17 @@ export class MenuComponent {
   constructor() {
     const destroyRef = inject(DestroyRef);
 
+    // Start or stop bell polling whenever the login state changes. The effect()
+    // runs in the injection context (constructor body) so it tracks session.loggedIn()
+    // reactively: first call fires immediately, then re-runs on every change.
+    effect(() => {
+      if (this.session.loggedIn()) {
+        this.bellNotifications.startPolling();
+      } else {
+        this.bellNotifications.stopPolling();
+      }
+    });
+
     // The menu is always mounted, so it is the host's natural owner for loading the
     // PUBLIC federation capability list ONCE at startup (load-once + shared, so the
     // home-services cards reuse the same fetch). Fire-and-forget: a failed/empty
@@ -250,6 +268,11 @@ export class MenuComponent {
         this.profileActiveIndex.set(-1);
         this.doc.getElementById('maincontent')?.focus();
       });
+  }
+
+  /** Navigate to the notifications page (user-ui remote mounted at /user). */
+  navigateToBell(): void {
+    void this.router.navigateByUrl('/user/notifications');
   }
 
   /** Toggle the profile dropdown menu (the button is aria-haspopup="menu"). When

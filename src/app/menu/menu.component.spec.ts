@@ -1,11 +1,13 @@
 import { signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 
 import { MenuComponent } from './menu.component';
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
+import { BellNotificationsService } from '../bell/bell-notifications.service';
 
 /**
  * The UNIVERSAL NAV menubar: Home | Mastodon | Matrix. Home is always enabled;
@@ -412,5 +414,130 @@ describe('MenuComponent — universal nav menubar', () => {
       press('Enter');
       expect(component.activeIndex).toBe(1);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bell icon tests — isolated describe block with its own TestBed configuration
+// so the Router spy and BellNotificationsService stub do not leak into the
+// menubar suite above.
+// ---------------------------------------------------------------------------
+
+class BellNotificationsServiceStub {
+  unreadCount$ = of(0);
+  startPolling = jasmine.createSpy('startPolling');
+  stopPolling = jasmine.createSpy('stopPolling');
+}
+
+class BellSessionStub {
+  loggedIn = signal(true);
+  fullyRegistered = signal(true);
+  isAdmin = signal(false);
+  isMod = signal(false);
+  isSuperadmin = signal(false);
+  roles = signal<string[]>([]);
+  session = signal<{ label: string } | null>({ label: 'alice' });
+  hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
+  clear() { /* no-op in bell tests */ }
+}
+
+describe('MenuComponent — bell icon', () => {
+  let fixture: ComponentFixture<MenuComponent>;
+  let sessionStub: BellSessionStub;
+  let bellStub: BellNotificationsServiceStub;
+
+  /** Create a fresh component with the given bellStub already configured. The
+   *  component captures unreadCount$ at injection time, so the stub must be set
+   *  up before createComponent() is called. */
+  async function setup(bell: BellNotificationsServiceStub = new BellNotificationsServiceStub()): Promise<void> {
+    sessionStub = new BellSessionStub();
+    bellStub = bell;
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MenuComponent],
+      providers: [
+        provideRouter([]),
+        { provide: SessionService, useValue: sessionStub },
+        { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+        { provide: BellNotificationsService, useValue: bellStub },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MenuComponent);
+    fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    await setup();
+  });
+
+  it('renders the bell button when logged in', () => {
+    sessionStub.loggedIn.set(true);
+    fixture.detectChanges();
+    const bell = fixture.nativeElement.querySelector('.bell-btn');
+    expect(bell).toBeTruthy();
+    expect(bell.getAttribute('aria-label')).toBe('Notifications');
+  });
+
+  it('does not render the bell when logged out', () => {
+    sessionStub.loggedIn.set(false);
+    fixture.detectChanges();
+    const bell = fixture.nativeElement.querySelector('.bell-btn');
+    expect(bell).toBeNull();
+  });
+
+  it('shows badge with count when unreadCount$ emits a positive value', fakeAsync(async () => {
+    const countBell = new BellNotificationsServiceStub();
+    countBell.unreadCount$ = of(3);
+    await setup(countBell);
+    sessionStub.loggedIn.set(true);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+    const badge = fixture.nativeElement.querySelector('.bell-badge');
+    expect(badge).toBeTruthy();
+    expect(badge.textContent.trim()).toBe('3');
+  }));
+
+  it('hides the badge when unreadCount$ emits 0', fakeAsync(() => {
+    sessionStub.loggedIn.set(true);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+    const badge = fixture.nativeElement.querySelector('.bell-badge');
+    expect(badge).toBeNull();
+  }));
+
+  it('shows 99+ when unread count exceeds 99', fakeAsync(async () => {
+    const countBell = new BellNotificationsServiceStub();
+    countBell.unreadCount$ = of(150);
+    await setup(countBell);
+    sessionStub.loggedIn.set(true);
+    fixture.detectChanges();
+    tick();
+    fixture.detectChanges();
+    const badge = fixture.nativeElement.querySelector('.bell-badge');
+    expect(badge?.textContent?.trim()).toBe('99+');
+  }));
+
+  it('navigates to /user/notifications when bell is clicked', () => {
+    sessionStub.loggedIn.set(true);
+    fixture.detectChanges();
+    const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+    const bell = fixture.nativeElement.querySelector('.bell-btn');
+    bell.click();
+    expect(navSpy).toHaveBeenCalledWith('/user/notifications');
+  });
+
+  it('calls startPolling when session is logged in', () => {
+    // The effect fires immediately on component creation when loggedIn() is true.
+    expect(bellStub.startPolling).toHaveBeenCalled();
+  });
+
+  it('calls stopPolling when session is logged out', () => {
+    sessionStub.loggedIn.set(false);
+    fixture.detectChanges();
+    expect(bellStub.stopPolling).toHaveBeenCalled();
   });
 });
