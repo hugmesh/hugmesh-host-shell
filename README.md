@@ -34,9 +34,15 @@ remotes.
 - **Authgate + role-home routing + universal nav + profile modal**, plus the
   **home announcements banner** (sandboxed `srcdoc` iframe, dismiss-once),
   **capabilities / graceful-degrade** install-state grey-out, the **home-services
-  launcher**, and the **account-status appeal-gate** banner.
+  launcher**, the **account-status appeal-gate** banner, and the **notification
+  bell** with an unread-count badge in the menu's account region (PR #101).
 - A single `bearerInterceptor` Bearer/credentials seam and an accessibility
   baseline (skip-link, ARIA menubar, modal-dialog contract).
+- **Baseline HTTP security headers** on the SPA's nginx (PR #100) — emitted with
+  `always` so they cover error responses too: `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  and HSTS (`max-age=31536000; includeSubDomains`). Stricter CSP / COEP-CORP /
+  Permissions-Policy are deliberately deferred pending per-UI tuning.
 
 **Auth model (current).** The browser never holds a Casdoor JWT. login-ui runs a
 Casdoor OIDC **authorization-code (PKCE)** redirect; **user-bff** performs the
@@ -273,6 +279,14 @@ cross-cutting surface:
   (`APPEAL_ROUTE = '/login/appeal'`). 🚧 NOTE: the login-ui `/login/appeal`
   child route is still a deferred TODO on the login remote, so today the link
   resolves to the login surface rather than a dedicated appeal page.
+- **Notification bell** ✅ (`src/app/bell/`) — the menu's account region shows a
+  bell button (authenticated users only) with an unread-count badge.
+  `BellNotificationsService` polls the same-origin BFF endpoint
+  **`/bff/user/notifications`** every 60 s (from `timer(0, 60_000)`, fail-soft to
+  an empty list on any error) and exposes `unreadCount$`; the badge renders only
+  when there are unread items (capped at `99+`) and carries a visually-hidden
+  accessible count. Polling starts/stops with the login state via an `effect()`,
+  and clicking the bell navigates to `/user/notifications` on the user remote.
 - **Accessibility baseline** — a skip-link that moves focus (not just scroll)
   to `#maincontent` per WCAG 2.4.1, the WAI-ARIA menubar roving-tabindex
   pattern, and the modal dialog contract above.
@@ -293,7 +307,9 @@ cross-cutting surface:
   the public entry point. See
   [`docs/platform-topology.md`](docs/platform-topology.md).
 - **Container:** multi-stage `Dockerfile` builds the prod bundle and serves it
-  from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback.
+  from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback and
+  the baseline HTTP security headers from `nginx.conf` (nosniff / `X-Frame-Options:
+  DENY` / `Referrer-Policy` / HSTS, all `always`).
 - **CI:** GitLab (`.gitlab-ci.yml`) — the GitHub repo is pull-mirrored into the
   in-cluster GitLab, which builds + pushes this service's image to the
   in-cluster registry on push of the default branch / a tag. **No keys ship in
@@ -322,7 +338,8 @@ src/app/
   capabilities/            CapabilitiesService — public /api/federation/capabilities install-state (grey-out)
   home-services/           data-driven launcher-card catalog (CardState: enabled/absent/role/registration)
   account-status/          StatusGateComponent — /bff/me suspended/banned appeal-gate banner (fail-open)
-  menu/                    universal nav + role-gated profile dropdown (a11y menubar)
+  bell/                    BellNotificationsService — /bff/user/notifications 60s poll → unread-count badge
+  menu/                    universal nav + role-gated profile dropdown (a11y menubar) + notification bell
   profile-modal/           host modal mounting the user remote's ./profile editor
   announcements/           /bff/announcements/home banner (sandboxed srcdoc, dismiss-once)
   header/ footer/ background/ home/ about/   chrome + public marketing pages
@@ -365,8 +382,9 @@ today.
   host today.**
 - 🚧 **Notifications — external channels (in-flight).** Matrix DM / Akkoma feed /
   phpBB / email adapters on top of the shipped in-app MVP. The host currently
-  renders only the announcements banner; external-channel prefs/silencing are
-  future.
+  surfaces in-app notifications via the announcements banner and the menu
+  notification bell (`/bff/user/notifications` unread-count badge);
+  external-channel prefs/silencing are future.
 - 🚧 **Workload Console (in-flight).** A podman/OpenShift-like
   pod-management + live-log + exec federated admin-ui module that would appear as
   a future remote/route resolved through this host's dynamic manifest. **Not in
