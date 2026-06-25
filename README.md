@@ -290,6 +290,7 @@ cross-cutting surface:
   when there are unread items (capped at `99+`) and carries a visually-hidden
   accessible count. Polling starts/stops with the login state via an `effect()`,
   and clicking the bell navigates to `/user/notifications` on the user remote.
+- 🚧 **Real-time notification toast** (PR #104 in-flight) — NotificationToastService opens a bearer-fetch SSE stream to /bff/user/notifications/events when the user is logged in (via an Angular effect() in AppComponent watching session.loggedIn()). Events appear as fixed bottom-right toast cards (max 3, 4-second auto-dismiss, aria-live polite). Uses native fetch()+ReadableStream+TextDecoder (NOT EventSource, which cannot send an Authorization header); reconnects after 5s on stream end.
 - **Accessibility baseline** — a skip-link that moves focus (not just scroll)
   to `#maincontent` per WCAG 2.4.1, the WAI-ARIA menubar roving-tabindex
   pattern, and the modal dialog contract above.
