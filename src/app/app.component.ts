@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnDestroy, effect, inject } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { BackgroundComponent } from './background/background.component';
@@ -7,6 +7,9 @@ import { MenuComponent } from './menu/menu.component';
 import { FooterComponent } from './footer/footer.component';
 import { ProfileModalComponent } from './profile-modal/profile-modal.component';
 import { StatusGateComponent } from './account-status/status-gate.component';
+import { NotificationToastComponent } from './notification-toast.component';
+import { NotificationToastService } from './notification-toast.service';
+import { SessionService } from './session.service';
 
 @Component({
   selector: '[app-root]',
@@ -18,13 +21,30 @@ import { StatusGateComponent } from './account-status/status-gate.component';
     FooterComponent,
     ProfileModalComponent,
     StatusGateComponent,
+    NotificationToastComponent,
   ],
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   private readonly doc = inject(DOCUMENT);
+  private readonly session = inject(SessionService);
+  private readonly notificationToastService = inject(NotificationToastService);
+
+  constructor() {
+    effect(() => {
+      if (this.session.loggedIn()) {
+        this.notificationToastService.start(this.session.session()!.bffToken);
+      } else {
+        this.notificationToastService.stop();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.notificationToastService.stop();
+  }
 
   /** Skip-link handler. Moves focus (not just the scroll position) to the routed
    *  page's #maincontent so keyboard + screen-reader users land in the content,

@@ -1,0 +1,12 @@
+@if (service.toasts().length > 0) {
+  <div class="toast-region" role="region" aria-label="Notifications" aria-live="polite" aria-atomic="false">
+    @for (toast of service.toasts(); track toast.id) {
+      <div class="toast" role="status">
+        <strong class="toast-title">{{ toast.title }}</strong>
+        @if (toast.body) {
+          <p class="toast-body">{{ toast.body }}</p>
+        }
+      </div>
+    }
+  </div>
+}

@@ -6,6 +6,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { AppComponent } from './app.component';
 import { BackgroundComponent } from './background/background.component';
+import { NotificationToastComponent } from './notification-toast.component';
+import { NotificationToastService } from './notification-toast.service';
 
 @Component({ selector: 'app-background', changeDetection: ChangeDetectionStrategy.Eager,
  template: '' })
@@ -13,6 +15,9 @@ class BackgroundStub {
   readonly paused = signal(false);
   toggle() {}
 }
+
+@Component({ selector: 'snap-notification-toast', standalone: true, template: '' })
+class NotificationToastStub {}
 
 describe('AppComponent', () => {
   beforeEach(async () => {
@@ -25,11 +30,12 @@ describe('AppComponent', () => {
         // no-op when signed out), but the HttpClient must still be provided.
         provideHttpClient(),
         provideHttpClientTesting(),
+        NotificationToastService,
       ],
     })
       .overrideComponent(AppComponent, {
-        remove: { imports: [BackgroundComponent] },
-        add: { imports: [BackgroundStub] },
+        remove: { imports: [BackgroundComponent, NotificationToastComponent] },
+        add: { imports: [BackgroundStub, NotificationToastStub] },
       })
       .compileComponents();
   });
