@@ -52,7 +52,7 @@ flowchart TB
 > docker-compose dev stack still uses `snapdragon-id-gateway` as an OAuth2 login
 > client + JWT resource server for a self-contained demo.) The host actually
 > calls the role-BFF surface (`/bff/me`, `/bff/announcements/home`,
-> `/bff/user/notifications` (the menu notification bell's unread-count poll), and
+> `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), and
 > the per-service `/bff/{wiki,tube,owncast}/**`) and the public federation API
 > (`/api/federation/{manifest,capabilities}`), always attaching the opaque `bff_`
 > as the Bearer (swapped to the custody JWT at the gateway).
@@ -216,7 +216,7 @@ root + key and emits the per-service intermediates signed by it.
 > migration is **done**: on `main` the host has real route guards
 > (`adminGuard`/`modGuard`/`userGuard`/`registeredGuard`/`wikiGuard`/`tubeGuard`/`owncastGuard`),
 > calls the role BFFs (`/bff/me`, `/bff/announcements/home`,
-> `/bff/user/notifications`, per-service `/bff/{wiki,tube,owncast}/**`) and the
+> `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), per-service `/bff/{wiki,tube,owncast}/**`) and the
 > public federation API
 > (`/api/federation/{manifest,capabilities}`) today. The "becomes auth-checked once
 > the app starts calling `/api/*`" framing no longer describes future work — it is

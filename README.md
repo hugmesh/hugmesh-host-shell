@@ -43,6 +43,7 @@ remotes.
   `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
   and HSTS (`max-age=31536000; includeSubDomains`). Stricter CSP / COEP-CORP /
   Permissions-Policy are deliberately deferred pending per-UI tuning.
+- **Real-time notification toast** — `NotificationToastService` opens a bearer-fetch SSE stream to `/bff/user/notifications/events` (authenticated users only, via `effect()` in `AppComponent`). Up to 3 toast cards appear at fixed bottom-right, each auto-dismissed after 4 s, with `aria-live="polite"` region. Uses native `fetch()+ReadableStream+TextDecoder` (not `EventSource`) so the `Authorization: Bearer` header can be sent; reconnects after 5 s on stream end (PR #104).
 
 **Auth model (current).** The browser never holds a Casdoor JWT. login-ui runs a
 Casdoor OIDC **authorization-code (PKCE)** redirect; **user-bff** performs the
@@ -290,7 +291,7 @@ cross-cutting surface:
   when there are unread items (capped at `99+`) and carries a visually-hidden
   accessible count. Polling starts/stops with the login state via an `effect()`,
   and clicking the bell navigates to `/user/notifications` on the user remote.
-- 🚧 **Real-time notification toast** (PR #104 in-flight) — NotificationToastService opens a bearer-fetch SSE stream to /bff/user/notifications/events when the user is logged in (via an Angular effect() in AppComponent watching session.loggedIn()). Events appear as fixed bottom-right toast cards (max 3, 4-second auto-dismiss, aria-live polite). Uses native fetch()+ReadableStream+TextDecoder (NOT EventSource, which cannot send an Authorization header); reconnects after 5s on stream end.
+- **Real-time notification toast** ✅ — NotificationToastService opens a bearer-fetch SSE stream to /bff/user/notifications/events when the user is logged in (via an Angular effect() in AppComponent watching session.loggedIn()). Events appear as fixed bottom-right toast cards (max 3, 4-second auto-dismiss, aria-live polite). Uses native fetch()+ReadableStream+TextDecoder (NOT EventSource, which cannot send an Authorization header); reconnects after 5s on stream end.
 - **Accessibility baseline** — a skip-link that moves focus (not just scroll)
   to `#maincontent` per WCAG 2.4.1, the WAI-ARIA menubar roving-tabindex
   pattern, and the modal dialog contract above.
@@ -346,6 +347,7 @@ src/app/
   menu/                    universal nav + role-gated profile dropdown (a11y menubar) + notification bell
   profile-modal/           host modal mounting the user remote's ./profile editor
   announcements/           /bff/announcements/home banner (sandboxed srcdoc, dismiss-once)
+  notification-toast/      NotificationToastService — bearer-fetch SSE /bff/user/notifications/events → fixed bottom-right toast cards (max 3, 4-s auto-dismiss, aria-live polite)
   header/ footer/ background/ home/ about/   chrome + public marketing pages
 src/main.ts                resolveFederationSource() → initFederation(source) → ./bootstrap
 src/assets/federation.manifest{,.prod}.json  static FLOOR + fallback (remote name → remoteEntry URL)
