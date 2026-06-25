@@ -113,7 +113,7 @@ login/OIDC endpoints; **snapdragon-gateway** owns the `BffJwtExchangeWebFilter` 
 the PUBLIC `/bff/auth/callback` route seed; **login-ui** owns the Casdoor
 authorization-code + PKCE redirect.
 
-### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-24)
+### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-25)
 
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
@@ -133,8 +133,9 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   e2e feature; admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
   columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
   auth-core 2.1.0 → since advanced to 2.3.0).
-- 🔭 **planned / next:** generator **#156** (`app-user-bff` Casdoor OIDC client +
-  PUBLIC `/bff/auth/callback` route seed); a cross-repo **NetworkPolicy egress peer**
+- ✅ **shipped:** generator **#156** (`app-user-bff` Casdoor OIDC client +
+  PUBLIC `/bff/auth/callback` route seed) — merged 2026-06-20.
+- 🔭 **planned / next:** a cross-repo **NetworkPolicy egress peer**
   user-bff → admin-bff internal `:8080`; **SSO end-to-end live e2e** (kind +
   Playwright, proving the browser holds only `bff_`).
 

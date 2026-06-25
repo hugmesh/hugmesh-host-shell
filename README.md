@@ -43,7 +43,7 @@ remotes.
   `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
   and HSTS (`max-age=31536000; includeSubDomains`). Stricter CSP / COEP-CORP /
   Permissions-Policy are deliberately deferred pending per-UI tuning.
-- **Real-time notification toast** — `NotificationToastService` opens a bearer-fetch SSE stream to `/bff/user/notifications/events` (authenticated users only, via `effect()` in `AppComponent`). Up to 3 toast cards appear at fixed bottom-right, each auto-dismissed after 4 s, with `aria-live="polite"` region. Uses native `fetch()+ReadableStream+TextDecoder` (not `EventSource`) so the `Authorization: Bearer` header can be sent; reconnects after 5 s on stream end (PR #104).
+- ✅ **Real-time notification toast** — `NotificationToastService` opens a bearer-fetch SSE stream to `/bff/user/notifications/events` (authenticated users only, via `effect()` in `AppComponent`). Up to 3 toast cards appear at fixed bottom-right, each auto-dismissed after 4 s, with `aria-live="polite"` region. Uses native `fetch()+ReadableStream+TextDecoder` (not `EventSource`) so the `Authorization: Bearer` header can be sent; reconnects after 5 s on stream end (PR #104).
 
 **Auth model (current).** The browser never holds a Casdoor JWT. login-ui runs a
 Casdoor OIDC **authorization-code (PKCE)** redirect; **user-bff** performs the
@@ -70,7 +70,7 @@ preferred end state.)
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
 built on the shared Maven artifacts `snapdragon-parent` (metapom 2.7.0),
-`snapdragon-commons` (2.0.0) and `snapdragon-auth-core` (2.3.0, consumed by
+`snapdragon-commons` (2.7.0) and `snapdragon-auth-core` (2.3.0, consumed by
 user-bff + admin-bff). Spring Cloud
 Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
@@ -361,7 +361,7 @@ servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** �
 federation `snapdragon-federation-api` + `snapdragon-remote-fragment` · the
 remotes `snapdragon-{login,user,mod,admin}-ui`, `snapdragon-{matrix,mastodon}-ui`,
 `snapdragon-{wiki,tube,owncast}-ui`, `snapdragon-api-docs` · role BFFs
-`snapdragon-{user,mod,admin}-bff-api` (**user-bff** owns the Casdoor OIDC
+`snapdragon-{user,mod,admin,wiki}-bff-api` (**user-bff** owns the Casdoor OIDC
 code→token exchange + per-session JWT custody/refresh; login/session/account
 logic is being relocated admin-bff → user-bff) · shared Maven artifacts
 `snapdragon-parent` (metapom), `snapdragon-commons`, **`snapdragon-auth-core`**
