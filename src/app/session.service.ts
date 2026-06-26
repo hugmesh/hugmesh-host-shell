@@ -21,8 +21,6 @@ export interface SnapSession {
   provider: 'google' | 'discord';
   roles: string[];
   registrationComplete: boolean;
-  matrix: { token: string; userId: string } | null;
-  mastodon: { token: string } | null;
   /** ADDITIVE (no enforcement yet) — see {@link AccessStatus}. Absent => 'active'. */
   status?: AccessStatus;
 }

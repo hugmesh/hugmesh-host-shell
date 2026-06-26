@@ -13,8 +13,6 @@ const SESSION: SnapSession = {
   provider: 'google',
   roles: ['user'],
   registrationComplete: true,
-  matrix: null,
-  mastodon: null,
 };
 
 // Host wrapper exercises the [home-services] attribute selector.

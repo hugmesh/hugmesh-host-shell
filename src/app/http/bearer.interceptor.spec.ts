@@ -18,8 +18,6 @@ const SESSION: SnapSession = {
   provider: 'google',
   roles: ['user'],
   registrationComplete: true,
-  matrix: null,
-  mastodon: null,
 };
 
 /**

@@ -10,8 +10,6 @@ const SESSION: SnapSession = {
   provider: 'google',
   roles: ['user'],
   registrationComplete: true,
-  matrix: null,
-  mastodon: null,
 };
 
 function announcement(over: Partial<HomeAnnouncement> = {}): HomeAnnouncement {
