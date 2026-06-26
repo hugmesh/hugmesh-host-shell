@@ -14,7 +14,6 @@ function session(over: Partial<SnapSession> = {}): SnapSession {
     label: 'alice@example.com',
     provider: 'google',
     roles: ['user'],
-    bffToken: 'tok-1',
     registrationComplete: true,
     matrix: null,
     mastodon: null,

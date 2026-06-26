@@ -1,12 +1,10 @@
 import { environment } from '../../environments/environment';
 import {
   FEDERATION_MANIFEST_URL,
-  bootstrapBearerToken,
   fetchDynamicRemotes,
   resolveFederationSource,
   toRemotesMap,
 } from './federation-bootstrap';
-import { SnapSession } from '../session.service';
 
 /**
  * DYNAMIC-FIRST + STATIC-FALLBACK manifest bootstrap.
@@ -15,19 +13,9 @@ import { SnapSession } from '../session.service';
  *  (a) the bootstrap calls the DYNAMIC URL (/api/federation/manifest);
  *  (b) on dynamic failure (incl. the 401 an anonymous caller gets) it FALLS BACK
  *      to the bundled static manifest so the host still boots;
- *  (c) the BEARER is attached when a session is persisted, and OMITTED otherwise.
+ *  (c) it ALWAYS carries the session cookie (`credentials: 'include'`) and NEVER
+ *      attaches a browser bearer — the gateway exchanges the cookie server-side.
  */
-
-const SESSION: SnapSession = {
-  id: 'google:alice@example.com',
-  label: 'alice',
-  provider: 'google',
-  roles: ['admin'],
-  bffToken: 'tok-abc',
-  registrationComplete: true,
-  matrix: null,
-  mastodon: null,
-};
 
 /** A federation-api manifest body: {generatedAt, remotes[]}. */
 function manifestBody(): unknown {
@@ -61,24 +49,6 @@ describe('federation-bootstrap', () => {
     });
   });
 
-  describe('bootstrapBearerToken — reads snap.session WITHOUT Angular DI', () => {
-    it('returns null when no session is persisted (anonymous)', () => {
-      expect(bootstrapBearerToken()).toBeNull();
-    });
-
-    it('returns the bffToken from the canonical snap.session record', () => {
-      localStorage.setItem('snap.session', JSON.stringify(SESSION));
-      expect(bootstrapBearerToken()).toBe('tok-abc');
-    });
-
-    it('returns null for an unparseable / tokenless record (never an empty Bearer)', () => {
-      localStorage.setItem('snap.session', '{not json');
-      expect(bootstrapBearerToken()).toBeNull();
-      localStorage.setItem('snap.session', JSON.stringify({ id: 'x' }));
-      expect(bootstrapBearerToken()).toBeNull();
-    });
-  });
-
   describe('toRemotesMap — {generatedAt,remotes[]} -> {name:url}', () => {
     it('maps every well-formed remote row to slug -> remoteEntryUrl', () => {
       const map = toRemotesMap(manifestBody() as never);
@@ -107,7 +77,7 @@ describe('federation-bootstrap', () => {
     });
   });
 
-  describe('fetchDynamicRemotes — (a) calls the dynamic URL, (c) attaches bearer', () => {
+  describe('fetchDynamicRemotes — (a) calls the dynamic URL, (c) cookie-only auth', () => {
     it('(a) fetches the DYNAMIC manifest URL and returns the mapped remotes', async () => {
       const fetchSpy = jasmine
         .createSpy('fetch')
@@ -125,18 +95,7 @@ describe('federation-bootstrap', () => {
       });
     });
 
-    it('(c) attaches Authorization: Bearer when a session is persisted', async () => {
-      localStorage.setItem('snap.session', JSON.stringify(SESSION));
-      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
-
-      await fetchDynamicRemotes(fetchSpy as unknown as typeof fetch);
-
-      const init = fetchSpy.calls.mostRecent().args[1] as RequestInit;
-      const headers = init.headers as Record<string, string>;
-      expect(headers['Authorization']).toBe('Bearer tok-abc');
-    });
-
-    it('(c) OMITS Authorization for an anonymous bootstrap (no session)', async () => {
+    it('(c) NEVER attaches Authorization — the bff_ cookie carries auth, gateway exchanges it', async () => {
       const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
 
       await fetchDynamicRemotes(fetchSpy as unknown as typeof fetch);
@@ -144,6 +103,7 @@ describe('federation-bootstrap', () => {
       const init = fetchSpy.calls.mostRecent().args[1] as RequestInit;
       const headers = init.headers as Record<string, string>;
       expect(headers['Authorization']).toBeUndefined();
+      expect(init.credentials).toBe('include'); // cookie always sent
     });
 
     it('returns null on 401 (the anonymous caller hits an authenticated() endpoint)', async () => {

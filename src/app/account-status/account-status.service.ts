@@ -11,9 +11,10 @@ import {
 } from './account-status.model';
 
 /** Same-origin admin-bff endpoint carrying the caller's OWN account status. The
- *  id/fe-gateway routes `/bff/*` to the BFF, so a relative path with the session
- *  cookie + opportunistic Bearer (added by the host bearerInterceptor) works in
- *  dev and prod alike. `/bff/me` is the authoritative re-read; `/bff/login`
+ *  id/fe-gateway routes `/bff/*` to the BFF, so a relative path with the HttpOnly
+ *  session cookie (sent by the host bearerInterceptor's `withCredentials: true`;
+ *  the gateway exchanges it for the upstream bearer server-side) works in dev and
+ *  prod alike. `/bff/me` is the authoritative re-read; `/bff/login`
  *  carries the same `status` field at sign-in, but the host re-reads `/me` so a
  *  status change after login (a suspension landing mid-session) is still seen. */
 export const ME_ENDPOINT = '/bff/me';
@@ -24,7 +25,7 @@ export const ME_ENDPOINT = '/bff/me';
  * response carries). Drives the host appeal-gate banner.
  *
  * Modelled on {@link import('../capabilities/capabilities.service').CapabilitiesService}:
- *  - signal store + an HttpClient read through the shared Bearer/credentials seam;
+ *  - signal store + an HttpClient read through the shared credentials seam;
  *  - FAILS OPEN — this status is INFORMATIONAL, not an authz gate. A network/HTTP
  *    error, a missing field, or a malformed body all degrade to {@code active}
  *    (the banner stays hidden), so a transient `/bff/me` blip never blocks the app

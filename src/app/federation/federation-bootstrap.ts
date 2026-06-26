@@ -16,11 +16,11 @@ import { environment } from '../../environments/environment';
  * before Angular's DI exists — the bearerInterceptor / HttpClient / SessionService
  * are not available yet. We therefore re-create the interceptor's seam by hand:
  *   - `credentials: 'include'` ALWAYS (same-origin session cookie, dev proxy + prod
- *     gateway alike), mirroring `bearerInterceptor`'s `withCredentials: true`; and
- *   - `Authorization: Bearer <bffToken>` ONLY when the canonical `snap.session`
- *     localStorage record (the SAME contract SessionService reads) holds a token —
- *     so an ALREADY-AUTHENTICATED full reload gets its role/visibility-scoped
- *     manifest, while a logged-out first load fetches anonymously.
+ *     gateway alike), mirroring `bearerInterceptor`'s `withCredentials: true`. The
+ *     gateway's BffCookieToBearerWebFilter exchanges the `bff_` cookie for the
+ *     upstream bearer SERVER-SIDE, so an ALREADY-AUTHENTICATED full reload gets its
+ *     role/visibility-scoped manifest from the cookie alone, while a logged-out
+ *     first load (no cookie) fetches anonymously. The browser never holds a bearer.
  *
  * THE AUTH-TIMING NUANCE (load-bearing). `GET /api/federation/manifest` is
  * `authenticated()` server-side (SecurityConfig), NOT public — an ANONYMOUS
@@ -72,26 +72,6 @@ export type RemotesMap = Record<string, string>;
 export const FEDERATION_MANIFEST_URL =
   `${environment.federationApiBase}${environment.federationManifestUrl}`;
 
-/** Canonical shared-session localStorage key (verbatim from SessionService). */
-const SESSION_KEY = 'snap.session';
-
-/**
- * Read the persisted session's bffToken WITHOUT Angular DI (SessionService is not
- * constructed yet at bootstrap). Returns null for anonymous / unparseable / empty,
- * so the caller fetches anonymously — never sends an empty Bearer.
- */
-export function bootstrapBearerToken(): string | null {
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const token = (JSON.parse(raw) as { bffToken?: unknown } | null)?.bffToken;
-    return typeof token === 'string' && token.length > 0 ? token : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Map the DB manifest's `remotes[]` to the `{ name: remoteEntryUrl }` shape
  * initFederation wants. Drops rows missing a slug or remoteEntryUrl (a malformed
@@ -116,8 +96,10 @@ export function toRemotesMap(body: DynamicManifestResponse | null): RemotesMap |
  * Fetch the DYNAMIC manifest and return the remotes map, or null on ANY failure
  * (network error, non-2xx incl. the 401 an anonymous caller gets, non-JSON,
  * empty/malformed body). NEVER throws — the caller falls back to the static
- * manifest on null. Carries the session cookie always and an opportunistic Bearer
- * when one is persisted (mirrors bearerInterceptor, by hand, pre-DI).
+ * manifest on null. Carries the session cookie always (mirrors bearerInterceptor's
+ * `withCredentials: true`, by hand, pre-DI); the gateway exchanges that cookie for
+ * the upstream bearer server-side, so an authenticated reload gets its scoped
+ * manifest and a logged-out load fetches anonymously.
  *
  * `fetchImpl` is injectable so the unit test drives it without a real network.
  */
@@ -126,13 +108,9 @@ export async function fetchDynamicRemotes(
 ): Promise<RemotesMap | null> {
   if (!fetchImpl) return null;
   try {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    const token = bootstrapBearerToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetchImpl(FEDERATION_MANIFEST_URL, {
       credentials: 'include',
-      headers,
+      headers: { Accept: 'application/json' },
     });
     if (!res || !res.ok) return null; // 401 (anonymous), 5xx, etc. -> fall back
     const body = (await res.json()) as DynamicManifestResponse;

@@ -9,7 +9,6 @@ const SESSION: SnapSession = {
   label: 'alice',
   provider: 'google',
   roles: ['user'],
-  bffToken: 't',
   registrationComplete: true,
   matrix: null,
   mastodon: null,

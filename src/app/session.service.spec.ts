@@ -7,7 +7,6 @@ function makeSession(overrides: Partial<SnapSession> = {}): SnapSession {
     label: 'alice@gmail.com',
     provider: 'google',
     roles: ['user'],
-    bffToken: 'bff-token',
     registrationComplete: false,
     matrix: null,
     mastodon: null,

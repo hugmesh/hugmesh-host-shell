@@ -13,9 +13,10 @@ import { bearerInterceptor } from './app/http/bearer.interceptor';
 // navigation (and only when the session/guard allows), not eagerly at startup.
 //
 // provideHttpClient(withInterceptors([bearerInterceptor])) gives the host a real
-// HttpClient (it used raw fetch before) with the single Bearer/credentials seam,
-// so the home-services capability fetch — and any future ng-openapi-gen typed
-// client — carries the session cookie + an opportunistic Bearer.
+// HttpClient (it used raw fetch before) with the single credentials seam, so the
+// home-services capability fetch — and any future ng-openapi-gen typed client —
+// carries the HttpOnly session cookie (the gateway exchanges it for the upstream
+// bearer server-side; the browser never holds a bearer).
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(

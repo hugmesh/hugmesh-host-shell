@@ -35,7 +35,7 @@ export class AppComponent implements OnDestroy {
   constructor() {
     effect(() => {
       if (this.session.loggedIn()) {
-        this.notificationToastService.start(this.session.session()!.bffToken);
+        this.notificationToastService.start();
       } else {
         this.notificationToastService.stop();
       }

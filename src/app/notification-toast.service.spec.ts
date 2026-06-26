@@ -41,13 +41,34 @@ describe('NotificationToastService', () => {
   it('start_guardsAgainstDoubleStart', fakeAsync(() => {
     // Calling start twice with no real fetch should not throw
     // (controller guard prevents double-start; no real network here)
-    const token = 'test-token';
     // Patch fetch so it never resolves (hangs), simulating an active stream
     const originalFetch = globalThis.fetch;
     globalThis.fetch = () => new Promise(() => {});
     try {
-      service.start(token);
-      service.start(token); // second call must be a no-op
+      service.start();
+      service.start(); // second call must be a no-op
+    } finally {
+      service.stop();
+      globalThis.fetch = originalFetch;
+    }
+    tick(0);
+  }));
+
+  it('start_usesCookieCredentialsAndNoBearer', fakeAsync(() => {
+    // The SSE stream authenticates via the HttpOnly bff_ cookie (credentials:
+    // 'include'); the browser sends NO Authorization bearer (the gateway exchanges
+    // the cookie server-side).
+    let capturedInit: RequestInit | undefined;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = ((_url: string, init?: RequestInit) => {
+      capturedInit = init;
+      return new Promise<Response>(() => {}); // hang: keep the stream "open"
+    }) as typeof fetch;
+    try {
+      service.start();
+      expect(capturedInit?.credentials).toBe('include');
+      expect((capturedInit?.headers as Record<string, string> | undefined)?.['Authorization'])
+        .toBeUndefined();
     } finally {
       service.stop();
       globalThis.fetch = originalFetch;

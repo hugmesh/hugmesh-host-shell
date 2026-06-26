@@ -17,15 +17,15 @@ const SESSION: SnapSession = {
   label: 'alice',
   provider: 'google',
   roles: ['user'],
-  bffToken: 'tok-123',
   registrationComplete: true,
   matrix: null,
   mastodon: null,
 };
 
 /**
- * The single Bearer/credentials seam for the host HttpClient. These are the
- * USER-SITUATIONAL cases (anonymous vs signed-in) plus the never-clobber rule.
+ * The single credentials seam for the host HttpClient: it ALWAYS sends the HttpOnly
+ * session cookie (`withCredentials: true`) and NEVER attaches a browser bearer —
+ * the gateway exchanges the `bff_` cookie for the upstream bearer server-side.
  */
 describe('bearerInterceptor', () => {
   let http: HttpClient;
@@ -61,22 +61,14 @@ describe('bearerInterceptor', () => {
   });
 
   describe('USER-SITUATIONAL — signed-in', () => {
-    it('attaches the session bffToken as a Bearer and withCredentials', () => {
+    it('sends the session cookie via withCredentials and NEVER attaches a browser bearer', () => {
       session.set(SESSION);
       http.get('/bff/whatever').subscribe();
       const req = httpMock.expectOne('/bff/whatever');
+      // The HttpOnly bff_ cookie carries auth; the gateway exchanges it for the
+      // upstream bearer server-side, so the browser sends no Authorization header.
       expect(req.request.withCredentials).toBeTrue();
-      expect(req.request.headers.get('Authorization')).toBe('Bearer tok-123');
-      req.flush({});
-    });
-
-    it('never clobbers a caller-set Authorization header', () => {
-      session.set(SESSION);
-      http
-        .get('/bff/whatever', { headers: { Authorization: 'Bearer explicit' } })
-        .subscribe();
-      const req = httpMock.expectOne('/bff/whatever');
-      expect(req.request.headers.get('Authorization')).toBe('Bearer explicit');
+      expect(req.request.headers.has('Authorization')).toBeFalse();
       req.flush({});
     });
   });

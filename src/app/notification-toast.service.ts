@@ -19,10 +19,10 @@ export class NotificationToastService {
   private controller: AbortController | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  start(token: string): void {
+  start(): void {
     if (this.controller) { return; }
     this.controller = new AbortController();
-    this.consume(token);
+    this.consume();
   }
 
   stop(): void {
@@ -46,10 +46,10 @@ export class NotificationToastService {
     }, NotificationToastService.DISMISS_MS);
   }
 
-  private async consume(token: string): Promise<void> {
+  private async consume(): Promise<void> {
     try {
       const response = await fetch(NotificationToastService.SSE_ENDPOINT, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         signal: this.controller!.signal,
       });
 
@@ -70,7 +70,7 @@ export class NotificationToastService {
           if (this.controller) {
             this.reconnectTimer = setTimeout(() => {
               this.reconnectTimer = null;
-              this.consume(token);
+              this.consume();
             }, NotificationToastService.RECONNECT_MS);
           }
           return;
