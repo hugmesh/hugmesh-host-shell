@@ -30,11 +30,45 @@ Feature: Role-home routing and the universal nav swap (integrated env only)
     When I go to "/"
     Then the URL path is "/user"
 
+  Scenario: A superadmin session lands on the /admin role-home
+    # SessionService.role() resolves the cascade admin > mod > user; the
+    # superadmin fixture carries 'admin' (SUPERADMIN > ADMIN > MOD > USER), so
+    # the role-home is /admin — there is no separate superadmin role-home.
+    Given I have a superadmin session
+    When I go to "/"
+    Then the URL path is "/admin"
+
   Scenario: Admin precedence — an admin who is also a user still lands on /admin
     Given I have an admin session
     When I go to "/"
     Then the URL path is "/admin"
     And the "nav-home" nav entry is active
+
+  # DIRECT-NAVIGATION DENY — an AUTHENTICATED but under-privileged principal
+  # deep-links a role console and must be bounced by the route guard
+  # (adminGuard / modGuard return the /login UrlTree for any session missing the
+  # role). These are @integration like the anonymous deep-link below because a
+  # deep link needs the server-side SPA fallback (host-only server.js serves
+  # index.html at '/' ONLY) and the /login bounce target is itself a federation
+  # remote — host-only, the guard-redirect navigation cannot COMPLETE and the
+  # URL never settles anywhere assertable. The ALLOW halves are the role-home
+  # landings above. The role-gated NAV state (the same isAdmin/isMod signals the
+  # guards read) is covered host-side in role-nav.feature.
+
+  Scenario: A moderator deep-linking /admin is bounced to /login (adminGuard DENY)
+    Given I have a mod session
+    When I go to "/admin"
+    Then I am redirected to "/login"
+
+  Scenario: A plain user deep-linking /mod is bounced to /login (modGuard DENY)
+    Given I have a user session
+    When I go to "/mod"
+    Then I am redirected to "/login"
+
+  Scenario: A plain user deep-linking /admin is bounced to /login (adminGuard DENY)
+    Given I have a user session
+    When I go to "/admin"
+    Then I am redirected to "/login"
 
   Scenario: Anonymous visitor to '/' is redirected to /login
     Given I have no session

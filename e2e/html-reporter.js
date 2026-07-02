@@ -12,6 +12,11 @@ module.exports = {
       reportFilename,
     );
 
+    // The output folder is generated build output — create it so the write
+    // below cannot ENOENT on a clean checkout (it did: the reporter was the one
+    // "error during execution" on every fresh `npm run e2e`).
+    fs.mkdirSync(path.dirname(reportFilePath), { recursive: true });
+
     // read the html template
     fs.readFile("e2e/html-reporter.hbs", function (err, data) {
       if (err) throw err;

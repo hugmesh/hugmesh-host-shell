@@ -22,7 +22,7 @@
  * default — see role-home-content.feature) which require the integrated env.
  */
 
-const { Before, Given, Then, When } = require('@cucumber/cucumber');
+const { After, Before, Given, Then, When } = require('@cucumber/cucumber');
 const assert = require('assert');
 
 const SESSION_KEY = 'snap.session';
@@ -33,6 +33,13 @@ const SESSION_KEY = 'snap.session';
  *  it only reads roles[] — so this is enough to drive the role end to end. */
 function sessionFor(role) {
   const roles = {
+    // A superadmin fixture carries the WHOLE cascade (SUPERADMIN > ADMIN > MOD >
+    // USER): the platform delivers the cascade as lowercase role strings in
+    // session.roles[], so a real superadmin session holds 'admin' and 'mod' too.
+    // isSuperadmin() additionally unlocks the service consoles (wiki/owncast/tube)
+    // even where isAdmin() alone would; role precedence still lands on /admin
+    // (SessionService.role() resolves admin > mod > user).
+    superadmin: ['superadmin', 'admin', 'mod', 'user'],
     // An admin fixture carries the mod role too: in this shell the Moderation
     // entry is gated on isMod() (roles includes 'mod'), so a full-privilege admin
     // who should see BOTH Admin and Moderation must hold 'mod'. Role precedence
@@ -41,7 +48,7 @@ function sessionFor(role) {
     mod: ['mod', 'user'],
     user: ['user'],
   }[role];
-  assert.ok(roles, `Unknown role "${role}" (expected admin | mod | user)`);
+  assert.ok(roles, `Unknown role "${role}" (expected superadmin | admin | mod | user)`);
   return {
     id: `e2e:${role}@snapdragon.test`,
     label: `${role}@snapdragon.test`,
@@ -88,8 +95,21 @@ async function seedSession(session) {
 /** GIVEN I have a/an {admin|mod|user} session — seed the JWT-shaped session BEFORE
  *  the journey navigates, so SessionService derives that role for the guards/nav.
  *  The optional a/an article keeps the Gherkin natural ("an admin", "a mod"). */
-Given(/^I have an? (admin|mod|user) session$/, async function (role) {
+Given(/^I have an? (superadmin|admin|mod|user) session$/, async function (role) {
   await seedSession(sessionFor(role));
+});
+
+/** GIVEN I have a pending user session — an authenticated identity that has NOT
+ *  completed registration (registrationComplete:false). Registration is what
+ *  mints the per-service Matrix/Mastodon tokens, so the pending fixture carries
+ *  none — matching the real pre-registration SnapSession the login remote writes.
+ *  Drives the registeredGuard / menu enabled() gating (role-registration.feature). */
+Given('I have a pending user session', async function () {
+  const session = sessionFor('user');
+  session.registrationComplete = false;
+  delete session.matrix;
+  delete session.mastodon;
+  await seedSession(session);
 });
 
 /** GIVEN I have no session — explicitly clear the key (the anonymous authgate). */
@@ -147,6 +167,112 @@ Then('the navigation has no {string} entry', async function (testid) {
     [testid],
   );
   assert.ok(!present, `Expected NO nav entry with data-testid="${testid}"`);
+});
+
+/* --- Universal-nav ENABLED/DISABLED state (registration + install-state gates) ---
+ * The menu renders an entry as a real routerLink <a> when enabled() and as a
+ * disabled <button aria-disabled="true" disabled> with a visible .field-help
+ * reason ("<testid>-help", wired via aria-describedby) when gated — visible but
+ * greyed + EXPLAINED, never hidden and never a dead link (menu.component.ts). */
+
+/** Poll for the entry to settle as the given TAG (the menu re-renders while the
+ *  capability fetch and the role-home loadChildren resolve). */
+async function waitForNavEntryTag(testid, tag, timeout = 5000) {
+  const deadline = Date.now() + timeout;
+  let actual = '';
+  while (Date.now() < deadline) {
+    actual = await browser.execute(
+      (id) => document.querySelector(`[data-testid="${id}"]`)?.tagName ?? '',
+      [testid],
+    );
+    if (actual === tag) return actual;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return actual;
+}
+
+/** THEN the {testid} nav entry is an enabled link — a real anchor with an href
+ *  (the routerLink), i.e. NOT the disabled-button rendering. */
+Then('the {string} nav entry is an enabled link', async function (testid) {
+  const tag = await waitForNavEntryTag(testid, 'A');
+  assert.strictEqual(tag, 'A', `Expected "${testid}" to render as an enabled <a> routerLink but got <${tag || 'nothing'}>`);
+  const href = await browser.execute(
+    (id) => document.querySelector(`a[data-testid="${id}"]`)?.getAttribute('href') ?? '',
+    [testid],
+  );
+  assert.ok(href.length > 0, `Expected the enabled "${testid}" link to carry an href`);
+});
+
+/** THEN the {testid} nav entry is disabled — the gated rendering: a real
+ *  <button> that is BOTH natively disabled and aria-disabled (grey + inert). */
+Then('the {string} nav entry is disabled', async function (testid) {
+  const tag = await waitForNavEntryTag(testid, 'BUTTON');
+  assert.strictEqual(tag, 'BUTTON', `Expected "${testid}" to render as a disabled <button> but got <${tag || 'nothing'}>`);
+  const state = await browser.execute(
+    (id) => {
+      const el = document.querySelector(`button[data-testid="${id}"]`);
+      return el ? { ariaDisabled: el.getAttribute('aria-disabled'), disabled: el.disabled } : null;
+    },
+    [testid],
+  );
+  assert.ok(state, `Expected a nav entry with data-testid="${testid}"`);
+  assert.strictEqual(state.ariaDisabled, 'true', `"${testid}" must be aria-disabled="true"`);
+  assert.strictEqual(state.disabled, true, `"${testid}" must be natively disabled`);
+});
+
+/** THEN the {testid} nav entry's helptext is {string} — the visible .field-help
+ *  reason ("<testid>-help") explaining WHY the entry is disabled. Asserting the
+ *  EXACT text distinguishes the registration gate ("Complete your registration…")
+ *  from the install-state gate ("…not available on this deployment."). */
+Then('the {string} nav entry explains {string}', async function (testid, expected) {
+  const deadline = Date.now() + 5000;
+  let text = '';
+  while (Date.now() < deadline) {
+    text = await browser.execute(
+      (id) => (document.querySelector(`[data-testid="${id}-help"]`)?.textContent ?? '').trim(),
+      [testid],
+    );
+    if (text === expected) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.strictEqual(text, expected, `Expected the "${testid}" helptext to read "${expected}" but got "${text}"`);
+});
+
+/* --- Federation install-state (public /api/federation/capabilities) mock ---
+ * The host-only stack has no federation-api, so the capability fetch 404s and
+ * EVERY optional service greys out by absence — which masks the REGISTRATION
+ * gate this suite must isolate. These steps mock the PUBLIC capabilities read at
+ * the network level via Chrome DevTools (Nightwatch .mockNetworkResponse), so
+ * the real CapabilitiesService parses a real HTTP response — nothing in the app
+ * is stubbed. Scenarios using this MUST carry @capabilities-mock so the After
+ * hook below restores the 404 default (the CDP mock outlives a scenario within
+ * a webdriver session). */
+
+const CAPABILITIES_PATH = '/api/federation/capabilities';
+
+Given(
+  'the deployment reports the {string} and {string} services installed',
+  async function (slugA, slugB) {
+    await browser.mockNetworkResponse(CAPABILITIES_PATH, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([
+        { slug: slugA, installed: true },
+        { slug: slugB, installed: true },
+      ]),
+    });
+  },
+);
+
+/** Restore the host-only default (a failing capabilities read -> everything
+ *  greys out by absence) so a leaked mock can never bleed install-state into a
+ *  later scenario that asserts the degrade path. */
+After({ tags: '@capabilities-mock' }, async function () {
+  await browser.mockNetworkResponse(CAPABILITIES_PATH, {
+    status: 404,
+    headers: { 'Content-Type': 'text/plain' },
+    body: '',
+  });
 });
 
 /* --- Account region (the authgate signal the HOST renders WITHOUT a remote) ---
