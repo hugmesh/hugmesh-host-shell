@@ -1,12 +1,105 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { NotificationToastService, SseToastEvent } from './notification-toast.service';
+import { NotificationToastService, SseToastEvent, parseSseField } from './notification-toast.service';
+
+describe('parseSseField', () => {
+  it('splits "name:value" with no space (the real Spring wire format)', () => {
+    expect(parseSseField('data:{"id":"n1"}')).toEqual({ name: 'data', value: '{"id":"n1"}' });
+  });
+
+  it('strips exactly one leading space, per the SSE spec allowance', () => {
+    expect(parseSseField('data: {"id":"n1"}')).toEqual({ name: 'data', value: '{"id":"n1"}' });
+  });
+
+  it('preserves a second leading space (only ONE is stripped)', () => {
+    expect(parseSseField('data:  extra')).toEqual({ name: 'data', value: ' extra' });
+  });
+
+  it('splits on the FIRST colon only (value may itself contain colons)', () => {
+    expect(parseSseField('data:{"time":"12:30:00"}')).toEqual({
+      name: 'data',
+      value: '{"time":"12:30:00"}',
+    });
+  });
+
+  it('returns null for a blank line (event terminator)', () => {
+    expect(parseSseField('')).toBeNull();
+  });
+
+  it('returns null for a comment line (starts with ":")', () => {
+    expect(parseSseField(': keepalive')).toBeNull();
+  });
+
+  it('returns null for a line with no colon at all', () => {
+    expect(parseSseField('not-a-field')).toBeNull();
+  });
+});
 
 describe('NotificationToastService', () => {
   let service: NotificationToastService;
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
     service = TestBed.inject(NotificationToastService);
+  });
+
+  afterEach(() => {
+    service.stop();
+    globalThis.fetch = originalFetch;
+  });
+
+  /** Build a fake fetch `Response` whose body is a ReadableStream emitting the
+   *  given raw SSE text chunks, then closing. */
+  function sseResponse(chunks: string[]): Response {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+    });
+    return { ok: true, body } as unknown as Response;
+  }
+
+  /** Real (non-fakeAsync) macrotask wait for the fetch → `reader.read()`
+   *  promise chain to settle — see snapdragon-user-ui's identical helper for
+   *  why this needs a genuine timer rather than `tick()`/`flushMicrotasks()`
+   *  (native `ReadableStream` internals aren't reliably zone-patched). */
+  async function flushStream(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+
+  it('REGRESSION: parses the REAL Spring wire format — "data:" with NO space before the JSON', async () => {
+    // This is the bug this fix closes: Spring WebFlux's
+    // ServerSentEventHttpMessageWriter emits "data:" with no space, so the old
+    // exact `line.startsWith('data: ')` check matched zero real events — the
+    // "shipped" toast never actually fired against a live user-bff.
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        sseResponse([
+          'id:n11\n',
+          'event:role-change\n',
+          'data:{"id":"n11","category":"role-change","title":"No-space wire format"}\n\n',
+        ]),
+      )) as typeof fetch;
+
+    service.start();
+    await flushStream();
+
+    expect(service.toasts().map((t) => t.id)).toEqual(['n11']);
+    expect(service.toasts()[0].title).toBe('No-space wire format');
+  });
+
+  it('also tolerates a leading space after the colon (spec-compliant either way)', async () => {
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        sseResponse(['data: {"id":"n12","category":"role-change","title":"With space"}\n\n']),
+      )) as typeof fetch;
+
+    service.start();
+    await flushStream();
+
+    expect(service.toasts().map((t) => t.id)).toEqual(['n12']);
   });
 
   it('addToast_appendsToToastsSignal', fakeAsync(() => {

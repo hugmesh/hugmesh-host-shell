@@ -7,6 +7,32 @@ export interface SseToastEvent {
   body?: string | null;
 }
 
+/**
+ * Parse one raw SSE wire line into a `{name, value}` field per the SSE spec:
+ * split on the FIRST colon, and strip AT MOST ONE leading space from the
+ * value (the spec-mandated allowance — a compliant writer may or may not
+ * include it). Returns `null` for a blank line (event terminator), a
+ * comment line (starts with `:`), or a line with no colon at all.
+ *
+ * BUG FIX: this deliberately does NOT use an exact-prefix match like
+ * `line.startsWith('data: ')`. Spring WebFlux's `ServerSentEventHttpMessageWriter`
+ * (the writer user-bff-api's `UserNotificationController` uses for
+ * `GET /bff/user/notifications/events`) emits `data:` with NO space before the
+ * JSON payload — verified by disassembling the exact `spring-web-7.0.8.jar`
+ * user-bff-api ships. An exact `"data: "` prefix check therefore matched ZERO
+ * real events: this toast never actually fired against a live user-bff
+ * despite the feature reading as "shipped" end-to-end.
+ */
+export function parseSseField(line: string): { name: string; value: string } | null {
+  if (line === '' || line.startsWith(':')) return null;
+  const colon = line.indexOf(':');
+  if (colon === -1) return null;
+  const name = line.slice(0, colon);
+  let value = line.slice(colon + 1);
+  if (value.startsWith(' ')) value = value.slice(1);
+  return { name, value };
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotificationToastService {
   private static readonly SSE_ENDPOINT = '/bff/user/notifications/events';
@@ -82,13 +108,13 @@ export class NotificationToastService {
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const event: SseToastEvent = JSON.parse(line.slice(6));
-              this.addToast(event);
-            } catch {
-              // Malformed JSON — skip
-            }
+          const field = parseSseField(line);
+          if (field?.name !== 'data') continue;
+          try {
+            const event: SseToastEvent = JSON.parse(field.value);
+            this.addToast(event);
+          } catch {
+            // Malformed JSON — skip
           }
         }
       }
