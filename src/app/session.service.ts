@@ -6,13 +6,17 @@ import { Injectable, signal, computed } from '@angular/core';
  *  and the conditional Admin/Moderation profile-menu entries. */
 export type ShellRole = 'admin' | 'mod' | 'user';
 
-/** A principal's access status. ADDITIVE / FORWARD-LOOKING (no enforcement yet):
- *  the appeal-on-login suspended-guard is DEFERRED — it needs a JWT status claim
- *  that `/bff/login`/`/bff/me`/the token do NOT carry today (UI-wave verdict V3),
- *  so the host CANNOT yet derive this server-side. Shipping the shape now (across
- *  host + login-ui + user-ui session.service.ts, the shared `snap.session`
- *  localStorage contract) so the later atomic backend bump doesn't require a
- *  cross-tab-incompatible shape change. Defaults to 'active' when absent. */
+/** A principal's access status. LIVE (server-fed, host-enforced short-circuit):
+ *  the admin-bff surfaces `status` (active|suspended|banned) on BOTH
+ *  `POST /bff/login` and `GET /bff/me` (the merged AuthController/AccountStatus
+ *  contract — see `account-status/account-status.model.ts`). The login remote
+ *  refuses to store a curtailed session at sign-in (it routes to
+ *  `/login/appeal?reason=<text>` pre-session); a curtailment landing MID-SESSION
+ *  reaches this field via the host's authoritative `/bff/me` re-read
+ *  ({@link import('./account-status/account-status.service').AccountStatusService}
+ *  syncs the normalized status back here), and `roleHomeGuard` short-circuits a
+ *  suspended/banned session to the appeal page BEFORE the role-home redirect.
+ *  Defaults to 'active' when absent (older writers / fail-open reads). */
 export type AccessStatus = 'active' | 'suspended' | 'banned';
 
 export interface SnapSession {
@@ -21,7 +25,7 @@ export interface SnapSession {
   provider: 'google' | 'discord';
   roles: string[];
   registrationComplete: boolean;
-  /** ADDITIVE (no enforcement yet) — see {@link AccessStatus}. Absent => 'active'. */
+  /** Server-fed access status — see {@link AccessStatus}. Absent => 'active'. */
   status?: AccessStatus;
 }
 
@@ -62,6 +66,18 @@ export class SessionService {
   });
   /** Matrix/Mastodon are usable only after full registration completes. */
   readonly fullyRegistered = computed(() => this.session()?.registrationComplete === true);
+  /** The session's access status ('active' when absent/anonymous — fail-open,
+   *  matching the account-status model's graceful degrade). Populated from the
+   *  server truth: the login remote's `/bff/login` write and the host's
+   *  authoritative `/bff/me` re-read (AccountStatusService syncs it here), so
+   *  `roleHomeGuard` can short-circuit a suspended/banned session to the appeal
+   *  page synchronously (no HTTP in the guard). */
+  readonly status = computed<AccessStatus>(() => this.session()?.status ?? 'active');
+  /** True for the two curtailed states the guard short-circuits on. */
+  readonly curtailed = computed(() => {
+    const s = this.status();
+    return s === 'suspended' || s === 'banned';
+  });
 
   /** Does the session carry the given PER-SERVICE access role? The role-home
    *  flags (admin/mod/user) are the broad cascade tiers; a SERVICE sub-role like

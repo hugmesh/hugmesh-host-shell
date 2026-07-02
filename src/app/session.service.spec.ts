@@ -99,6 +99,36 @@ describe('SessionService', () => {
     });
   });
 
+  describe('status() / curtailed() — the roleHomeGuard appeal short-circuit input', () => {
+    it('is active (not curtailed) when anonymous', () => {
+      expect(service.status()).toBe('active');
+      expect(service.curtailed()).toBeFalse();
+    });
+
+    it('fails open to active when the session carries NO status field (older writer)', () => {
+      service.set(makeSession());
+      expect(service.status()).toBe('active');
+      expect(service.curtailed()).toBeFalse();
+    });
+
+    it('surfaces a suspended session as curtailed', () => {
+      service.set(makeSession({ status: 'suspended' }));
+      expect(service.status()).toBe('suspended');
+      expect(service.curtailed()).toBeTrue();
+    });
+
+    it('surfaces a banned session as curtailed', () => {
+      service.set(makeSession({ status: 'banned' }));
+      expect(service.status()).toBe('banned');
+      expect(service.curtailed()).toBeTrue();
+    });
+
+    it('an explicit active status is not curtailed', () => {
+      service.set(makeSession({ status: 'active' }));
+      expect(service.curtailed()).toBeFalse();
+    });
+  });
+
   it('gates fullyRegistered on registrationComplete === true', () => {
     service.set(makeSession({ registrationComplete: false }));
     expect(service.fullyRegistered()).toBeFalse();

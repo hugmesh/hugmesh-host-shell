@@ -12,13 +12,14 @@ import { AccountStatusService } from './account-status.service';
 import { BANNED, SUSPENDED } from './account-status.model';
 
 /** The login-ui appeal route the host links a curtailed caller to. The host
- *  mounts the login remote at `/login`; the appeal page is `/login/appeal`.
- *  NOTE (dependency): the login-ui appeal page is itself DEFERRED today — its
- *  route is a documented TODO in login-ui `login.routes.ts` (the permitAll
- *  appeal-contact resolver now EXISTS as admin-bff `GET /bff/public/appeal-contact`,
- *  but the login remote has not yet added the `appeal` child route + component).
- *  The host links to where it WILL live so the banner is complete the moment the
- *  login-ui route lands; until then the link resolves to the login surface. */
+ *  mounts the login remote at `/login`; the appeal page is `/login/appeal` —
+ *  SHIPPED: login-ui `login.routes.ts` registers the `appeal` child route and
+ *  `AppealComponent` renders the appeal instructions + a real `mailto:` link
+ *  resolved from the permitAll admin-bff `GET /bff/public/appeal-contact`. The
+ *  page accepts an optional `?reason=<text>` deep-link (announced role=alert);
+ *  the banner passes its audit reason through (see
+ *  {@link StatusGateComponent.appealQueryParams}), matching the login remote's
+ *  own blocked-sign-in deep-link. */
 export const APPEAL_ROUTE = '/login/appeal';
 
 /**
@@ -78,6 +79,15 @@ export class StatusGateComponent implements OnInit {
   readonly until = computed<string | null>(() => this.status().until ?? null);
   /** The optional audit reason, or null. */
   readonly reason = computed<string | null>(() => this.status().reason ?? null);
+
+  /** Query params for the appeal deep-link: `/login/appeal?reason=<text>` when an
+   *  audit reason was recorded (the login-ui AppealComponent announces it via a
+   *  role=alert region — the same `?reason=` contract its own blocked-sign-in
+   *  redirect uses), or none (a bare `/login/appeal`) when there is no reason. */
+  readonly appealQueryParams = computed<{ reason: string } | null>(() => {
+    const r = this.reason();
+    return r ? { reason: r } : null;
+  });
 
   /** The headline shown to the caller, keyed off the state. */
   readonly heading = computed<string>(() =>

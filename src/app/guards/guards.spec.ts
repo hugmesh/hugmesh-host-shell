@@ -10,7 +10,7 @@ import { wikiGuard } from './wiki.guard';
 import { tubeGuard } from './tube.guard';
 import { owncastGuard } from './owncast.guard';
 import { roleHomeGuard } from './role-home.guard';
-import { SessionService, ShellRole } from '../session.service';
+import { AccessStatus, SessionService, ShellRole } from '../session.service';
 
 /** Minimal SessionService double exposing the role/registration signals the
  *  guards read. We drive the boolean flags per-case and assert allow vs the
@@ -23,6 +23,9 @@ class SessionStub {
   roles: string[] = [];
   registered = false;
   effectiveRole: ShellRole | null = null;
+  /** The session's access status (roleHomeGuard's appeal short-circuit input);
+   *  'active' default mirrors the real computed's absent-field fail-open. */
+  accessStatus: AccessStatus = 'active';
   isAdmin = () => this.admin;
   isMod = () => this.mod;
   isUser = () => this.user;
@@ -30,6 +33,8 @@ class SessionStub {
   hasRole = (role: string) => this.roles.some((r) => r.toLowerCase() === role.toLowerCase());
   fullyRegistered = () => this.registered;
   role = () => this.effectiveRole;
+  status = () => this.accessStatus;
+  curtailed = () => this.accessStatus === 'suspended' || this.accessStatus === 'banned';
 }
 
 function run(guard: typeof adminGuard): boolean | UrlTree {
@@ -234,6 +239,44 @@ describe('federation route guards', () => {
     it('redirects a plain user to /user', () => {
       session.effectiveRole = 'user';
       expect(run(roleHomeGuard)).toEqual(router.parseUrl('/user'));
+    });
+
+    it('an ACTIVE status keeps the plain role redirect (no appeal detour)', () => {
+      session.effectiveRole = 'user';
+      session.accessStatus = 'active';
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/user'));
+    });
+
+    describe('suspended/banned appeal short-circuit (BEFORE the role redirect)', () => {
+      it('redirects a SUSPENDED user to /login/appeal, not the role-home', () => {
+        session.effectiveRole = 'user';
+        session.accessStatus = 'suspended';
+        expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login/appeal'));
+      });
+
+      it('redirects a BANNED user to /login/appeal, not the role-home', () => {
+        session.effectiveRole = 'user';
+        session.accessStatus = 'banned';
+        expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login/appeal'));
+      });
+
+      it('short-circuits BEFORE the role redirect — a suspended ADMIN goes to appeal, not /admin', () => {
+        session.effectiveRole = 'admin';
+        session.accessStatus = 'suspended';
+        expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login/appeal'));
+      });
+
+      it('short-circuits a banned MOD to appeal, not /mod', () => {
+        session.effectiveRole = 'mod';
+        session.accessStatus = 'banned';
+        expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login/appeal'));
+      });
+
+      it('the AUTHGATE still wins: an anonymous visitor goes to /login even with a stale curtailed flag', () => {
+        session.effectiveRole = null;
+        session.accessStatus = 'banned';
+        expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login'));
+      });
     });
   });
 });

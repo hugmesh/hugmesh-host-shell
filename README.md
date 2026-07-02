@@ -277,12 +277,14 @@ cross-cutting surface:
   `StatusGateComponent` (mounted in `app.component.html`) reads `GET /bff/me`
   via `AccountStatusService` and renders an assertive `role="alert"` banner
   **only** when the caller's own status is `suspended`/`banned` (it **fails open**
-  to active on any error). The banner links to the appeal page
-  (`APPEAL_ROUTE = '/login/appeal'`). 🚧 NOTE: the permitAll appeal-contact
-  resolver now **exists** as admin-bff `GET /bff/public/appeal-contact`, but the
-  login-ui `/login/appeal` child route + component is still a deferred TODO on the
-  login remote, so today the link resolves to the login surface rather than a
-  dedicated appeal page.
+  to active on any error). The banner deep-links the appeal page
+  (`APPEAL_ROUTE = '/login/appeal'`, with `?reason=<text>` when an audit reason
+  was recorded) — the login-ui `appeal` child route + `AppealComponent` are
+  **shipped** on the login remote, rendering appeal instructions + a `mailto:`
+  resolved from the permitAll admin-bff `GET /bff/public/appeal-contact`.
+  `AccountStatusService` also syncs the `/bff/me` status into the shared
+  `snap.session` (`SnapSession.status`), and `roleHomeGuard` short-circuits a
+  suspended/banned session to `/login/appeal` BEFORE the role-home redirect.
 - **Notification bell** ✅ (`src/app/bell/`) — the menu's account region shows a
   bell button (authenticated users only) with an unread-count badge.
   `BellNotificationsService` polls the same-origin BFF endpoint
@@ -411,9 +413,6 @@ today.
   host's **dynamic manifest TAILNET-ONLY** (off the public UI). The
   dynamic-manifest mechanism is the shipped delivery path; the app-store remotes
   themselves are roadmap.
-- 🚧 **Login appeal page.** The account-status appeal-gate already links to
-  `/login/appeal`, but the login-ui appeal child route is still a deferred TODO
-  on the login remote (so the link resolves to the login surface today).
 - 🔭 **OWASP pen-test + nuclei in CI / binhost fleet auto-update.** CI-pipeline
   security scanning and Gentoo binhost-driven fleet distribution are platform
   roadmap.

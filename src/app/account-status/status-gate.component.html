@@ -21,6 +21,7 @@
       <a
         class="status-gate__appeal"
         [routerLink]="appealRoute"
+        [queryParams]="appealQueryParams()"
         data-testid="status-gate-appeal"
         [attr.aria-label]="
           banned()

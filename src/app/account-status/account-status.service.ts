@@ -33,6 +33,10 @@ export const ME_ENDPOINT = '/bff/me';
  *    broker + gateway; this is purely to EXPLAIN a curtailment + offer an appeal.
  *  - only AUTHENTICATED sessions read (an anonymous visitor has no own-status);
  *    signing out resets to active.
+ *  - SYNCS the successfully-read status into the shared snap.session
+ *    ({@code SnapSession.status}) so the synchronous consumers (roleHomeGuard's
+ *    suspended/banned short-circuit to /login/appeal) act on the same /bff/me
+ *    truth this banner renders from.
  */
 @Injectable({ providedIn: 'root' })
 export class AccountStatusService {
@@ -85,11 +89,25 @@ export class AccountStatusService {
   private async fetch(): Promise<void> {
     try {
       const body = await firstValueFrom(this.http.get<unknown>(ME_ENDPOINT));
-      this.current.set(normalizeStatus(body));
+      const status = normalizeStatus(body);
+      this.current.set(status);
+      // Sync the AUTHORITATIVE server status back into the shared snap.session
+      // (SnapSession.status) so synchronous consumers — roleHomeGuard's
+      // suspended/banned short-circuit to /login/appeal — see the /bff/me truth
+      // without their own HTTP read. Patch only on change: SessionService.patch
+      // rewrites localStorage + broadcasts to every in-page remote, so a steady
+      // 'active' must not churn the session on every re-read. This also CLEARS a
+      // stale curtailed flag when the server lifts it (active overwrites).
+      const session = this.session.session();
+      if (session && (session.status ?? 'active') !== status.status) {
+        this.session.patch({ status: status.status });
+      }
       this.loadError.set('');
     } catch (err) {
       // FAIL OPEN: status is informational. A transient /bff/me error must not
-      // block the app nor falsely flag the user — degrade to active.
+      // block the app nor falsely flag the user — degrade to active. The
+      // session's LAST-KNOWN status is deliberately left untouched (an error is
+      // no evidence the curtailment lifted; the next successful re-read syncs).
       this.current.set({ ...ACTIVE_STATUS });
       this.loadError.set(err instanceof Error ? err.message : 'status load failed');
     } finally {

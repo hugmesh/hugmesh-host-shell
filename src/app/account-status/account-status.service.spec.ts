@@ -134,6 +134,50 @@ describe('AccountStatusService', () => {
     });
   });
 
+  describe('SESSION SYNC — /bff/me truth lands in SnapSession.status (the guard input)', () => {
+    it('a curtailed /bff/me read patches session.status (roleHomeGuard sees it synchronously)', async () => {
+      sessionSvc.set(session());
+      const p = service.load();
+      httpMock.expectOne(ME_ENDPOINT).flush({ status: 'suspended' });
+      await p;
+      expect(sessionSvc.session()?.status).toBe('suspended');
+      expect(sessionSvc.curtailed()).toBeTrue();
+    });
+
+    it('a later ACTIVE read clears a previously-synced curtailment (un-suspension)', async () => {
+      sessionSvc.set(session({ status: 'banned' }));
+      const p = service.load();
+      httpMock.expectOne(ME_ENDPOINT).flush({ status: 'active' });
+      await p;
+      expect(sessionSvc.session()?.status).toBe('active');
+      expect(sessionSvc.curtailed()).toBeFalse();
+    });
+
+    it('a FAILED read leaves the last-known session status untouched (an error is not an un-suspension)', async () => {
+      sessionSvc.set(session({ status: 'suspended' }));
+      const p = service.load();
+      httpMock.expectOne(ME_ENDPOINT).flush('boom', {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await p;
+      // the banner's own read degrades to active (fail-open, informational)…
+      expect(service.curtailed()).toBeFalse();
+      // …but the session keeps the last server truth until a SUCCESSFUL re-read.
+      expect(sessionSvc.session()?.status).toBe('suspended');
+    });
+
+    it('a steady status does not rewrite the session (no localStorage/broadcast churn)', async () => {
+      sessionSvc.set(session({ status: 'suspended' }));
+      const patchSpy = spyOn(sessionSvc, 'patch').and.callThrough();
+      const p = service.load();
+      httpMock.expectOne(ME_ENDPOINT).flush({ status: 'suspended' });
+      await p;
+      expect(patchSpy).not.toHaveBeenCalled();
+      expect(sessionSvc.session()?.status).toBe('suspended');
+    });
+  });
+
   describe('load-once sharing', () => {
     it('concurrent load() callers share ONE fetch', async () => {
       sessionSvc.set(session());

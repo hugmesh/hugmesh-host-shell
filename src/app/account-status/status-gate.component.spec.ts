@@ -124,6 +124,33 @@ describe('StatusGateComponent', () => {
       expect(detail.textContent!.toLowerCase()).toContain('permanently');
     });
 
+    it('deep-links the appeal page with ?reason=<text> when an audit reason exists', () => {
+      stub.curtailed.set(true);
+      stub.status.set({ status: 'suspended', reason: 'repeated spam' });
+      fixture.detectChanges();
+      const link = el().querySelector(
+        '[data-testid="status-gate-appeal"]',
+      ) as HTMLAnchorElement;
+      // RouterLink serialises queryParams into the href — the same `?reason=`
+      // contract login-ui's own blocked-sign-in redirect uses. Assert the
+      // decoded value (not the encoding trivia) so the oracle is the contract.
+      const href = link.getAttribute('href')!;
+      expect(href.startsWith(`${APPEAL_ROUTE}?reason=`))
+        .withContext(`href was ${href}`)
+        .toBeTrue();
+      expect(decodeURIComponent(href.split('?reason=')[1])).toBe('repeated spam');
+    });
+
+    it('links the BARE appeal route when no reason was recorded (no dangling ?reason=)', () => {
+      stub.curtailed.set(true);
+      stub.status.set({ status: 'banned' });
+      fixture.detectChanges();
+      const link = el().querySelector(
+        '[data-testid="status-gate-appeal"]',
+      ) as HTMLAnchorElement;
+      expect(link.getAttribute('href')).toBe(APPEAL_ROUTE);
+    });
+
     it('renders the reason when present, omits it when absent', () => {
       stub.curtailed.set(true);
       stub.status.set({ status: 'suspended', reason: 'repeated spam' });
