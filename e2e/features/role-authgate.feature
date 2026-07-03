@@ -10,7 +10,7 @@ Feature: Authgate and session lifecycle
   never advances past '/'. What the host renders from the session ALONE is the nav
   account region — anonymous shows "Sign in", authenticated shows the profile menu
   — which is the authgate signal asserted here. The actual URL redirect to /login
-  or the role-home is asserted in the @integration features (served remotes).
+  or the role-home is asserted in the @cluster features (served remotes).
 
   Scenario: An anonymous visitor sees the sign-in affordance (the authgate)
     Given I have no session

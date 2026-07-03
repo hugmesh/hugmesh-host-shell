@@ -15,7 +15,7 @@ Feature: Registration gate on the social surfaces (pending users)
   at the network level (@capabilities-mock; the After hook restores the 404
   default). The route-level registeredGuard bounce itself needs the served
   remotes (the /login redirect target is a remote) and is covered by the
-  integration-tagged routing suite; what the host owns and proves here is the
+  routing suite tagged @cluster; what the host owns and proves here is the
   disabled-control + helptext contract.
 
   @capabilities-mock

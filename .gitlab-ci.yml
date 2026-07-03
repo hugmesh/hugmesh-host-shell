@@ -18,7 +18,9 @@ stages: [test, build, pentest]
 # -----------------------------------------------------------------------------
 # Host-shell e2e (Nightwatch 3 + Cucumber, e2e/features + e2e/step_definitions).
 # Runs the LOCAL subset only: nightwatch.conf.js filters `not @skip and not
-# @integration`, so the @integration scenarios (which need the federation
+# @cluster` (the platform-wide live-stack-only tag convention — this repo
+# previously used @integration; the tag was renamed, semantics unchanged), so
+# the @cluster scenarios (which need the federation
 # remotes served from their own dev servers / the integrated env) stay dark
 # here exactly as they do in `npm run e2e` — they are compile-checked by the
 # cucumber require pass but never executed. The shell runner has docker (not

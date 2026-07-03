@@ -18,7 +18,7 @@
  * focus contract and the session lifecycle. The role-home/social CONTENT itself is
  * a native-federation REMOTE served from its own dev server (manifest ports
  * 4203-4206); those servers are NOT up in a host-only run, so the remote's
- * rendered markup is asserted only in the @integration features (skipped by
+ * rendered markup is asserted only in the @cluster features (skipped by
  * default — see role-home-content.feature) which require the integrated env.
  */
 
@@ -281,7 +281,7 @@ After({ tags: '@capabilities-mock' }, async function () {
  * DOES render from the session alone is the nav account region: anonymous shows a
  * "Sign in" link (nav-login); an authenticated identity shows the profile trigger.
  * These steps assert that session-driven authgate signal host-side; the actual
- * URL redirect is covered in the @integration features. */
+ * URL redirect is covered in the @cluster features. */
 
 Then('the account region shows the sign-in affordance', async function () {
   await browser.waitForElementVisible('[data-testid="nav-login"]', 5000);
@@ -458,10 +458,10 @@ Then('the session is cleared', async function () {
 });
 
 /* ------------------------------------------------------------------------- *
- * @integration-only steps. These assert the federation REMOTE's RENDERED
+ * @cluster-only steps. These assert the federation REMOTE's RENDERED
  * content (the role-home page, the profile editor) — which only exists when the
  * remote dev servers are up at the manifest URLs (ports 4203-4206). They are
- * referenced solely by role-home-content.feature (@integration), excluded from
+ * referenced solely by role-home-content.feature (@cluster), excluded from
  * the default host-only run; running them without the remotes up fails by design
  * (see the feature's HONEST DEFERRAL note).
  * ------------------------------------------------------------------------- */

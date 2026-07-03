@@ -1,11 +1,11 @@
-@integration
+@cluster
 Feature: Role-home and profile REMOTE content (integrated env only)
   These scenarios assert the rendered markup that the federation REMOTES own — the
   admin/mod/user role-home pages and the user remote's ./profile editor inside the
   modal. That content only exists when each remote is served from its own dev
   server / nginx at the manifest URLs (ports 4203-4206) AND the remote major lines
   up with this host (^22). In a host-only run those servers are down and the remote
-  module load fails, so these are tagged @integration and EXCLUDED from the default
+  module load fails, so these are tagged @cluster and EXCLUDED from the default
   suite. Run them with `npm run e2e:integration` after bringing the remotes up
   (e.g. via the fe-gateway integrated env).
 

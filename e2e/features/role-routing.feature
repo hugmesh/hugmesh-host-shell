@@ -1,4 +1,4 @@
-@integration
+@cluster
 Feature: Role-home routing and the universal nav swap (integrated env only)
   The host's home is the federated remote for the signed-in user's ROLE, with
   admin > mod > user precedence (roleHomeGuard). The universal nav (Home |
@@ -7,7 +7,7 @@ Feature: Role-home routing and the universal nav swap (integrated env only)
   REMOTE served from its own dev server / nginx at the manifest URLs (ports
   4203-4206) AND a host server with an SPA fallback. In a host-only run those
   servers are down, so the redirect/swap navigation cannot complete and the URL
-  stays at '/'. These scenarios are therefore @integration (excluded from the
+  stays at '/'. These scenarios are therefore @cluster (excluded from the
   default suite; run with `npm run e2e:integration`).
 
   HONEST DEFERRAL: the remotes are currently built against an older Angular major
@@ -47,7 +47,7 @@ Feature: Role-home routing and the universal nav swap (integrated env only)
   # DIRECT-NAVIGATION DENY — an AUTHENTICATED but under-privileged principal
   # deep-links a role console and must be bounced by the route guard
   # (adminGuard / modGuard return the /login UrlTree for any session missing the
-  # role). These are @integration like the anonymous deep-link below because a
+  # role). These are @cluster like the anonymous deep-link below because a
   # deep link needs the server-side SPA fallback (host-only server.js serves
   # index.html at '/' ONLY) and the /login bounce target is itself a federation
   # remote — host-only, the guard-redirect navigation cannot COMPLETE and the
