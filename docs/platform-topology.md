@@ -71,11 +71,12 @@ sequenceDiagram
     participant GW as snapdragon-gateway
     participant UB as user-bff
     participant AB as admin-bff (+ admin-bff-db)
-    Note over B: "Sign in": generate PKCE verifier+S256 challenge, state, nonce
-    B->>C: redirect /login/oauth/authorize (code, S256)
-    C-->>B: redirect /login/callback?code and state
-    B->>GW: POST /bff/auth/callback {code, verifier} (PUBLIC route)
+    Note over B: "Sign in": native username/password (+MFA) form — NO client-side PKCE
+    B->>GW: POST /bff/login {username, password} (PUBLIC route)
     GW->>UB: forward
+    Note over UB: generate PKCE verifier+S256 challenge + state SERVER-SIDE
+    UB->>C: INTERNAL /api/login (credentials) — never browser-reachable
+    C-->>UB: authorization code
     UB->>C: OidcExchangeClient.exchangeCode(code, verifier)
     C-->>UB: Casdoor JWTs (access + refresh)
     UB->>AB: /bff/internal ensureAccount, createSession =&gt; opaque bff_
@@ -109,9 +110,10 @@ stack (`AccountStore`/`BffSession`, `OidcExchangeClient`, `BffCustodyCipher`,
 `SessionCookieService`, `InternalTokenWebFilter`) consumed by admin-bff + user-bff
 only (kept off the gateway classpath); **admin-bff** owns account/session data + the
 `/bff/internal` API + custody/stamp + session/exchange; **user-bff** owns the
-login/OIDC endpoints; **snapdragon-gateway** owns the `BffJwtExchangeWebFilter` +
-the PUBLIC `/bff/auth/callback` route seed; **login-ui** owns the Casdoor
-authorization-code + PKCE redirect.
+server-side PKCE/state + the internal Casdoor login/exchange (`/api/login` + code
+exchange); **snapdragon-gateway** owns the `BffJwtExchangeWebFilter` +
+the PUBLIC `/bff/auth/callback` route seed; **login-ui** owns the native
+username/password form + `POST /bff/login`.
 
 ### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-25)
 
@@ -128,9 +130,11 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   flags):** gateway `BffJwtExchangeWebFilter` + `BffJwtExchangeConfig`
   (`snapdragon.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` /
   `SsoAuthController` / `AdminBffInternalClient` / `OidcCustodyBootGuard` (OIDC login
-  relocation + admin-bff internal client, `app.bff.oidc.enabled`); login-ui Casdoor
-  OIDC + PKCE + `/login/callback` (`__SNAP_OIDC_ENABLED__`) with the `login-oidc`
-  e2e feature; admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
+  relocation + admin-bff internal client, `app.bff.oidc.enabled`); login-ui
+  **native username/password (+MFA) form → POST `/bff/login`** (SUPERSEDES the
+  removed browser Casdoor OIDC + PKCE + `/login/callback` redirect — the browser
+  never sees Casdoor; user-bff drives PKCE/state + the internal `/api/login` +
+  exchange server-side); admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
   columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
   auth-core 2.1.0 → since advanced to 2.3.0).
 - ✅ **shipped:** generator **#156** (`app-user-bff` Casdoor OIDC client +
