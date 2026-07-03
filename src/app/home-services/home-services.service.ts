@@ -7,9 +7,13 @@ import { CardState, ServiceCard } from './service-card.model';
 /**
  * The static catalog row for one launcher card. `slug` (when set) is the
  * federation-capability the card depends on — present for the OPTIONAL services
- * (matrix/mastodon/forum/games), absent for the always-present role-homes
- * (admin/mod). `requiresRegistration` adds the social registration gate.
- * `requiresRole` (when set) gates a CORE card on a session role.
+ * (matrix/mastodon/forum/games/tube/owncast), absent for the always-present
+ * role-homes (admin/mod). `requiresRegistration` adds the social registration
+ * gate. `requiresRole` (when set) gates a CORE card on a session role. NOTE: tube
+ * and owncast have no `requiresRole` here — they are slug-gated only, so they
+ * render 'enabled' for any signed-in, registered user regardless of the
+ * per-service ROLE_TUBE/ROLE_OWNCAST grant that their destination route guards
+ * (tubeGuard/owncastGuard) actually require.
  */
 interface CardSpec {
   readonly id: string;
@@ -23,10 +27,11 @@ interface CardSpec {
   readonly roleLabel?: string;
 }
 
-/** The host launcher catalog. OPTIONAL services (matrix/mastodon/forum/games) are
- *  install-state-gated via their capability slug; admin/mod are CORE role-homes
- *  (not federation-registered, so no slug — always "present", gated purely on the
- *  session role). mountAt values mirror the federation registry / fe-gateway. */
+/** The host launcher catalog. OPTIONAL services (matrix/mastodon/forum/games/
+ *  tube/owncast) are install-state-gated via their capability slug; admin/mod are
+ *  CORE role-homes (not federation-registered, so no slug — always "present",
+ *  gated purely on the session role). mountAt values mirror the federation
+ *  registry / fe-gateway. */
 const CARD_CATALOG: readonly CardSpec[] = [
   {
     id: 'matrix', label: 'Matrix', description: 'Secure chat',

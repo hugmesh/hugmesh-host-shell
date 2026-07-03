@@ -1,6 +1,5 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { SessionService } from '../session.service';
+import { CanActivateFn } from '@angular/router';
+import { roleGuard } from './role-guard.factory';
 
 /** Gate the WIKI management micro-frontend (the snapdragon-wiki-ui remote mounted
  *  at /wiki, exposing ./Wiki) on the wiki access tier. Mirrors the other federation
@@ -13,11 +12,6 @@ import { SessionService } from '../session.service';
  *  This is defense-in-depth only: the BFF + gateway route-access rows
  *  (/bff/wiki/** -> ROLE_WIKI) are the real authorization; this guard keeps the
  *  unauthorized out of the remote's UI. */
-export const wikiGuard: CanActivateFn = () => {
-  const session = inject(SessionService);
-  const router = inject(Router);
-  if (session.isAdmin() || session.isSuperadmin() || (session.isMod() && session.hasRole('WIKI'))) {
-    return true;
-  }
-  return router.parseUrl('/login');
-};
+export const wikiGuard: CanActivateFn = roleGuard(
+  (session) => session.isAdmin() || session.isSuperadmin() || (session.isMod() && session.hasRole('WIKI')),
+);

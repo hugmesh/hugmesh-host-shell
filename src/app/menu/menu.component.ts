@@ -138,8 +138,11 @@ export class MenuComponent {
       help: 'Manage the platform wiki (admins, superadmins, and granted moderators).' },
     // OWNCAST live-stream console — shown to the Owncast access tier: streamers
     // granted the per-service ROLE_OWNCAST, plus admins/superadmins (grant
-    // management) and moderators (stream moderation). Mirrors the owncastGuard that
-    // protects the /owncast mount, so the entry is never a dead link.
+    // management) and moderators (stream moderation). NOTE: unlike the sibling
+    // Wiki/Tube entries, this does NOT exactly mirror the owncastGuard — the guard
+    // admits only admin|superadmin|ROLE_OWNCAST, so a bare moderator (mod without
+    // ROLE_OWNCAST) sees this entry but is bounced to /login if clicked. See
+    // canAccessOwncast()'s doc below for the full rationale.
     { label: 'Owncast',    testid: 'menu-owncast', action: 'owncast', route: '/owncast',    show: () => this.canAccessOwncast(),
       help: 'Manage your live stream (streamers, moderators, admins, and superadmins).' },
     // TUBE subscription-archive console — shown to the Tube access tier: users

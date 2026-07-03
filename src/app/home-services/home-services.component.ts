@@ -6,9 +6,13 @@ import { CapabilitiesService } from '../capabilities/capabilities.service';
 
 /**
  * The home-page SERVICES launcher grid — a data-driven, role-gated set of cards for
- * the platform's services (Matrix / Mastodon / Forum / Games + the Admin /
- * Moderation consoles), fed by the PUBLIC federation install-state
- * (CapabilitiesService) and the live session (via HomeServicesService).
+ * the platform's services (Matrix / Mastodon / Forum / Games / Tube / Owncast +
+ * the Admin / Moderation consoles), fed by the PUBLIC federation install-state
+ * (CapabilitiesService) and the live session (via HomeServicesService). Note: Tube
+ * and Owncast are only slug- (install-state-) gated here, not role-gated — they
+ * render enabled for any signed-in, registered user regardless of the per-service
+ * ROLE_TUBE/ROLE_OWNCAST grant that their destination route guards actually
+ * require (see HomeServicesService's CARD_CATALOG doc).
  *
  * Each card is either an ENABLED link or a DISABLED card with helptext explaining
  * WHY (defense-in-depth grey + EXPLAIN, never hide):

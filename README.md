@@ -35,7 +35,9 @@ remotes.
   **home announcements banner** (sandboxed `srcdoc` iframe, dismiss-once),
   **capabilities / graceful-degrade** install-state grey-out, the **home-services
   launcher**, the **account-status appeal-gate** banner, and the **notification
-  bell** with an unread-count badge in the menu's account region (PR #101).
+  bell** with an unread-count badge in the menu's account region (PR #101), plus
+  a **real-time SSE notification toast** consuming
+  `/bff/user/notifications/events` for push delivery alongside the bell's poll.
 - A single `bearerInterceptor` Bearer/credentials seam and an accessibility
   baseline (skip-link, ARIA menubar, modal-dialog contract).
 - **Baseline HTTP security headers** on the SPA's nginx (PR #100) — emitted with
@@ -280,12 +282,16 @@ cross-cutting surface:
 - **Home-services launcher** ✅ (`src/app/home-services/`) — a data-driven,
   role + install-state-gated launcher-card grid mounted on the home page
   (`<div home-services>`). The `CARD_CATALOG` covers the optional services
-  matrix/mastodon/forum/games (slug-gated) plus the core role-homes admin/mod
-  (role-gated). Each card carries one of four `CardState` kinds, each with
-  accessible helptext: `enabled` (a real link), `absent` (optional service not
-  installed on this deployment), `role` (a role-gated card the principal lacks —
-  "sign in as …"), and `registration` (an installed social service not yet fully
-  registered — "complete your registration").
+  matrix/mastodon/forum/games/tube/owncast (slug-gated) plus the core role-homes
+  admin/mod (role-gated). Each card carries one of four `CardState` kinds, each
+  with accessible helptext: `enabled` (a real link), `absent` (optional service
+  not installed on this deployment), `role` (a role-gated card the principal
+  lacks — "sign in as …"), and `registration` (an installed social service not
+  yet fully registered — "complete your registration"). Note: unlike tube/owncast's
+  own route guards (which additionally require the per-service ROLE_TUBE /
+  ROLE_OWNCAST grant), these two cards are slug-gated only — they render
+  `enabled` for any signed-in, registered user regardless of that role grant,
+  so a click can still land on a role-gated redirect at the destination route.
 - **Account-status appeal-gate** ✅ (`src/app/account-status/`) — the
   `StatusGateComponent` (mounted in `app.component.html`) reads `GET /bff/me`
   via `AccountStatusService` and renders an assertive `role="alert"` banner
@@ -306,7 +312,23 @@ cross-cutting surface:
   when there are unread items (capped at `99+`) and carries a visually-hidden
   accessible count. Polling starts/stops with the login state via an `effect()`,
   and clicking the bell navigates to `/user/notifications` on the user remote.
-- **Real-time notification toast** ✅ — NotificationToastService opens a cookie-auth (`credentials: 'include'`) SSE stream to /bff/user/notifications/events when the user is logged in (via an Angular effect() in AppComponent watching session.loggedIn()). Events appear as fixed bottom-right toast cards (max 3, 4-second auto-dismiss, aria-live polite). Uses native fetch()+ReadableStream+TextDecoder (NOT EventSource — the HttpOnly `bff_` session cookie is what authenticates, not a bearer, but `EventSource` offers no way to guarantee `credentials: 'include'` semantics consistent with the rest of this app's `/bff/**` calls); reconnects after 5s on stream end. SSE line parsing is spec-compliant (splits on the first colon, strips at most one optional leading space) — NOT an exact `"data: "` prefix match, which would silently miss every real event Spring's `ServerSentEventHttpMessageWriter` emits (no space before the payload).
+- **Real-time notification toast (SSE)** ✅ (`src/app/notification-toast.service.ts`,
+  `src/app/notification-toast.component.ts`) — mounted alongside the bell in
+  `app.component.html`/`.ts`, `NotificationToastService` opens a cookie-auth
+  (`credentials: 'include'`) server-sent-events stream to
+  **`/bff/user/notifications/events`** when logged in (via an `effect()` watching
+  `session.loggedIn()`) and renders a capped (3), auto-dismissing (4 s),
+  `aria-live="polite"` toast queue as each `data:` frame arrives. Uses native
+  `fetch()`+`ReadableStream`+`TextDecoder` rather than `EventSource` — the
+  HttpOnly `bff_` session cookie is what authenticates, and `EventSource` offers
+  no way to guarantee `credentials: 'include'` semantics consistent with this
+  app's other `/bff/**` calls. It reconnects with a fixed 5 s backoff when the
+  server closes the stream (e.g. the SSE idle timeout), and stops cleanly with
+  no reconnect on a non-2xx response, an abort, or a network error. SSE line
+  parsing is spec-compliant (splits on the first colon, strips at most one
+  optional leading space) — **not** an exact `"data: "` prefix match, which
+  would silently miss every real event Spring's `ServerSentEventHttpMessageWriter`
+  emits (no space before the payload).
 - **Accessibility baseline** — a skip-link that moves focus (not just scroll)
   to `#maincontent` per WCAG 2.4.1, the WAI-ARIA menubar roving-tabindex
   pattern, and the modal dialog contract above.
@@ -359,10 +381,10 @@ src/app/
   home-services/           data-driven launcher-card catalog (CardState: enabled/absent/role/registration)
   account-status/          StatusGateComponent — /bff/me suspended/banned appeal-gate banner (fail-open)
   bell/                    BellNotificationsService — /bff/user/notifications 60s poll → unread-count badge
+  notification-toast.service.ts / .component.ts   NotificationToastService — cookie-auth SSE /bff/user/notifications/events, capped (3) auto-dismiss (4s) aria-live toast queue
   menu/                    universal nav + role-gated profile dropdown (a11y menubar) + notification bell
   profile-modal/           host modal mounting the user remote's ./profile editor
   announcements/           /bff/announcements/home banner (sandboxed srcdoc, dismiss-once)
-  notification-toast/      NotificationToastService — cookie-auth SSE /bff/user/notifications/events → fixed bottom-right toast cards (max 3, 4-s auto-dismiss, aria-live polite)
   header/ footer/ background/ home/ about/   chrome + public marketing pages
 src/main.ts                resolveFederationSource() → initFederation(source) → ./bootstrap
 src/assets/federation.manifest{,.prod}.json  static FLOOR + fallback (remote name → remoteEntry URL)
@@ -426,6 +448,10 @@ today.
   host's **dynamic manifest TAILNET-ONLY** (off the public UI). The
   dynamic-manifest mechanism is the shipped delivery path; the app-store remotes
   themselves are roadmap.
-- 🔭 **OWASP pen-test + nuclei in CI / binhost fleet auto-update.** CI-pipeline
-  security scanning and Gentoo binhost-driven fleet distribution are platform
-  roadmap.
+- ✅ **OWASP pen-test in CI (shipped).** `.gitlab-ci.yml` runs `pentest:sca` and
+  `pentest:dast` jobs (`allow_failure: true`, on default-branch pushes and MRs)
+  that `extend:` the centralized hidden `.pentest-sca` / `.pentest-dast-baseline`
+  jobs included from `Snapdragon-Systems/snapdragon-generator`
+  `/tests/pentest/ci/pentest-stage.gitlab-ci.yml`.
+- 🔭 **Binhost fleet auto-update.** Gentoo binhost-driven fleet distribution is
+  still platform roadmap.

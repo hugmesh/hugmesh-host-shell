@@ -16,7 +16,8 @@
 export type CardState = 'enabled' | 'absent' | 'role' | 'registration';
 
 export interface ServiceCard {
-  /** Stable id / test hook (matrix, mastodon, forum, games, admin, mod). */
+  /** Stable id / test hook (matrix, mastodon, forum, games, tube, owncast, admin,
+   *  mod). */
   readonly id: string;
   /** Visible label. */
   readonly label: string;

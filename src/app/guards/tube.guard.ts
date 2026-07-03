@@ -1,6 +1,5 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { SessionService } from '../session.service';
+import { CanActivateFn } from '@angular/router';
+import { roleGuard } from './role-guard.factory';
 
 /** Gate the TUBE management micro-frontend (the snapdragon-tube-ui remote mounted
  *  at /tube, exposing ./routes) on the tube access tier. Mirrors the wiki/owncast
@@ -15,11 +14,6 @@ import { SessionService } from '../session.service';
  *  This is defense-in-depth only: the BFF + gateway route-access rows
  *  (/bff/tube/** → ROLE_TUBE, /bff/tube/admin/** → ADMIN|SUPERADMIN) are the real
  *  authorization; this guard keeps the unauthorized out of the remote's UI shell. */
-export const tubeGuard: CanActivateFn = () => {
-  const session = inject(SessionService);
-  const router = inject(Router);
-  if (session.isAdmin() || session.isSuperadmin() || session.hasRole('TUBE')) {
-    return true;
-  }
-  return router.parseUrl('/login');
-};
+export const tubeGuard: CanActivateFn = roleGuard(
+  (session) => session.isAdmin() || session.isSuperadmin() || session.hasRole('TUBE'),
+);

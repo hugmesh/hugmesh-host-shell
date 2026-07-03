@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, OnDestroy, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, Subscription, timer } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
@@ -15,14 +15,14 @@ export class BellNotificationsService implements OnDestroy {
   private static readonly ENDPOINT = '/bff/user/notifications';
   private static readonly POLL_INTERVAL_MS = 60_000;
 
+  private readonly http = inject(HttpClient);
+
   private readonly notifications$ = new BehaviorSubject<SnapdragonNotification[]>([]);
   private pollSubscription: Subscription | null = null;
 
   readonly unreadCount$: Observable<number> = this.notifications$.pipe(
-    map(ns => ns.filter(n => n.readAt === null).length),
+    map((ns) => ns.filter((n) => n.readAt === null).length),
   );
-
-  constructor(private readonly http: HttpClient) {}
 
   // Start polling — call once when the user is authenticated
   startPolling(): void {
@@ -31,7 +31,7 @@ export class BellNotificationsService implements OnDestroy {
       switchMap(() => this.http
         .get<SnapdragonNotification[]>(BellNotificationsService.ENDPOINT)
         .pipe(catchError(() => of([])))),
-    ).subscribe(ns => this.notifications$.next(ns));
+    ).subscribe((ns) => this.notifications$.next(ns));
   }
 
   stopPolling(): void {
