@@ -36,9 +36,9 @@ describe('HomeServicesService — card projection', () => {
 
   const card = (id: string): ServiceCard => service.cards().find((c) => c.id === id)!;
 
-  it('always renders the full catalog (matrix/mastodon/forum/games/tube/owncast/admin/mod)', () => {
+  it('always renders the full catalog (matrix/mastodon/forum/games/games-admin/tube/owncast/admin/mod)', () => {
     expect(service.cards().map((c) => c.id)).toEqual([
-      'matrix', 'mastodon', 'forum', 'games', 'tube', 'owncast', 'admin', 'mod',
+      'matrix', 'mastodon', 'forum', 'games', 'games-admin', 'tube', 'owncast', 'admin', 'mod',
     ]);
   });
 
@@ -61,11 +61,15 @@ describe('HomeServicesService — card projection', () => {
   describe('USER-SITUATIONAL — plain registered user', () => {
     beforeEach(() => session$.set(session({ roles: ['user'], registrationComplete: true })));
 
-    it('enables installed social + forum + games', () => {
+    it('enables installed social + forum', () => {
       expect(card('matrix').state).toBe('enabled');
       expect(card('mastodon').state).toBe('enabled');
       expect(card('forum').state).toBe('enabled');
-      expect(card('games').state).toBe('enabled');
+    });
+
+    it('greys the games entry-point without ROLE_GAMES ("sign in as a games member")', () => {
+      expect(card('games').state).toBe('role');
+      expect(card('games').disabledReason).toContain('a games member');
     });
 
     it('greys the admin and mod consoles with a "sign in as …" reason', () => {
@@ -84,11 +88,15 @@ describe('HomeServicesService — card projection', () => {
       expect(card('matrix').disabledReason).toContain('registration');
     });
 
-    it('still enables non-social installed services (forum/games/tube/owncast need no registration)', () => {
+    it('still enables non-social installed services (forum/tube/owncast need no registration)', () => {
       expect(card('forum').state).toBe('enabled');
-      expect(card('games').state).toBe('enabled');
       expect(card('tube').state).toBe('enabled');
       expect(card('owncast').state).toBe('enabled');
+    });
+
+    it('a games member still needs no registration for the games entry-point', () => {
+      session$.set(session({ roles: ['user', 'games'], registrationComplete: false }));
+      expect(card('games').state).toBe('enabled');
     });
   });
 
@@ -102,6 +110,38 @@ describe('HomeServicesService — card projection', () => {
       session$.set(session({ roles: ['mod'] }));
       expect(card('mod').state).toBe('enabled');
       expect(card('admin').state).toBe('role');
+    });
+  });
+
+  describe('USER-SITUATIONAL — GAMES entry-point + DERIVED games-admin (Phase 8/10)', () => {
+    it('a bare games member (e2e-gamesonly) sees the entry-point enabled but games-admin greyed', () => {
+      session$.set(session({ roles: ['user', 'games'] }));
+      expect(card('games').state).toBe('enabled');
+      expect(card('games-admin').state).toBe('role');
+      expect(card('games-admin').disabledReason).toContain('a games admin');
+    });
+
+    it('a bare admin (e2e-adminonly, no ROLE_GAMES) is DENIED both games cards', () => {
+      session$.set(session({ roles: ['admin'] }));
+      expect(card('games').state).toBe('role');
+      expect(card('games-admin').state).toBe('role');
+    });
+
+    it('games + admin (e2e-gamesadmin) earns the DERIVED games-admin console', () => {
+      session$.set(session({ roles: ['user', 'games', 'admin'] }));
+      expect(card('games').state).toBe('enabled');
+      expect(card('games-admin').state).toBe('enabled');
+    });
+
+    it('games + mod earns the DERIVED games-admin console too (ROLE_ADMIN ∪ ROLE_MOD)', () => {
+      session$.set(session({ roles: ['user', 'games', 'mod'] }));
+      expect(card('games-admin').state).toBe('enabled');
+    });
+
+    it('a plain user (neither games nor admin/mod) is DENIED both games cards', () => {
+      session$.set(session({ roles: ['user'] }));
+      expect(card('games').state).toBe('role');
+      expect(card('games-admin').state).toBe('role');
     });
   });
 

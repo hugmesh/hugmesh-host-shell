@@ -28,6 +28,8 @@ class SessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  isGames = signal(false);
+  isGamesAdmin = signal(false);
   roles = signal<string[]>([]);
   session = signal<{ label: string } | null>({ label: 'alice' });
   cleared = false;
@@ -246,6 +248,49 @@ describe('MenuComponent — universal nav menubar', () => {
     });
   });
 
+  describe('Games Admin profile-menu entry (Phase 8/10 DERIVED ROLE_GAMES_ADMIN)', () => {
+    function openProfileLabels(): string[] {
+      component.toggleProfile();
+      fixture.detectChanges();
+      return Array.from(el.querySelectorAll<HTMLElement>('.profile-menu__item'))
+        .map((i) => i.textContent?.trim() ?? '');
+    }
+
+    it('is HIDDEN for a bare admin (admin alone does not earn games-admin)', () => {
+      stub.isAdmin.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).not.toContain('Games Admin');
+    });
+
+    it('is HIDDEN for a bare mod (mod alone does not earn games-admin)', () => {
+      stub.isMod.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).not.toContain('Games Admin');
+    });
+
+    it('is SHOWN for the derived games-admin tier', () => {
+      stub.isGamesAdmin.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).toContain('Games Admin');
+    });
+
+    it('is SHOWN for a superadmin', () => {
+      stub.isSuperadmin.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).toContain('Games Admin');
+    });
+
+    it('activating it navigates to /games/admin', () => {
+      stub.isGamesAdmin.set(true);
+      fixture.detectChanges();
+      const router = TestBed.inject(Router);
+      const navigateSpy = spyOn(router, 'navigateByUrl');
+      const item = component.profileMenuItems.find((i) => i.testid === 'menu-games-admin')!;
+      component.onProfileItem(item);
+      expect(navigateSpy).toHaveBeenCalledWith('/games/admin');
+    });
+  });
+
   describe('profile dropdown — WAI-ARIA menu keyboard operability', () => {
     const trigger = () =>
       el.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!;
@@ -435,6 +480,8 @@ class BellSessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  isGames = signal(false);
+  isGamesAdmin = signal(false);
   roles = signal<string[]>([]);
   session = signal<{ label: string } | null>({ label: 'alice' });
   hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }

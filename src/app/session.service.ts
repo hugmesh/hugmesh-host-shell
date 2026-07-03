@@ -51,6 +51,20 @@ export class SessionService {
    *  isAdmin/isMod. Used by service guards that grant superadmins unconditional
    *  access (e.g. the wiki management remote: superadmin manages ALL wiki features). */
   readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
+  /** GAMES entry-point role (Phase 8): plain ROLE_GAMES grants access to the games
+   *  namespace ENTRY-POINT ONLY — it does NOT by itself grant games ADMIN (see
+   *  {@link isGamesAdmin}). Lowercase 'games' role string, mirroring isAdmin/isMod. */
+  readonly isGames = computed(() => (this.session()?.roles ?? []).includes('games'));
+  /** GAMES-ADMIN role (Phase 8/10): mirrors the server-computed DERIVED role
+   *  materialized by manifests/casdoor/games-admin-sync-job.yaml —
+   *      ROLE_GAMES_ADMIN = ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)
+   *  — i.e. ROLE_GAMES_ADMIN is NEVER granted directly; it is earned by holding
+   *  ROLE_GAMES together with either ROLE_ADMIN or ROLE_MOD. A bare ROLE_GAMES
+   *  (e2e-gamesonly) or a bare ROLE_ADMIN (e2e-adminonly) must NOT earn it
+   *  (default-deny). This client-side derivation is defence-in-depth only — the
+   *  sync job + gateway route-access rows are the real authorization boundary —
+   *  so it must never grant a tier the server wouldn't also grant. */
+  readonly isGamesAdmin = computed(() => this.isGames() && (this.isAdmin() || this.isMod()));
   /** Every authenticated identity is at least a ROLE_USER (the user role-home is
    *  the baseline). True for any logged-in session even when the explicit 'user'
    *  role string is absent, so the default route always resolves a role-home. */

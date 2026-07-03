@@ -18,7 +18,7 @@ interface CardSpec {
   readonly route: string;
   readonly slug?: string;
   readonly requiresRegistration?: boolean;
-  readonly requiresRole?: 'admin' | 'mod';
+  readonly requiresRole?: 'admin' | 'mod' | 'games' | 'games-admin';
   /** Human label for the missing role, used in the "sign in as …" helptext. */
   readonly roleLabel?: string;
 }
@@ -40,9 +40,20 @@ const CARD_CATALOG: readonly CardSpec[] = [
     id: 'forum', label: 'Forum', description: 'Discussion boards',
     route: '/social/forum', slug: 'forum',
   },
+  // GAMES entry-point (Phase 8): a plain ROLE_GAMES member reaches this — the
+  // ENTRY-POINT ONLY, distinct from the games-ADMIN console below (a bare
+  // ROLE_GAMES does NOT earn games-admin; see SessionService.isGamesAdmin).
   {
     id: 'games', label: 'Games', description: 'Play together',
-    route: '/games', slug: 'games',
+    route: '/games', slug: 'games', requiresRole: 'games', roleLabel: 'a games member',
+  },
+  // GAMES-ADMIN console (Phase 8/10): the DERIVED ROLE_GAMES_ADMIN tier
+  // (ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)) — see SessionService.isGamesAdmin.
+  // Shares the 'games' install-state slug (there is no games-admin console
+  // without the games service itself being installed).
+  {
+    id: 'games-admin', label: 'Games Admin', description: 'Manage the games namespace',
+    route: '/games/admin', slug: 'games', requiresRole: 'games-admin', roleLabel: 'a games admin',
   },
   {
     id: 'tube', label: 'My Tube', description: 'YouTube subscription archive',
@@ -122,7 +133,12 @@ export class HomeServicesService {
     return { state: 'enabled', disabledReason: '' };
   }
 
-  private hasRole(role: 'admin' | 'mod'): boolean {
-    return role === 'admin' ? this.session.isAdmin() : this.session.isMod();
+  private hasRole(role: 'admin' | 'mod' | 'games' | 'games-admin'): boolean {
+    switch (role) {
+      case 'admin': return this.session.isAdmin();
+      case 'mod': return this.session.isMod();
+      case 'games': return this.session.isGames();
+      case 'games-admin': return this.session.isGamesAdmin();
+    }
   }
 }

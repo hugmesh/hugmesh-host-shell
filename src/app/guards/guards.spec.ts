@@ -9,6 +9,8 @@ import { userGuard } from './user.guard';
 import { wikiGuard } from './wiki.guard';
 import { tubeGuard } from './tube.guard';
 import { owncastGuard } from './owncast.guard';
+import { gamesGuard } from './games.guard';
+import { gamesAdminGuard } from './games-admin.guard';
 import { roleHomeGuard } from './role-home.guard';
 import { AccessStatus, SessionService, ShellRole } from '../session.service';
 
@@ -20,6 +22,8 @@ class SessionStub {
   mod = false;
   user = false;
   superadmin = false;
+  games = false;
+  gamesAdmin = false;
   roles: string[] = [];
   registered = false;
   effectiveRole: ShellRole | null = null;
@@ -30,6 +34,8 @@ class SessionStub {
   isMod = () => this.mod;
   isUser = () => this.user;
   isSuperadmin = () => this.superadmin;
+  isGames = () => this.games;
+  isGamesAdmin = () => this.gamesAdmin;
   hasRole = (role: string) => this.roles.some((r) => r.toLowerCase() === role.toLowerCase());
   fullyRegistered = () => this.registered;
   role = () => this.effectiveRole;
@@ -217,6 +223,63 @@ describe('federation route guards', () => {
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
       expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('gamesGuard (games entry-point remote at /games)', () => {
+    it('ALLOWS a games member (e2e-gamesonly)', () => {
+      session.games = true;
+      expect(run(gamesGuard)).toBeTrue();
+    });
+
+    it('ALLOWS an administrator (even without ROLE_GAMES)', () => {
+      session.admin = true;
+      expect(run(gamesGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a superadmin', () => {
+      session.superadmin = true;
+      expect(run(gamesGuard)).toBeTrue();
+    });
+
+    it('DENIES a plain user WITHOUT ROLE_GAMES (redirect to /login)', () => {
+      session.user = true;
+      expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES a bare moderator WITHOUT ROLE_GAMES (redirect to /login)', () => {
+      session.mod = true;
+      expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES an anonymous visitor (redirect to /login)', () => {
+      expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
+    });
+  });
+
+  describe('gamesAdminGuard (DERIVED ROLE_GAMES_ADMIN mount at /games/admin)', () => {
+    it('ALLOWS the derived games-admin (e2e-gamesadmin: games + admin)', () => {
+      session.gamesAdmin = true;
+      expect(run(gamesAdminGuard)).toBeTrue();
+    });
+
+    it('ALLOWS a superadmin', () => {
+      session.superadmin = true;
+      expect(run(gamesAdminGuard)).toBeTrue();
+    });
+
+    it('DENIES a bare games member (e2e-gamesonly: ROLE_GAMES alone)', () => {
+      session.games = true;
+      expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES a bare admin WITHOUT games (e2e-adminonly)', () => {
+      session.admin = true;
+      expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
+    });
+
+    it('DENIES an anonymous visitor (redirect to /login)', () => {
+      expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
     });
   });
 

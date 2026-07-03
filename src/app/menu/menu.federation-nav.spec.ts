@@ -17,6 +17,8 @@ class SessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  isGames = signal(false);
+  isGamesAdmin = signal(false);
   roles = signal<string[]>([]);
   session = signal<{ label: string } | null>(null);
   cleared = false;
@@ -326,6 +328,62 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
       (el.querySelector('[data-testid="menu-tube"]') as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(navSpy).toHaveBeenCalledWith('/tube');
+      expect(component.profileOpen()).toBeFalse();
+    });
+  });
+
+  describe('Games Admin management entry (role-gated: DERIVED ROLE_GAMES_ADMIN | superadmin)', () => {
+    function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; gamesAdmin: boolean; roles: string[] }> = {}) {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'user' });
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.isGamesAdmin.set(over.gamesAdmin ?? false);
+      stub.roles.set(over.roles ?? []);
+      fixture.detectChanges();
+    }
+
+    it('SHOWN for the derived games-admin tier (e2e-gamesadmin)', () => {
+      login({ gamesAdmin: true, roles: ['user', 'games', 'admin'] });
+      openProfile();
+      const gamesAdmin = el.querySelector('[data-testid="menu-games-admin"]') as HTMLElement;
+      expect(gamesAdmin).withContext('Games Admin entry visible for the derived tier').toBeTruthy();
+      expect(gamesAdmin.textContent?.trim()).withContext('accessible name').toBe('Games Admin');
+      expect(gamesAdmin.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+    });
+
+    it('SHOWN for a superadmin', () => {
+      login({ superadmin: true });
+      openProfile();
+      expect(has('menu-games-admin')).toBeTrue();
+    });
+
+    it('HIDDEN for a bare admin WITHOUT ROLE_GAMES (e2e-adminonly)', () => {
+      login({ admin: true, roles: ['user', 'admin'] });
+      openProfile();
+      expect(has('menu-games-admin')).toBeFalse();
+    });
+
+    it('HIDDEN for a bare games member WITHOUT admin/mod (e2e-gamesonly)', () => {
+      login({ roles: ['user', 'games'] });
+      openProfile();
+      expect(has('menu-games-admin')).toBeFalse();
+    });
+
+    it('HIDDEN for a plain user', () => {
+      login();
+      openProfile();
+      expect(has('menu-games-admin')).toBeFalse();
+    });
+
+    it('navigates to /games/admin and closes the menu', () => {
+      login({ gamesAdmin: true, roles: ['user', 'games', 'admin'] });
+      const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+      openProfile();
+      (el.querySelector('[data-testid="menu-games-admin"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(navSpy).toHaveBeenCalledWith('/games/admin');
       expect(component.profileOpen()).toBeFalse();
     });
   });

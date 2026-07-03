@@ -50,6 +50,40 @@ describe('SessionService', () => {
     expect(service.isSuperadmin()).toBeTrue();
   });
 
+  it('derives isGames from the lowercase games role string', () => {
+    service.set(makeSession({ roles: ['user'] }));
+    expect(service.isGames()).toBeFalse();
+    service.set(makeSession({ roles: ['user', 'games'] }));
+    expect(service.isGames()).toBeTrue();
+  });
+
+  describe('isGamesAdmin() — DERIVED ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)', () => {
+    it('is false for a bare games member (e2e-gamesonly: ROLE_GAMES alone)', () => {
+      service.set(makeSession({ roles: ['user', 'games'] }));
+      expect(service.isGamesAdmin()).toBeFalse();
+    });
+
+    it('is false for a bare admin WITHOUT games (e2e-adminonly)', () => {
+      service.set(makeSession({ roles: ['user', 'admin'] }));
+      expect(service.isGamesAdmin()).toBeFalse();
+    });
+
+    it('is true for games + admin (e2e-gamesadmin earns the derived role)', () => {
+      service.set(makeSession({ roles: ['user', 'games', 'admin'] }));
+      expect(service.isGamesAdmin()).toBeTrue();
+    });
+
+    it('is true for games + mod (the ROLE_ADMIN ∪ ROLE_MOD half of the intersection)', () => {
+      service.set(makeSession({ roles: ['user', 'games', 'mod'] }));
+      expect(service.isGamesAdmin()).toBeTrue();
+    });
+
+    it('is false for a plain user with neither games nor admin/mod', () => {
+      service.set(makeSession({ roles: ['user'] }));
+      expect(service.isGamesAdmin()).toBeFalse();
+    });
+  });
+
   describe('hasRole(role) — per-service access sub-role (e.g. ROLE_WIKI)', () => {
     it('is false when the session lacks the role', () => {
       service.set(makeSession({ roles: ['user', 'mod'] }));

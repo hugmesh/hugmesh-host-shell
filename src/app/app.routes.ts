@@ -7,6 +7,8 @@ import { userGuard } from './guards/user.guard';
 import { wikiGuard } from './guards/wiki.guard';
 import { tubeGuard } from './guards/tube.guard';
 import { owncastGuard } from './guards/owncast.guard';
+import { gamesGuard } from './guards/games.guard';
+import { gamesAdminGuard } from './guards/games-admin.guard';
 import { roleHomeGuard } from './guards/role-home.guard';
 
 /**
@@ -116,6 +118,29 @@ export const routes: Routes = [
     path: 'about',
     loadComponent: () =>
       import('./about/about.component').then((m) => m.AboutComponent),
+  },
+
+  // Phase 8/10 GAMES entry-point + DERIVED games-admin mount. Neither is a
+  // federated remote yet (no games UI repo exists), so these are GUARDED LOCAL
+  // PLACEHOLDERS (see the mod-placeholder precedent this repo used for /mod
+  // before snapdragon-mod-ui landed) — a role-holder reaching either route sees
+  // an honest TODO, never a silent 404 or a faked console. 'games/admin' MUST
+  // precede 'games' (specific-before-general, mirroring admin/docs -> admin).
+  {
+    path: 'games/admin',
+    canActivate: [gamesAdminGuard],
+    loadComponent: () =>
+      import('./games-admin-placeholder/games-admin-placeholder.component').then(
+        (m) => m.GamesAdminPlaceholderComponent,
+      ),
+  },
+  {
+    path: 'games',
+    canActivate: [gamesGuard],
+    loadComponent: () =>
+      import('./games-placeholder/games-placeholder.component').then(
+        (m) => m.GamesPlaceholderComponent,
+      ),
   },
 
   // Federated remotes (data-driven from REMOTE_ROUTES above). The role-home

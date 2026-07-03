@@ -50,7 +50,7 @@ interface NavEntry {
 interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'logout';
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games-admin' | 'logout';
   route?: string;
   show: () => boolean;
   /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
@@ -148,6 +148,13 @@ export class MenuComponent {
     // protects the /tube mount, so the entry is never a dead link.
     { label: 'Tube',       testid: 'menu-tube',    action: 'tube',    route: '/tube',       show: () => this.canAccessTube(),
       help: 'Manage your YouTube subscription archive (granted users, admins, and superadmins).' },
+    // GAMES-ADMIN console (Phase 8/10) — shown ONLY to the DERIVED
+    // ROLE_GAMES_ADMIN tier (session.isGamesAdmin: ROLE_GAMES ∩ (ROLE_ADMIN ∪
+    // ROLE_MOD)), plus superadmins. A bare games member or a bare admin/mod does
+    // NOT see it. Mirrors the gamesAdminGuard that protects the /games/admin
+    // mount, so the entry is never a dead link.
+    { label: 'Games Admin', testid: 'menu-games-admin', action: 'games-admin', route: '/games/admin', show: () => this.canAccessGamesAdmin(),
+      help: 'Manage the games namespace (games admins and superadmins only).' },
     { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
       help: 'Sign out and return to the login page.' },
   ];
@@ -196,6 +203,15 @@ export class MenuComponent {
       this.session.isAdmin() ||
       this.session.isSuperadmin()
     );
+  }
+
+  /** The GAMES-ADMIN access tier (mirrors the host gamesAdminGuard exactly): the
+   *  DERIVED ROLE_GAMES_ADMIN tier (session.isGamesAdmin — ROLE_GAMES ∩
+   *  (ROLE_ADMIN ∪ ROLE_MOD)), or a superadmin. A bare games member or a bare
+   *  admin/mod WITHOUT games is excluded — they never see the entry and could
+   *  not pass the guard if they reached /games/admin directly. */
+  private canAccessGamesAdmin(): boolean {
+    return this.session.isGamesAdmin() || this.session.isSuperadmin();
   }
 
   /** Accessible NAME for the profile-menu trigger. The visible label is the user's
@@ -360,6 +376,7 @@ export class MenuComponent {
       case 'wiki':
       case 'owncast':
       case 'tube':
+      case 'games-admin':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
       case 'logout':
