@@ -34,7 +34,7 @@ flowchart TB
     g5["GatewayRouteAccessFilter (resource-access grants)"]
   end
   g1 -.->|"/bff/internal/session/exchange<br/>(mTLS + X-Internal-Token)"| abff
-  gw -->|"PUBLIC /bff/auth/callback + /bff/login"| ubff["user-bff<br/>(login/OIDC endpoints + token custody/refresh)"]
+  gw -->|"PUBLIC /bff/login (native creds POST — no browser callback)"| ubff["user-bff<br/>(login/OIDC endpoints + token custody/refresh)"]
   gw -->|"everything else"| host["snapdragon.systems<br/>(native-federation host, this repo)"]
   ubff -->|"OidcExchangeClient.exchangeCode"| casdoor["Casdoor :8000"]
   ubff -.->|"/bff/internal ensureAccount / createSession / custody-stamp<br/>(mTLS + X-Internal-Token)"| abff["admin-bff<br/>(owns account/session DATA + /bff/internal)"]
@@ -111,8 +111,10 @@ stack (`AccountStore`/`BffSession`, `OidcExchangeClient`, `BffCustodyCipher`,
 only (kept off the gateway classpath); **admin-bff** owns account/session data + the
 `/bff/internal` API + custody/stamp + session/exchange; **user-bff** owns the
 server-side PKCE/state + the internal Casdoor login/exchange (`/api/login` + code
-exchange); **snapdragon-gateway** owns the `BffJwtExchangeWebFilter` +
-the PUBLIC `/bff/auth/callback` route seed; **login-ui** owns the native
+exchange) driven by the native `POST /bff/login` credentials handoff (Casdoor is
+never browser-exposed and there is no browser redirect/callback);
+**snapdragon-gateway** owns the `BffJwtExchangeWebFilter` +
+the PUBLIC `/bff/login` route seed; **login-ui** owns the native
 username/password form + `POST /bff/login`.
 
 ### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-25)
@@ -128,7 +130,8 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   SCG-5 route-namespace bug fixed.
 - ✅ **shipped (the SSO BFF-custody flow has since merged, all dark behind default-off
   flags):** gateway `BffJwtExchangeWebFilter` + `BffJwtExchangeConfig`
-  (`snapdragon.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` /
+  (`snapdragon.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` (since
+  retired — see the native `/bff/login` model above) /
   `SsoAuthController` / `AdminBffInternalClient` / `OidcCustodyBootGuard` (OIDC login
   relocation + admin-bff internal client, `app.bff.oidc.enabled`); login-ui
   **native username/password (+MFA) form → POST `/bff/login`** (SUPERSEDES the
@@ -138,7 +141,8 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
   auth-core 2.1.0 → since advanced to 2.3.0).
 - ✅ **shipped:** generator **#156** (`app-user-bff` Casdoor OIDC client +
-  PUBLIC `/bff/auth/callback` route seed) — merged 2026-06-20.
+  PUBLIC `/bff/auth/callback` route seed — the callback route has since been retired
+  in favour of the native `/bff/login` model above) — merged 2026-06-20.
 - 🔭 **planned / next:** a cross-repo **NetworkPolicy egress peer**
   user-bff → admin-bff internal `:8080`; **SSO end-to-end live e2e** (kind +
   Playwright, proving the browser holds only `bff_`).
