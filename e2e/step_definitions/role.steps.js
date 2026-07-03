@@ -117,6 +117,43 @@ Given('I have no session', async function () {
   await seedSession(null);
 });
 
+/** GIVEN I have a/an {suspended|banned} {role} session — seed a role session
+ *  that ALSO carries a curtailed `status` (SnapSession.status, the field
+ *  AccountStatusService syncs from the authoritative /bff/me read — see
+ *  session.service.ts). Drives roleHomeGuard's short-circuit
+ *  (guards/role-home.guard.ts): session.curtailed() reads THIS field
+ *  synchronously, so seeding it directly (rather than mocking /bff/me, which
+ *  only resolves asynchronously AFTER the guard has already redirected) is the
+ *  only way to exercise the short-circuit itself end to end — see
+ *  appeal-redirect.feature. Any role may be curtailed; the guard fires BEFORE
+ *  the role redirect regardless of privilege (guards.spec.ts covers this at
+ *  the unit level; this is the same contract exercised through real routing). */
+Given(
+  /^I have an? (suspended|banned) (superadmin|admin|mod|user) session$/,
+  async function (status, role) {
+    const session = sessionFor(role);
+    session.status = status;
+    await seedSession(session);
+  },
+);
+
+/** WHEN my account status is restored to active — simulates the admin lifting
+ *  the access-role suspension (snapdragon-admin-ui's Delegation "Lift" action)
+ *  and the host re-syncing off the next authoritative `/bff/me` read
+ *  (AccountStatusService.fetch patches SnapSession.status on change). Patches
+ *  the ALREADY-SEEDED session in place (same id/roles), matching the real
+ *  sync path: the user's identity/roles are unchanged, only status flips. */
+When('my account status is restored to active', async function () {
+  const cur = await browser.execute(
+    (key) => localStorage.getItem(key),
+    [SESSION_KEY],
+  );
+  assert.ok(cur, 'expected an existing seeded session to restore');
+  const session = JSON.parse(cur);
+  session.status = 'active';
+  await seedSession(session);
+});
+
 /** Wait for Angular's router to settle on a path. Polls window.location.pathname
  *  because the route resolves client-side after the guard redirect chain. */
 async function waitForPath(expected, timeout = 6000) {

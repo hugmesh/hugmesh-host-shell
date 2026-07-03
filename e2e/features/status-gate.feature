@@ -12,16 +12,18 @@ Feature: Account-status appeal-gate banner (suspended / banned /bff/me states)
   registering a mock carry @bff-status-mock so the After hook restores the
   host-only fail-open default.
 
-  HONEST SCOPE — the banner is INFORMATIONAL BY DESIGN, not an authgate: the
-  suspended-principal routing restriction (short-circuit to /appeal BEFORE the
-  role-home redirect) is explicitly DEFERRED in src — roleHomeGuard carries the
-  documented TODO because /bff/login, /bff/me's JWT and the token do NOT yet
-  emit a status claim the guard could act on, and the login remote's /appeal
-  route does not exist yet. The real enforcement is server-side (token broker +
-  gateway). So this feature asserts what the host ACTUALLY implements: the
-  banner renders and explains, and navigation is NOT restricted. We do NOT fake
-  a routing gate that is not there; the day the backend claim + guard land, a
-  suspended-routing scenario belongs alongside these.
+  HONEST SCOPE — the banner ITSELF is informational, not the authgate: this
+  feature only asserts that the BANNER's own render/dismiss/reason/link
+  behavior tracks the mocked /bff/me body — it renders, explains and links to
+  the appeal page but never blocks a click or hides nav on its own.
+  roleHomeGuard's SEPARATE suspended/banned short-circuit (redirect to
+  /login/appeal BEFORE the role-home redirect, keyed off the session's own
+  synced `status` field rather than this scenario's late-arriving /bff/me
+  mock — see role-home.guard.ts) HAS SHIPPED and is exercised end-to-end,
+  through real routing, in appeal-redirect.feature (@cluster, since
+  `/login/appeal` is itself a federated remote). Do not read "navigation is
+  NOT restricted" below as "the short-circuit doesn't exist" — it asserts the
+  banner's own scope only; the routing short-circuit lives in the other file.
 
   Background:
     Given I have a user session
@@ -50,10 +52,14 @@ Feature: Account-status appeal-gate banner (suspended / banned /bff/me states)
     Then the account-status banner is gone
 
   @bff-status-mock
-  Scenario: The banner is informational — a suspended user's navigation is NOT restricted
-    # Enforcement is DEFERRED in src (roleHomeGuard TODO: no JWT status claim yet;
-    # server-side token broker + gateway are the real block). Assert the actual
-    # host behavior: the banner shows AND the shell stays fully navigable.
+  Scenario: The banner is informational — it does not itself gate the shell's nav
+    # This drives the state via a LATE-arriving /bff/me mock (registered after
+    # the Background's un-curtailed session seed), so roleHomeGuard's own
+    # synchronous short-circuit — keyed off the session's already-seeded
+    # `status`, not this async mock — never fires here; see
+    # appeal-redirect.feature for that mechanism exercised directly. This
+    # scenario's scope is narrower and still true: the BANNER component itself
+    # never disables nav or blocks a click on its own.
     Given the BFF reports my account status as "suspended"
     When I go to "/"
     Then the account-status gate shows the "suspended" banner
