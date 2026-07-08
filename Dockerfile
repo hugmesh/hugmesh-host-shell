@@ -4,8 +4,13 @@ FROM node:lts-alpine AS build
 #### make the 'app' folder the current working directory
 WORKDIR /usr/src/app
 
-#### copy both 'package.json' and 'package-lock.json' (if available)
-COPY package*.json ./
+#### copy 'package.json', 'package-lock.json' (if available), and .npmrc — the
+#### repo pins legacy-peer-deps=true here (some direct deps' peer ranges have
+#### drifted from what's actually resolvable on the registry); without this
+#### file the Docker build's npm install runs in strict-peer mode and can fail
+#### with ERESOLVE even though local/CI installs outside Docker have always
+#### picked it up automatically from the working tree.
+COPY package*.json .npmrc ./
 
 #### install angular cli
 RUN npm install -g @angular/cli
