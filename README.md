@@ -60,14 +60,19 @@ remotes.
   user-bff despite reading as fully shipped. Now parses SSE fields per spec
   (split on first colon, strip at most one optional leading space).
 
-**Auth model (current).** The browser never holds a Casdoor JWT. login-ui runs a
-Casdoor OIDC **authorization-code (PKCE)** redirect; **user-bff** performs the
-server-side code→token exchange and holds per-session JWT custody + refresh. The
-browser holds only an **opaque `bff_`-prefixed session** (in `localStorage` or an
-httpOnly cookie). The gateway is a **pure Casdoor-JWT OAuth2 resource server**: a
-pre-security exchange filter swaps the `bff_` reference → the internal custody JWT
-so the gateway's JWT validation + role gate run unchanged. Authorization is
-data-driven by the **`gateway_route_access` Postgres table** (source of truth) via
+**Auth model (current).** The browser never holds a Casdoor JWT, and Casdoor is
+**internal-only** — it never redirects the browser. login-ui presents a **native
+username/password (+MFA) form** that POSTs to the public **`/bff/login`** route;
+**user-bff** drives the PKCE/state and the internal Casdoor code→token exchange
+server-side and holds per-session JWT custody + refresh. What lands in the
+browser is an **HttpOnly `bff_`-prefixed session cookie**; the `SnapSession`
+object the host persists under the `snap.session` key (`id`, `label`,
+`provider`, `roles`, `registrationComplete`, `status`) carries identity/role
+claims only — it never carries a token. The gateway is a **pure Casdoor-JWT
+OAuth2 resource server**: a pre-security exchange filter swaps the `bff_`
+session cookie → the internal custody JWT so the gateway's JWT validation +
+role gate run unchanged. Authorization is data-driven by the
+**`gateway_route_access` Postgres table** (source of truth) via
 `GatewayRouteAccessFilter` — `ADMIN`/`GAME-MASTER` bypass within their own domain,
 `SUPERADMIN` cross-domain. Login / session / account logic is being **relocated
 from admin-bff to user-bff**, with the shared account/session/MFA/Casdoor-admin
@@ -75,12 +80,14 @@ infra extracted into the new **snapdragon-auth-core** artifact; account/session
 **data** stays in admin-bff-db (user-bff reaches it via admin-bff `/bff/internal`
 over mTLS + `X-Internal-Token`). Cloudflare fronts prod.
 
-From this host's point of view that means: the persisted session it reads is an
-opaque `bff_` reference (it must **not** be treated as, or decoded as, a JWT), and
-the Bearer it attaches via `bearerInterceptor` is that opaque `bff_` value which
-the gateway swaps server-side. (Bearer tokens living in `localStorage` remains a
-platform-wide security backlog item; the httpOnly-cookie custody path is the
-preferred end state.)
+From this host's point of view that means: the persisted `snap.session` that
+`SessionService` reads is an identity/role projection, **not** a token — it must
+never be treated as, or decoded as, a JWT, and it carries no bearer value at all.
+`bearerInterceptor` sets `withCredentials: true` on every request so the HttpOnly
+`bff_` session cookie rides along automatically; the gateway exchanges that
+cookie for the custody JWT server-side, so the browser never holds (nor sends) a
+bearer token. (The interceptor's name is a holdover from an earlier
+localStorage-token design; httpOnly-cookie custody is the shipped model.)
 
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
@@ -111,10 +118,11 @@ manifest's gateway-served remote paths bind as intended.
   with a static floor** before Angular bootstraps in `src/bootstrap.ts`.
   `resolveFederationSource()` (`src/app/federation/federation-bootstrap.ts`) first
   fetches the DB-driven manifest `GET /api/federation/manifest` (federation-api,
-  the `federation_modules` table) — attaching `Authorization: Bearer <bffToken>`
-  (the opaque `bff_` session value) when a `snap.session` is persisted (so an
-  authenticated reload gets its domain/visibility-scoped overlay) and always
-  sending `credentials: 'include'`. On success it returns the **union** of the
+  the `federation_modules` table) — always sending `credentials: 'include'` (the
+  HttpOnly `bff_` session cookie rides along automatically when present, so an
+  authenticated reload gets its domain/visibility-scoped overlay; this runs
+  pre-DI, before `bearerInterceptor`/`HttpClient` exist, so no `Authorization`
+  header is set here). On success it returns the **union** of the
   bundled static manifest (the build-time floor — every baked remote) and the
   dynamic overlay (overrides matching slugs, adds new ones), so a successful read
   is never strictly worse than the static build. On **any** failure — the `401` an
@@ -163,28 +171,28 @@ see *Capabilities / graceful degrade* below.
   `bff_` session reference → the internal custody JWT, and `GatewayRouteAccessFilter`
   enforces the data-driven `gateway_route_access` table.
 - **Casdoor / session:** the host does **not** speak OAuth itself, and **never
-  holds a Casdoor JWT**. The login remote starts the Casdoor OIDC
-  authorization-code (PKCE) redirect; **user-bff** does the server-side
-  code→token exchange and owns per-session JWT custody/refresh. What lands in the
-  browser is the canonical `snap.session` object carrying an **opaque
-  `bff_`-prefixed** session reference plus the per-service handles
-  (`bffToken` = that opaque reference, `matrix`, `mastodon`) and
-  `registrationComplete`; `SessionService` (`src/app/session.service.ts`) reads
-  it. The host and each remote each hold their own `SessionService` over the same
-  storage key and stay in sync via a same-document `snap-session-change`
-  broadcast and cross-tab `storage` events (so the login remote finishing
-  registration immediately unlocks the host's social nav). ✅ For its typed
-  calls the host wires `provideHttpClient` + a single
-  `bearerInterceptor` (`src/app/http/bearer.interceptor.ts`): it sets
-  `withCredentials: true` **always** and attaches `Authorization: Bearer
-  <bffToken>` (the opaque `bff_` value, swapped to the custody JWT at the gateway)
-  **opportunistically** — only when the session holds one and the request doesn't
-  already set an `Authorization` header (never clobbering an explicit header,
-  never sending an empty Bearer for an anonymous caller). This is the host's
-  single Bearer/credentials seam; the legacy raw-fetch announcements service keeps
-  its own `credentials: 'include'`. (Bearer tokens living in `localStorage` is a
-  platform-wide security backlog item; httpOnly-cookie custody is the preferred
-  end state.)
+  holds a Casdoor JWT**. The login remote presents a **native username/password
+  (+MFA) form** that POSTs to the public `/bff/login` route — there is no
+  browser-side redirect to Casdoor; **user-bff** drives the PKCE/state and the
+  internal Casdoor code→token exchange server-side and owns per-session JWT
+  custody/refresh. What lands in the browser is an **HttpOnly `bff_`-prefixed
+  session cookie**, plus the canonical `snap.session` object (`localStorage`)
+  carrying identity/role claims only — `id`, `label`, `provider`, `roles`,
+  `registrationComplete`, `status` (**no token field**: `SnapSession` never
+  carries a `bffToken`, `matrix` or `mastodon` handle); `SessionService`
+  (`src/app/session.service.ts`) reads it. The host and each remote each hold
+  their own `SessionService` over the same storage key and stay in sync via a
+  same-document `snap-session-change` broadcast and cross-tab `storage` events
+  (so the login remote finishing registration immediately unlocks the host's
+  social nav). ✅ For its typed calls the host wires `provideHttpClient` + a
+  single `bearerInterceptor` (`src/app/http/bearer.interceptor.ts`): it sets
+  `withCredentials: true` on **every** request so the HttpOnly `bff_` session
+  cookie rides along; it does **not** attach an `Authorization` header — the
+  gateway exchanges that cookie for the custody JWT server-side. This is the
+  host's single credentials seam; the legacy raw-fetch announcements service
+  keeps its own `credentials: 'include'`. (The interceptor's name is a holdover
+  from an earlier localStorage-bearer design; httpOnly-cookie custody is the
+  shipped model.)
 - **Federation:** ✅ routes are loaded from remotes via `loadRemoteModule` —
   see `REMOTE_ROUTES` in `src/app/app.routes.ts`, the single declarative table
   of `path → remote name → exposed module → exported routes constant → guard`.
@@ -206,7 +214,7 @@ loadRemoteModule(remote, './routes')`:
 
 | Path | Remote | Guard | Gate |
 |---|---|---|---|
-| `/login` | `login` (`snapdragon-login-ui`) | — | public (the Casdoor OIDC PKCE login + registration flow) |
+| `/login` | `login` (`snapdragon-login-ui`) | — | public (native username/password (+MFA) login + registration flow — POSTs to `/bff/login`; Casdoor is internal-only, no browser redirect) |
 | `/user` | `user` (`snapdragon-user-ui`) | `userGuard` | any authenticated identity (the USER role-home; also exposes `./profile`) |
 | `/mod` | `mod` (`snapdragon-mod-ui`) | `modGuard` | Casdoor `mod` role |
 | `/admin` | `admin` (`snapdragon-admin-ui`) | `adminGuard` | Casdoor `admin` role |
@@ -373,10 +381,10 @@ cross-cutting surface:
 ```
 src/app/
   app.routes.ts            REMOTE_ROUTES table (10 remotes) + authgate/role-home + federationLoader
-  session.service.ts       snap.session reader (opaque bff_ session); role precedence (superadmin>admin>mod>user) + registration gate
+  session.service.ts       snap.session reader (id/roles/registrationComplete/status — identity claims, no token field); role precedence (admin>mod>user) + registration gate
   guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
-  http/bearer.interceptor.ts          withCredentials always + opportunistic Bearer (host HttpClient seam)
+  http/bearer.interceptor.ts          withCredentials always, no Authorization header (HttpOnly bff_ cookie seam; gateway swaps cookie → JWT server-side)
   capabilities/            CapabilitiesService — public /api/federation/capabilities install-state (grey-out)
   home-services/           data-driven launcher-card catalog (CardState: enabled/absent/role/registration)
   account-status/          StatusGateComponent — /bff/me suspended/banned appeal-gate banner (fail-open)
@@ -413,9 +421,10 @@ These items are designed or in-flight at the platform level and would surface
 through this host shell when they land. They are **not** in the code on `main`
 today.
 
-- 🚧 **SSO end-to-end live + e2e (in progress).** The Casdoor OIDC PKCE →
-  user-bff token-custody → opaque `bff_` session → gateway `bff_`→JWT-swap flow
-  is the canonical model; wiring it live end-to-end (incl. an e2e suite that
+- 🚧 **SSO end-to-end live + e2e (in progress).** The native `POST /bff/login` →
+  user-bff-driven PKCE/token-custody → opaque `bff_` session cookie → gateway
+  cookie→JWT-swap flow is the canonical model (Casdoor is internal-only and never
+  redirects the browser); wiring it live end-to-end (incl. an e2e suite that
   exercises a real SSO login through this host) is in progress.
 - 🔭 **Casdoor MFA (design-done, 9-PR plan).** WebAuthn + TOTP + recovery with
   per-role defaults, `amr`/`acr` → `MFA_SATISFIED` and
