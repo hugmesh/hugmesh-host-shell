@@ -3,6 +3,7 @@
 
 name: Code Coverage
 permissions:
+  contents: read
   checks: write
   pull-requests: write
 
