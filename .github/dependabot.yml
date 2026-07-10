@@ -10,3 +10,6 @@ updates:
           - "@angular/*"
           - "@angular-devkit/*"
           - "@angular-architects/*"
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
