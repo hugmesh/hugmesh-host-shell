@@ -17,6 +17,14 @@
   z-index: t.$z-background;
   display: block;
   overflow: hidden;
+  // Purely decorative (see background.component.html's own comment: "The
+  // element is non-interactive and carries no semantic role"). The ::before
+  // shimmer layer below already has pointer-events: none, but :host itself —
+  // the full-viewport position:fixed element — never did, so it could still
+  // intercept clicks meant for routed content underneath it. Confirmed live:
+  // Playwright clicks on admin-ui's per-module menu links were failing with
+  // "<app-background> intercepts pointer events" until this was added.
+  pointer-events: none;
 
   background: linear-gradient(
     -45deg,
