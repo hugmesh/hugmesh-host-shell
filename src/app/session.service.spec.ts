@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { SessionService, SnapSession } from './session.service';
+import { SESSION_ENDPOINT, SessionService, SnapSession } from './session.service';
 
 function makeSession(overrides: Partial<SnapSession> = {}): SnapSession {
   return {
@@ -12,16 +12,39 @@ function makeSession(overrides: Partial<SnapSession> = {}): SnapSession {
   };
 }
 
+/** Minimal Response stub for the mocked fetch — mirrors the federation-bootstrap
+ *  spec's `okJson`/`status` helpers. */
+function okJson(body: unknown): Response {
+  return { ok: true, status: 200, json: async () => body } as unknown as Response;
+}
+function status(code: number): Response {
+  return { ok: false, status: code, json: async () => ({}) } as unknown as Response;
+}
+/** Real macrotask flush so an async hydrate() fired-and-forgotten by the
+ *  constructor or a broadcast listener settles before we assert. */
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('SessionService', () => {
   let service: SessionService;
+  let fetchSpy: jasmine.Spy;
+  const originalFetch = globalThis.fetch;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    // Default: no live BFF in the unit env (the e2e/mock-stack shape). The
+    // constructor's bootstrap hydrate() therefore rejects and falls back to the
+    // localStorage mirror; individual tests re-point the spy for the 200/401 paths.
+    fetchSpy = jasmine.createSpy('fetch').and.rejectWith(new Error('no bff in unit env'));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
     TestBed.configureTestingModule({});
     service = TestBed.inject(SessionService);
+    await flush(); // let the constructor's bootstrap probe settle deterministically
   });
 
-  afterEach(() => localStorage.clear());
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    localStorage.clear();
+  });
 
   it('reads the canonical snap.session localStorage key', () => {
     expect(service.loggedIn()).toBeFalse();
@@ -177,12 +200,68 @@ describe('SessionService', () => {
     expect(service.loggedIn()).toBeFalse();
   });
 
-  it('re-reads the signal on the snap-session-change broadcast (remote wrote the session)', () => {
+  it('re-HYDRATES from /bff/session on the snap-session-change broadcast (authoritative re-read)', async () => {
     expect(service.isAdmin()).toBeFalse();
-    // Simulate the login remote writing snap.session, then broadcasting.
-    localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['admin'] })));
+    // A remote (or AccountStatusService) wrote the mirror + broadcast; the host
+    // does an authoritative re-read of /bff/session rather than trusting the mirror.
+    fetchSpy.and.resolveTo(okJson({ id: 'google:alice@gmail.com', roles: ['admin'], registrationComplete: true }));
     window.dispatchEvent(new Event('snap-session-change'));
-    expect(service.isAdmin()).withContext('host re-reads on broadcast').toBeTrue();
+    await flush();
+    expect(fetchSpy).toHaveBeenCalledWith(SESSION_ENDPOINT, jasmine.objectContaining({ credentials: 'include' }));
+    expect(service.isAdmin()).withContext('host re-hydrates authoritatively on broadcast').toBeTrue();
+  });
+
+  describe('hydrate() — GET /bff/session, the mid-session freshness probe', () => {
+    it('a 200 updates the in-memory roles but NEVER writes the localStorage mirror', async () => {
+      // A stale mirror (plain user) that the server has since promoted to admin.
+      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user'] })));
+      fetchSpy.and.resolveTo(
+        okJson({ id: 'google:alice@gmail.com', roles: ['user', 'admin'], registrationComplete: true }),
+      );
+
+      const result = await service.hydrate();
+
+      expect(fetchSpy).toHaveBeenCalledWith(SESSION_ENDPOINT, jasmine.objectContaining({ credentials: 'include' }));
+      expect(service.isAdmin()).withContext('in-memory reflects the fresh role').toBeTrue();
+      expect(result?.roles).toContain('admin');
+      // login-ui owns the mirror: the host updates the signal ONLY, so the stale
+      // localStorage roles are deliberately left untouched (no host write).
+      const mirror = JSON.parse(localStorage.getItem('snap.session') ?? 'null');
+      expect(mirror.roles).withContext('mirror is NOT rewritten by hydrate').toEqual(['user']);
+    });
+
+    it('a fetch REJECTION retains the seeded localStorage session (never clobbers to anonymous)', async () => {
+      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user'] })));
+      fetchSpy.and.rejectWith(new Error('offline'));
+
+      const result = await service.hydrate();
+
+      expect(result).toBeNull();
+      expect(service.loggedIn()).withContext('seeded session survives a failed probe').toBeTrue();
+      expect(service.hasRole('user')).toBeTrue();
+      expect(localStorage.getItem('snap.session')).not.toBeNull();
+    });
+
+    it('a 401 (expired cookie) also retains the seeded session — the stale mirror stands', async () => {
+      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user', 'mod'] })));
+      fetchSpy.and.resolveTo(status(401));
+
+      const result = await service.hydrate();
+
+      expect(result).toBeNull();
+      expect(service.isMod()).withContext('a 401 does not drop the known session').toBeTrue();
+    });
+
+    it('preserves the /bff/me-owned status field across a 200 (only /bff/session-carried fields change)', async () => {
+      service.set(makeSession({ roles: ['user'], status: 'suspended' }));
+      await flush(); // settle the broadcast-triggered hydrate set() fires before re-pointing the spy
+      fetchSpy.and.resolveTo(okJson({ id: 'google:alice@gmail.com', roles: ['user', 'admin'], registrationComplete: true }));
+
+      await service.hydrate();
+
+      expect(service.isAdmin()).toBeTrue();
+      expect(service.status()).withContext('status stays owned by AccountStatusService/bff/me').toBe('suspended');
+    });
   });
 
   it('re-reads the signal on a cross-tab storage event for snap.session', () => {

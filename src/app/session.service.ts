@@ -22,12 +22,33 @@ export type AccessStatus = 'active' | 'suspended' | 'banned';
 export interface SnapSession {
   id: string;                 // casdoor identity, e.g. google:alice@gmail.com
   label: string;              // display (email or discord handle)
-  provider: 'google' | 'discord';
+  /** How the identity signed in. The social remotes persist 'google'/'discord';
+   *  the native-login flow (our-UI password + Casdoor-internal OIDC) surfaces
+   *  'password'/'oidc' on GET /bff/session, so the union carries both families. */
+  provider: 'google' | 'discord' | 'password' | 'oidc';
   roles: string[];
   registrationComplete: boolean;
   /** Server-fed access status — see {@link AccessStatus}. Absent => 'active'. */
   status?: AccessStatus;
 }
+
+/** The GET /bff/session response body — the SAME projection login-ui #51 and
+ *  matrix-ui #44 hydrate from. `id`, `roles` and `registrationComplete` are the
+ *  authoritative identity/authorization fields; `label`/`provider` are optional
+ *  (a native password / OIDC session may omit the social display fields). Note it
+ *  carries NO `status` — that stays owned by GET /bff/me (AccountStatusService). */
+export interface SessionResponse {
+  id: string;
+  label?: string;
+  provider?: SnapSession['provider'];
+  roles?: string[];
+  registrationComplete?: boolean;
+}
+
+/** Same-origin front-door endpoint carrying the authoritative session for the
+ *  HttpOnly session cookie. Relative (the host reads no runtime globals and is
+ *  served same-origin behind the gateway), cookie-carrying, dev + prod alike. */
+export const SESSION_ENDPOINT = '/bff/session';
 
 /** Holds the logged-in session (persisted to localStorage under the canonical
  *  "snap.session" key the login remote writes) and derives the Casdoor-style role
@@ -109,14 +130,85 @@ export class SessionService {
 
   constructor() {
     // The host shell and each federated remote each hold their OWN SessionService
-    // instance over the same localStorage key. Re-read on a same-document broadcast
-    // (dispatched by whichever instance wrote) and on cross-tab storage events, so
-    // every nav/guard reading this signal stays in sync — e.g. the login remote
+    // instance over the same localStorage key. Stay in sync so every nav/guard
+    // reading this signal sees the current session — e.g. the login remote
     // completing registration must unlock the host shell's Matrix/Mastodon nav.
     if (typeof window !== 'undefined') {
-      window.addEventListener(this.channel, () => this.session.set(this.load()));
+      // A same-document broadcast (this or a sibling in-page SessionService wrote
+      // the mirror, or AccountStatusService synced status) means the session MAY
+      // have changed — do an AUTHORITATIVE re-read from /bff/session, not just a
+      // localStorage mirror re-read, so a mid-session role grant/revoke is picked
+      // up. hydrate() never writes the mirror nor broadcasts, so this can't loop.
+      window.addEventListener(this.channel, () => void this.hydrate());
+      // A cross-TAB write to snap.session: the sibling tab already hydrated and
+      // wrote the mirror, so re-reading the mirror here (no extra BFF round-trip,
+      // and no fetch in a background tab) suffices.
       window.addEventListener('storage', (e) => { if (e.key === this.key) this.session.set(this.load()); });
+      // Bootstrap: the signal is already seeded synchronously from the localStorage
+      // mirror (field initializer above — no anonymous flash); now confirm/refresh
+      // it against /bff/session so a role changed since the mirror was written — or
+      // a cookie-only session with no mirror at all — renders without a re-login.
+      void this.hydrate();
     }
+  }
+
+  /**
+   * Refresh the in-memory session from the authoritative GET /bff/session — the
+   * SAME hydrate login-ui #51 and matrix-ui #44 ship, ported to the host shell so
+   * a role granted/revoked MID-SESSION (or a true cookie-only session with no
+   * localStorage mirror at all) is reflected without a re-login.
+   *
+   * On 200 it maps the body into SnapSession and updates the in-memory signal
+   * ONLY: it NEVER writes localStorage and NEVER broadcasts. login-ui owns the
+   * persisted `snap.session` mirror; a host write + broadcast would ping-pong with
+   * it (and the broadcast re-enters this very hydrate). `status` is owned by GET
+   * /bff/me (AccountStatusService) and is not carried on /bff/session, so the
+   * current in-memory status is preserved rather than reset.
+   *
+   * On ANY failure — a network error OR a non-2xx (INCLUDING a 401) OR an
+   * unusable body — it falls back to `this.session.set(this.load())` and returns
+   * null. e2e harnesses / mock stacks seed localStorage with no live BFF, so a
+   * failed probe must NEVER clobber a seeded session; the trade-off is that an
+   * expired-cookie 401 keeps the stale mirror (no regression — this freshness is
+   * purely additive over the old load-only bootstrap).
+   */
+  async hydrate(): Promise<SnapSession | null> {
+    try {
+      const res = await fetch(SESSION_ENDPOINT, {
+        credentials: 'include',
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error(`session ${res.status}`);
+      const body = (await res.json()) as SessionResponse;
+      if (!body || typeof body.id !== 'string' || body.id === '') {
+        throw new Error('session body missing id');
+      }
+      const next = this.fromBody(body);
+      this.session.set(next);
+      return next;
+    } catch {
+      // See the doc-comment: a failed probe (offline, mock stack with no BFF, or
+      // an expired-cookie 401) must never wipe a seeded/known session — re-read
+      // the localStorage mirror instead of dropping to anonymous.
+      this.session.set(this.load());
+      return null;
+    }
+  }
+
+  /** Map the /bff/session body onto SnapSession: identity + roles + registration
+   *  come from the authoritative body; the optional display fields fall back to
+   *  the last-known values; `status` is left to its owner (/bff/me), so the
+   *  current in-memory value is carried forward untouched. */
+  private fromBody(body: SessionResponse): SnapSession {
+    const current = this.session();
+    return {
+      id: body.id,
+      label: body.label ?? current?.label ?? body.id,
+      provider: body.provider ?? current?.provider ?? 'oidc',
+      roles: Array.isArray(body.roles) ? body.roles : [],
+      registrationComplete: body.registrationComplete === true,
+      status: current?.status,
+    };
   }
 
   private load(): SnapSession | null {
