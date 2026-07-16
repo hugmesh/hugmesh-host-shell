@@ -41,6 +41,9 @@ const CARD_CATALOG: readonly CardSpec[] = [
     id: 'mastodon', label: 'Mastodon', description: 'The fediverse timeline',
     route: '/social/mastodon', slug: 'mastodon', requiresRegistration: true,
   },
+  // TODO(forum-remote): route '/social/forum' has no matching REMOTE_ROUTES
+  // entry in app.routes.ts yet, so an 'enabled' card is currently a dead link
+  // (falls through to the '**' redirect) — see the TODO there for the fix.
   {
     id: 'forum', label: 'Forum', description: 'Discussion boards',
     route: '/social/forum', slug: 'forum',

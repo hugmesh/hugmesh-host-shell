@@ -4,8 +4,8 @@ import { SessionService } from '../session.service';
 import { HomeAnnouncement } from './announcement.model';
 
 /** Same-origin admin-bff endpoint for the logged-in HOME top banner. The id-gateway
- *  routes `/bff/*` to the BFF, so a relative path with the session cookie/JWT works
- *  in dev and prod alike. */
+ *  routes `/bff/*` to the BFF, so a relative path with the HttpOnly `bff_` session
+ *  cookie works in dev and prod alike (the browser holds no bearer token). */
 export const HOME_ANNOUNCEMENTS_ENDPOINT = '/bff/announcements/home';
 
 /** localStorage key holding the set of announcement ids the user has dismissed.

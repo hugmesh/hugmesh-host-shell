@@ -12,9 +12,12 @@ import { HttpInterceptorFn } from '@angular/common/http';
  *
  * PUBLIC reads (e.g. GET /api/federation/capabilities, permitAll) work for an
  * anonymous host because no cookie is present — the cookie carries auth when one
- * exists and is simply absent otherwise. This is the single credentials seam for
- * the host; the legacy raw-fetch services (announcements) keep their own
- * `credentials: 'include'` and are untouched.
+ * exists and is simply absent otherwise. This is the host's single HttpClient
+ * credentials seam; a handful of raw-`fetch()` call sites keep their own
+ * `credentials: 'include'` instead of going through HttpClient — announcements,
+ * `SessionService.hydrate()`, `NotificationToastService` (SSE needs a raw
+ * `fetch()`+`ReadableStream`, not `EventSource`), and the pre-DI federation
+ * bootstrap (runs before this interceptor exists) — and are untouched here.
  */
 export const bearerInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req.clone({ withCredentials: true }));

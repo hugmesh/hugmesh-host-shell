@@ -53,6 +53,16 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
   { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [registeredGuard] },
   { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [registeredGuard] },
+  // TODO(forum-remote): there is no 'social/forum' entry here, but
+  // home-services.service.ts's CARD_CATALOG already ships a 'forum' launcher
+  // card (slug 'forum', route '/social/forum', no requiresRegistration) that
+  // renders 'enabled' once CapabilitiesService reports the forum slug
+  // installed — and the platform generator now wires snapdragon-forum-ui at
+  // the gateway path /social/forum/** (generator PR #362, merged 2026-07-16).
+  // Until a matching REMOTE_ROUTES entry is added here (mirroring
+  // social/matrix|mastodon, once forum-ui's exposed module/guard shape is
+  // confirmed), an enabled Forum card is a dead link: the path falls through
+  // to the '**' redirect and silently bounces back to the role-home.
   // admin/docs (the admin-only API-docs console) MUST precede 'admin': the more
   // specific path has to match before the admin remote's loadChildren swallows it.
   { path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES', canActivate: [adminGuard] },

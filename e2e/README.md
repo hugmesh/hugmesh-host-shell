@@ -83,16 +83,19 @@ npx cucumber-js e2e/features --require e2e/step_definitions \
 # Whole suite, no filter — proves every .feature file compiles:
 npx cucumber-js e2e/features --require e2e/step_definitions \
   --dry-run --format summary
-# => 50 scenarios (50 skipped), 409 steps (409 skipped)
+# => 56 scenarios (56 skipped), 451 steps (451 skipped)
 
 # @cluster-only subset — mirrors `npm run e2e:integration` (--tag cluster):
 npx cucumber-js e2e/features --require e2e/step_definitions \
   --tags '@cluster' --dry-run --format summary
-# => 17 scenarios (17 skipped), 115 steps (115 skipped)
+# => 23 scenarios (23 skipped), 157 steps (157 skipped)
 ```
 
-33 + 17 = 50, confirming the tag partition is exhaustive and every scenario
-in every feature file parses and resolves cleanly. This `--dry-run` command
+33 + 23 = 56, confirming the tag partition is exhaustive and every scenario
+in every feature file parses and resolves cleanly (re-verified 2026-07-16;
+these counts grow as new scenarios land — e.g. the account-status
+appeal-gate and role-matrix waves — so re-run the commands above rather than
+trusting these numbers indefinitely). This `--dry-run` command
 is a candidate follow-up CI step (a `e2e:host:dry-run` job with no
 `snapdragon-x86` runner / docker / Chrome dependency) but was not wired into
 `.gitlab-ci.yml` in this pass — CI changes beyond the tag rename are left to

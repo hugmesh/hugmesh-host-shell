@@ -117,7 +117,7 @@ never browser-exposed and there is no browser redirect/callback);
 the PUBLIC `/bff/login` route seed; **login-ui** owns the native
 username/password form + `POST /bff/login`.
 
-### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-06-25)
+### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-07-16)
 
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.

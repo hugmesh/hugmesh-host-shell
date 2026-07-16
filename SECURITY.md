@@ -27,6 +27,12 @@ on `main` and the reporter is notified when the fix ships.
 
 ## Known backlog
 
-- Bearer/session tokens are currently held in `localStorage` (read by
-  `SessionService` and attached by `bearerInterceptor`). Moving to a more
-  XSS-resistant store is a tracked, platform-wide security-backlog item.
+- **Resolved (PR #108, #109):** the browser previously held an admin-capable
+  `bffToken` in `localStorage` and sent it as `Authorization: Bearer`; that
+  finding is closed. Today `localStorage`'s `snap.session` entry
+  (`SessionService`) carries only identity/role claims (`id`, `label`,
+  `provider`, `roles`, `registrationComplete`, `status`) — **no token field of
+  any kind** — and `bearerInterceptor` attaches no `Authorization` header at
+  all; it only sets `withCredentials: true` so the HttpOnly `bff_` session
+  cookie rides along, with the gateway minting the upstream bearer
+  server-side. See the README's "Auth model" section for the full picture.

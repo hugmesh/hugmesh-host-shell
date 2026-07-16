@@ -40,11 +40,20 @@ remotes.
   `/bff/user/notifications/events` for push delivery alongside the bell's poll.
 - A single `bearerInterceptor` Bearer/credentials seam and an accessibility
   baseline (skip-link, ARIA menubar, modal-dialog contract).
-- **Baseline HTTP security headers** on the SPA's nginx (PR #100) — emitted with
-  `always` so they cover error responses too: `X-Content-Type-Options: nosniff`,
-  `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
-  and HSTS (`max-age=31536000; includeSubDomains`). Stricter CSP / COEP-CORP /
-  Permissions-Policy are deliberately deferred pending per-UI tuning.
+- **HTTP security headers + strong nonce-CSP** on the SPA's nginx (PR #100, PR
+  #110) — emitted with `always` so they cover error responses too:
+  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: strict-origin-when-cross-origin`, HSTS
+  (`max-age=31536000; includeSubDomains`), and a strict nonce-based
+  `Content-Security-Policy` (`script-src 'self' 'nonce-$cspnonce' blob:`, no
+  `'unsafe-inline'`/`'unsafe-hashes'`) — `angular.json`'s prod build disables
+  `inlineCritical` so no inline `<style>`/`onload=` critical-CSS preloader ships,
+  and `nginx.conf` rewrites every `<script` tag with a fresh per-request nonce
+  (`sub_filter`) that es-module-shims propagates onto the dynamic remote-entry
+  scripts it injects, so module-federation bootstrap keeps working under the
+  strict policy. `style-src` still keeps `'unsafe-inline'` (Angular's inline
+  component styles); COEP/COOP/CORP and a stricter Permissions-Policy remain
+  deferred.
 - ✅ **Real-time notification toast** — `NotificationToastService` opens a
   cookie-auth SSE stream to `/bff/user/notifications/events` (authenticated
   users only, via `effect()` in `AppComponent`). Up to 3 toast cards appear at
@@ -59,6 +68,28 @@ remotes.
   space before the JSON payload, so the toast never fired against a live
   user-bff despite reading as fully shipped. Now parses SSE fields per spec
   (split on first colon, strip at most one optional leading space).
+- ✅ **Session hydrate-on-bootstrap** (PR #143) — `SessionService.hydrate()` GETs
+  the authoritative `/bff/session` on construction and again on every
+  same-document `snap-session-change` broadcast, refreshing the **in-memory**
+  session signal only (never the `localStorage` mirror, never a rebroadcast —
+  login-ui owns the persisted mirror; a host write would ping-pong). This closes
+  the gap where a role granted/revoked **mid-session** — or a true cookie-only
+  session with no mirror at all — wouldn't show up in the host's nav/guards
+  until a re-login. Any hydrate failure (network error, non-2xx incl. `401`, an
+  unusable body) falls back to the existing `localStorage` read, so an
+  e2e/mock-stack-seeded session is never clobbered.
+- ✅ **Games entry-point + derived Games Admin** (Phase 8/10, PR #120) — `/games`
+  and `/games/admin` are host-owned, **guarded local placeholder** routes, not
+  yet federated remotes: `gamesGuard` admits any `ROLE_GAMES` holder (plus
+  admin/superadmin) to the entry-point; `gamesAdminGuard` admits only the
+  **derived** `ROLE_GAMES_ADMIN` tier (`ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`,
+  plus superadmin) to the admin console — a bare `ROLE_GAMES` or a bare
+  `ROLE_ADMIN` alone does not earn it. Both routes render an honest `TODO`
+  placeholder (`GamesPlaceholderComponent` / `GamesAdminPlaceholderComponent`)
+  rather than faking a working surface, and both are wired into the menu's
+  profile dropdown ("Games Admin") and the home-services launcher (`games` /
+  `games-admin` cards, install-state-gated on the shared `games` capability
+  slug). No `snapdragon-games-ui` remote exists yet — see Roadmap.
 
 **Auth model (current).** The browser never holds a Casdoor JWT, and Casdoor is
 **internal-only** — it never redirects the browser. login-ui presents a **native
@@ -98,6 +129,22 @@ Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
 gateways + generator route templates were corrected, so the prod federation
 manifest's gateway-served remote paths bind as intended.
+
+### Known gaps
+
+- **`/about` and `/home` are unreachable from the UI.** Both are real, public,
+  unguarded routes (`src/app/about/`, `src/app/home/`) and build/render fine,
+  but no nav link anywhere points at either — the menu's "Home" entry routes to
+  `/` (the authgate/role-home redirect), not `/home`, and nothing links `/about`
+  at all; both are reachable only by typing the URL directly.
+  `AboutComponent`/`AboutSectionComponent` also still render placeholder copy
+  ("Example Question?" / "Example Paragraph"). This is a product/content call
+  (real About copy is brand voice and shouldn't be invented; wiring a visible
+  link to placeholder copy would be worse than leaving it unlinked), not an
+  engineering gap — see the `TODO` left in `about.component.html`.
+- **The `forum` home-services card is a dead link today** — see the
+  `TODO(forum-remote)` comments in `src/app/app.routes.ts` and
+  `src/app/home-services/home-services.service.ts`.
 
 ---
 
@@ -180,19 +227,29 @@ see *Capabilities / graceful degrade* below.
   carrying identity/role claims only — `id`, `label`, `provider`, `roles`,
   `registrationComplete`, `status` (**no token field**: `SnapSession` never
   carries a `bffToken`, `matrix` or `mastodon` handle); `SessionService`
-  (`src/app/session.service.ts`) reads it. The host and each remote each hold
-  their own `SessionService` over the same storage key and stay in sync via a
-  same-document `snap-session-change` broadcast and cross-tab `storage` events
-  (so the login remote finishing registration immediately unlocks the host's
-  social nav). ✅ For its typed calls the host wires `provideHttpClient` + a
-  single `bearerInterceptor` (`src/app/http/bearer.interceptor.ts`): it sets
-  `withCredentials: true` on **every** request so the HttpOnly `bff_` session
-  cookie rides along; it does **not** attach an `Authorization` header — the
-  gateway exchanges that cookie for the custody JWT server-side. This is the
-  host's single credentials seam; the legacy raw-fetch announcements service
-  keeps its own `credentials: 'include'`. (The interceptor's name is a holdover
-  from an earlier localStorage-bearer design; httpOnly-cookie custody is the
-  shipped model.)
+  (`src/app/session.service.ts`) reads it, seeded synchronously from that
+  mirror (no anonymous flash) then confirmed/refreshed via
+  `hydrate()` — a cookie-carrying `GET /bff/session` fired on bootstrap and
+  again on every same-document `snap-session-change` broadcast, so a role
+  granted/revoked **mid-session** is picked up without a re-login (PR #143).
+  `hydrate()` updates the in-memory signal only — it never writes the
+  `localStorage` mirror and never broadcasts (login-ui owns the persisted
+  mirror) — and falls back to the last mirror read on any failure (network
+  error, non-2xx incl. `401`, unusable body). A cross-**tab** `storage` event
+  (a sibling tab already hydrated and wrote the mirror) just re-reads the
+  mirror directly, no extra round-trip. This is how the login remote
+  finishing registration immediately unlocks the host's social nav. ✅ For its
+  typed calls the host wires `provideHttpClient` + a single `bearerInterceptor`
+  (`src/app/http/bearer.interceptor.ts`): it sets `withCredentials: true` on
+  **every** request so the HttpOnly `bff_` session cookie rides along; it does
+  **not** attach an `Authorization` header — the gateway exchanges that cookie
+  for the custody JWT server-side. This is the host's single **HttpClient**
+  credentials seam; a handful of raw-`fetch()` call sites keep their own
+  `credentials: 'include'` instead — announcements, `SessionService.hydrate()`,
+  `NotificationToastService` (SSE needs a raw `fetch()`+`ReadableStream`, not
+  `EventSource`), and the pre-DI federation bootstrap (runs before this
+  interceptor exists). (The interceptor's name is a holdover from an earlier
+  localStorage-bearer design; httpOnly-cookie custody is the shipped model.)
 - **Federation:** ✅ routes are loaded from remotes via `loadRemoteModule` —
   see `REMOTE_ROUTES` in `src/app/app.routes.ts`, the single declarative table
   of `path → remote name → exposed module → exported routes constant → guard`.
@@ -210,7 +267,9 @@ see *Capabilities / graceful degrade* below.
 
 Routing is data-driven from `REMOTE_ROUTES` in `src/app/app.routes.ts`. Each
 feature path is its own repo + nginx, mounted via `loadChildren →
-loadRemoteModule(remote, './routes')`:
+loadRemoteModule(remote, './routes')`. Two further paths (`/games`,
+`/games/admin`) are host-owned **local placeholder** routes, not federated
+remotes — see the note below the table.
 
 | Path | Remote | Guard | Gate |
 |---|---|---|---|
@@ -224,6 +283,16 @@ loadRemoteModule(remote, './routes')`:
 | `/wiki` | `wiki` (`snapdragon-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
 | `/tube` | `tube` (`snapdragon-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
 | `/owncast` | `owncast` (`snapdragon-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
+| `/games` | — (local `GamesPlaceholderComponent`, no remote yet) | `gamesGuard` | any holder of `ROLE_GAMES` (plus `admin`/`superadmin`); renders an honest `TODO` placeholder, never a faked games surface |
+| `/games/admin` | — (local `GamesAdminPlaceholderComponent`, no remote yet) | `gamesAdminGuard` | derived `ROLE_GAMES_ADMIN` (`ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`, plus `superadmin`) |
+
+`/games` and `/games/admin` predate a `snapdragon-games-ui` remote (Phase 8/10,
+PR #120) — they're real, guarded, tested routes in this host's own bundle
+(mirroring the `ModPlaceholderComponent` precedent used for `/mod` before
+`snapdragon-mod-ui` landed), not federation mounts. When the games remote
+ships, swap each `loadComponent` for a `loadChildren → loadRemoteModule('games', …)`
+entry and add `games` to the federation manifest — see the `TODO(games-ui)` /
+`TODO(games-admin-ui)` comments at each placeholder component.
 
 Guards live in `src/app/guards/` and read `SessionService`:
 
@@ -249,6 +318,19 @@ Guards live in `src/app/guards/` and read `SessionService`:
   `ROLE_OWNCAST` (a streamer reaches their own console; a `mod` with `ROLE_OWNCAST`
   reaches the moderation view). Backed by `/bff/owncast/**` → `ROLE_OWNCAST`
   (admin routes `ADMIN`/`SUPERADMIN`).
+- **`gamesGuard`** (Phase 8) — admits `admin`/`superadmin`, or any identity
+  holding `ROLE_GAMES` (the entry-point tier only — it does **not** admit games
+  admin, see `gamesAdminGuard`). A bare `mod` without `ROLE_GAMES` is not
+  admitted. Gates the local `/games` placeholder route.
+- **`gamesAdminGuard`** (Phase 8/10) — admits `superadmin` unconditionally, or
+  the **derived** `ROLE_GAMES_ADMIN` tier computed client-side as
+  `ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)` (mirroring the server-computed role
+  materialized by `games-admin-sync-job`). A bare `ROLE_GAMES` or a bare
+  `ROLE_ADMIN`/`ROLE_MOD` alone does **not** earn it. Gates the local
+  `/games/admin` placeholder route. Unlike every other guard here, `gamesGuard`
+  and `gamesAdminGuard` don't go through the shared `roleGuard` factory
+  (`src/app/guards/role-guard.factory.ts`) — each inlines its own predicate —
+  though the redirect contract (allow, or a `/login` `UrlTree`) is identical.
 
 Client-side guards are UX only; the gateway's `gateway_route_access` table +
 `GatewayRouteAccessFilter` and each BFF's role checks are the real authorization
@@ -357,9 +439,9 @@ cross-cutting surface:
   the public entry point. See
   [`docs/platform-topology.md`](docs/platform-topology.md).
 - **Container:** multi-stage `Dockerfile` builds the prod bundle and serves it
-  from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback and
-  the baseline HTTP security headers from `nginx.conf` (nosniff / `X-Frame-Options:
-  DENY` / `Referrer-Policy` / HSTS, all `always`).
+  from `nginxinc/nginx-unprivileged` on `:8080` with SPA `try_files` fallback,
+  the strong nonce-CSP + baseline HTTP security headers from `nginx.conf`
+  (nosniff / `X-Frame-Options: DENY` / `Referrer-Policy` / HSTS, all `always`).
 - **CI:** GitLab (`.gitlab-ci.yml`) — the GitHub repo is pull-mirrored into the
   in-cluster GitLab, which builds + pushes this service's image to the
   in-cluster registry on push of the default branch / a tag. **No keys ship in
