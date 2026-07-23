@@ -117,12 +117,12 @@ never browser-exposed and there is no browser redirect/callback);
 the PUBLIC `/bff/login` route seed; **login-ui** owns the native
 username/password form + `POST /bff/login`.
 
-### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-07-16)
+### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-07-22)
 
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 
-- ✅ **shipped:** auth-core extracted + published — now at **2.3.0** (account/session/MFA +
+- ✅ **shipped:** auth-core extracted + published — now at **2.4.0** (account/session/MFA +
   the full custody seams: `BffSession` custody columns + `stampCustody`/`clearCustody`);
   admin-bff **adopted auth-core** (PR #111, behavior-preserving, 1517 tests green);
   admin-bff **`/bff/internal` account/session API** (PR #113, ships inert behind
@@ -139,7 +139,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   never sees Casdoor; user-bff drives PKCE/state + the internal `/api/login` +
   exchange server-side); admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
   columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
-  auth-core 2.1.0 → since advanced to 2.3.0).
+  auth-core 2.1.0 → since advanced to 2.4.0).
 - ✅ **shipped:** generator **#156** (`app-user-bff` Casdoor OIDC client +
   PUBLIC `/bff/auth/callback` route seed — the callback route has since been retired
   in favour of the native `/bff/login` model above) — merged 2026-06-20.
@@ -163,8 +163,11 @@ A JWT issued by any of the platform's Casdoor instances is recognised
 consistently across the platform because the
 `casdoorAuthoritiesConverter()` code is identical in
 [hugmesh-gateway](https://github.com/Snapdragon-Systems/hugmesh-gateway/)
-and
-[snapdragon-id-gateway](https://github.com/Snapdragon-Systems/snapdragon-id-gateway/).
+and its identity-tier overlay
+[hugmesh-pki-gateway](https://github.com/Snapdragon-Systems/hugmesh-pki-gateway/)
+(a thin per-instance config layer built `FROM` the same shared gateway image —
+this repo's local docker-compose dev stack still labels its self-contained
+demo instance `snapdragon-id-gateway`, that overlay's pre-rename name).
 
 ## Role model
 

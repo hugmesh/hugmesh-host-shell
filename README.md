@@ -122,8 +122,8 @@ localStorage-token design; httpOnly-cookie custody is the shipped model.)
 
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
-built on the shared Maven artifacts `hugmesh-parent` (metapom 2.7.0),
-`hugmesh-commons` (2.7.0) and `hugmesh-auth-core` (2.3.0, consumed by
+built on the shared Maven artifacts `hugmesh-parent` (metapom 2.8.0),
+`hugmesh-commons` (2.1.0) and `hugmesh-auth-core` (2.4.0, consumed by
 user-bff + admin-bff). Spring Cloud
 Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
@@ -483,7 +483,7 @@ federation.config.js + federation-base.js    host federation config (consumer; s
 
 ## Related repos
 
-Gateways `hugmesh-gateway` / `snapdragon-id-gateway` (Casdoor-JWT resource
+Gateways `hugmesh-gateway` / `hugmesh-pki-gateway` (Casdoor-JWT resource
 servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** ·
 federation `hugmesh-federation-api` + `hugmesh-remote-fragment` · the
 remotes `hugmesh-{login,user,mod,admin}-ui`, `hugmesh-{matrix,mastodon}-ui`,
