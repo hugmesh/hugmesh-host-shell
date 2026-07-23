@@ -18,25 +18,25 @@ $font-family-base:           t.$font-sans;
 @import "bootstrap/scss/bootstrap";
 
 
-/* Snapdragon WCAG-AA/AAA palette — centralised as runtime :root custom
- * properties (mirrors snapdragon.games/frontend/src/styles.scss). Each token
+/* HugMesh WCAG-AA/AAA palette — centralised as runtime :root custom
+ * properties (mirrors hugmesh.games/frontend/src/styles.scss). Each token
  * carries its contrast ratio against #0a0a12 (the darkest shell background) in
  * the comment so a future contrast regression is obvious at the source.
- * Audit: snapdragon.games decisions/024-wcag-palette-audit.md.
+ * Audit: hugmesh.games decisions/024-wcag-palette-audit.md.
  * The host's neon SCSS tokens (styles/_tokens.scss) drive the visual theme;
- * these --sd-* vars are the cross-repo Snapdragon contract any remote can reach
+ * these --hug-* vars are the cross-repo HugMesh contract any remote can reach
  * for instead of pasting hex literals. */
 :root {
-  --sd-bg-0:        #0a0a12; /* shell + login backdrop */
-  --sd-bg-1:        #12121e; /* cards, panels */
-  --sd-bg-2:        #1a1a2e; /* scrollbar trough */
-  --sd-border:      #1e1e32;
-  --sd-text:        #e8e8f0; /* 15.9:1 AAA */
-  --sd-text-muted:  #a8acc4; /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
-  --sd-accent:      #7c4dff; /* backgrounds/borders only — 3.22:1 as text */
-  --sd-accent-soft: #b388ff; /*  7.38:1 AAA — use this for accent text */
-  --sd-success:     #4caf50;
-  --sd-error:       #ff6b6b;
+  --hug-bg-0:        #0a0a12; /* shell + login backdrop */
+  --hug-bg-1:        #12121e; /* cards, panels */
+  --hug-bg-2:        #1a1a2e; /* scrollbar trough */
+  --hug-border:      #1e1e32;
+  --hug-text:        #e8e8f0; /* 15.9:1 AAA */
+  --hug-text-muted:  #a8acc4; /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
+  --hug-accent:      #7c4dff; /* backgrounds/borders only — 3.22:1 as text */
+  --hug-accent-soft: #b388ff; /*  7.38:1 AAA — use this for accent text */
+  --hug-success:     #4caf50;
+  --hug-error:       #ff6b6b;
 }
 
 
@@ -130,7 +130,7 @@ a {
 
 // Visually-hidden utility for screen-reader-only text. Visually removes the
 // element while keeping it in the accessibility tree (companion to bootstrap's
-// .visually-hidden, exposed here as the standard Snapdragon .sr helper).
+// .visually-hidden, exposed here as the standard HugMesh .sr helper).
 .sr {
   position: absolute;
   width: 1px;
@@ -156,7 +156,7 @@ a {
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.3;
-  color: var(--sd-text-muted);
+  color: var(--hug-text-muted);
 }
 
 // The floating background-animation control: the icon button is the visible
@@ -187,7 +187,7 @@ a {
   background: rgba(t.$charcoal, 0.95);
   border: 1px solid rgba(t.$neon, 0.4);
   border-radius: 0.375rem;
-  color: var(--sd-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
+  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   text-align: end;
   opacity: 0;
   visibility: hidden;

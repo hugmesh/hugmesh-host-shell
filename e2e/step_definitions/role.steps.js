@@ -7,7 +7,7 @@
  * shared `I go to {string}` + nav/title steps reused here).
  *
  * Driving the role WITHOUT a real Casdoor: every journey SEEDS localStorage under
- * the canonical "snap.session" key the login remote writes (see SessionService).
+ * the canonical "hug.session" key the login remote writes (see SessionService).
  * The host's SessionService reads that key on construction and on the
  * "snap-session-change" / cross-tab "storage" events, deriving the admin > mod >
  * user role signals the guards + nav read. So a JWT-shaped object with the right
@@ -25,7 +25,7 @@
 const { After, Before, Given, Then, When } = require('@cucumber/cucumber');
 const assert = require('assert');
 
-const SESSION_KEY = 'snap.session';
+const SESSION_KEY = 'hug.session';
 
 /** A JWT-shaped SnapSession carrying the roles[] the SessionService derives from.
  *  Matches the SnapSession contract (id/label/provider/roles/bffToken/…). The
@@ -50,15 +50,15 @@ function sessionFor(role) {
   }[role];
   assert.ok(roles, `Unknown role "${role}" (expected superadmin | admin | mod | user)`);
   return {
-    id: `e2e:${role}@snapdragon.test`,
-    label: `${role}@snapdragon.test`,
+    id: `e2e:${role}@hugmesh.test`,
+    label: `${role}@hugmesh.test`,
     provider: 'google',
     roles,
     // A syntactically-shaped JWT (header.payload.signature); never verified host-side.
     bffToken: `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({ roles })).toString('base64url')}.sig`,
     // Fully registered so the Mastodon/Matrix nav entries are enabled (registeredGuard).
     registrationComplete: true,
-    matrix: { token: 'e2e-matrix', userId: `@${role}:snapdragon.test` },
+    matrix: { token: 'e2e-matrix', userId: `@${role}:hugmesh.test` },
     mastodon: { token: 'e2e-mastodon' },
   };
 }
@@ -67,7 +67,7 @@ Before(async function () {
   this.browser = browser;
 });
 
-/** Seed (or clear) the snap.session localStorage key, then notify the in-page
+/** Seed (or clear) the hug.session localStorage key, then notify the in-page
  *  SessionService instances to re-read.
  *
  *  NOTE on serving: the host's e2e server (server.js / nginx) serves index.html
@@ -138,7 +138,7 @@ Given(
 );
 
 /** WHEN my account status is restored to active — simulates the admin lifting
- *  the access-role suspension (snapdragon-admin-ui's Delegation "Lift" action)
+ *  the access-role suspension (hugmesh-admin-ui's Delegation "Lift" action)
  *  and the host re-syncing off the next authoritative `/bff/me` read
  *  (AccountStatusService.fetch patches SnapSession.status on change). Patches
  *  the ALREADY-SEEDED session in place (same id/roles), matching the real
@@ -491,7 +491,7 @@ Then('the session is cleared', async function () {
     (key) => localStorage.getItem(key),
     [SESSION_KEY],
   );
-  assert.strictEqual(raw, null, 'snap.session should be removed after sign out');
+  assert.strictEqual(raw, null, 'hug.session should be removed after sign out');
 });
 
 /* ------------------------------------------------------------------------- *

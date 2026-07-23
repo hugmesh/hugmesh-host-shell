@@ -46,10 +46,10 @@ describe('SessionService', () => {
     localStorage.clear();
   });
 
-  it('reads the canonical snap.session localStorage key', () => {
+  it('reads the canonical hug.session localStorage key', () => {
     expect(service.loggedIn()).toBeFalse();
     service.set(makeSession());
-    expect(localStorage.getItem('snap.session')).withContext('writes the canonical key').not.toBeNull();
+    expect(localStorage.getItem('hug.session')).withContext('writes the canonical key').not.toBeNull();
     expect(service.loggedIn()).toBeTrue();
   });
 
@@ -196,7 +196,7 @@ describe('SessionService', () => {
   it('clear() removes the key and drops loggedIn', () => {
     service.set(makeSession());
     service.clear();
-    expect(localStorage.getItem('snap.session')).toBeNull();
+    expect(localStorage.getItem('hug.session')).toBeNull();
     expect(service.loggedIn()).toBeFalse();
   });
 
@@ -214,7 +214,7 @@ describe('SessionService', () => {
   describe('hydrate() — GET /bff/session, the mid-session freshness probe', () => {
     it('a 200 updates the in-memory roles but NEVER writes the localStorage mirror', async () => {
       // A stale mirror (plain user) that the server has since promoted to admin.
-      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user'] })));
+      localStorage.setItem('hug.session', JSON.stringify(makeSession({ roles: ['user'] })));
       fetchSpy.and.resolveTo(
         okJson({ id: 'google:alice@gmail.com', roles: ['user', 'admin'], registrationComplete: true }),
       );
@@ -226,12 +226,12 @@ describe('SessionService', () => {
       expect(result?.roles).toContain('admin');
       // login-ui owns the mirror: the host updates the signal ONLY, so the stale
       // localStorage roles are deliberately left untouched (no host write).
-      const mirror = JSON.parse(localStorage.getItem('snap.session') ?? 'null');
+      const mirror = JSON.parse(localStorage.getItem('hug.session') ?? 'null');
       expect(mirror.roles).withContext('mirror is NOT rewritten by hydrate').toEqual(['user']);
     });
 
     it('a fetch REJECTION retains the seeded localStorage session (never clobbers to anonymous)', async () => {
-      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user'] })));
+      localStorage.setItem('hug.session', JSON.stringify(makeSession({ roles: ['user'] })));
       fetchSpy.and.rejectWith(new Error('offline'));
 
       const result = await service.hydrate();
@@ -239,11 +239,11 @@ describe('SessionService', () => {
       expect(result).toBeNull();
       expect(service.loggedIn()).withContext('seeded session survives a failed probe').toBeTrue();
       expect(service.hasRole('user')).toBeTrue();
-      expect(localStorage.getItem('snap.session')).not.toBeNull();
+      expect(localStorage.getItem('hug.session')).not.toBeNull();
     });
 
     it('a 401 (expired cookie) also retains the seeded session — the stale mirror stands', async () => {
-      localStorage.setItem('snap.session', JSON.stringify(makeSession({ roles: ['user', 'mod'] })));
+      localStorage.setItem('hug.session', JSON.stringify(makeSession({ roles: ['user', 'mod'] })));
       fetchSpy.and.resolveTo(status(401));
 
       const result = await service.hydrate();
@@ -264,10 +264,10 @@ describe('SessionService', () => {
     });
   });
 
-  it('re-reads the signal on a cross-tab storage event for snap.session', () => {
+  it('re-reads the signal on a cross-tab storage event for hug.session', () => {
     expect(service.fullyRegistered()).toBeFalse();
-    localStorage.setItem('snap.session', JSON.stringify(makeSession({ registrationComplete: true })));
-    window.dispatchEvent(new StorageEvent('storage', { key: 'snap.session' }));
+    localStorage.setItem('hug.session', JSON.stringify(makeSession({ registrationComplete: true })));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'hug.session' }));
     expect(service.fullyRegistered()).toBeTrue();
   });
 

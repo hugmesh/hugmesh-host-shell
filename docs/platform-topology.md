@@ -1,6 +1,6 @@
 # Platform Topology — where this host sits
 
-snapdragon.systems ships as part of the platform's multi-tier topology:
+hugmesh.systems ships as part of the platform's multi-tier topology:
 a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
 gateway's revocation + URL-registry cache, and the Angular **native-federation
 host shell** (this repo) as the user-facing front door served behind the
@@ -25,7 +25,7 @@ notes for the host-side handling).
 flowchart TB
   browser["browser<br/>(opaque bff_ session only - never a JWT)"]
   browser --> gw
-  subgraph gw["snapdragon-gateway / be-gateway :8080"]
+  subgraph gw["hugmesh-gateway / be-gateway :8080"]
     direction TB
     g1["BffJwtExchangeWebFilter<br/>(bff_ to custody JWT, pre-security, fail-closed)"]
     g2["OAuth2 resource server (validates the swapped-in Casdoor JWT)"]
@@ -35,7 +35,7 @@ flowchart TB
   end
   g1 -.->|"/bff/internal/session/exchange<br/>(mTLS + X-Internal-Token)"| abff
   gw -->|"PUBLIC /bff/login (native creds POST — no browser callback)"| ubff["user-bff<br/>(login/OIDC endpoints + token custody/refresh)"]
-  gw -->|"everything else"| host["snapdragon.systems<br/>(native-federation host, this repo)"]
+  gw -->|"everything else"| host["hugmesh.systems<br/>(native-federation host, this repo)"]
   ubff -->|"OidcExchangeClient.exchangeCode"| casdoor["Casdoor :8000"]
   ubff -.->|"/bff/internal ensureAccount / createSession / custody-stamp<br/>(mTLS + X-Internal-Token)"| abff["admin-bff<br/>(owns account/session DATA + /bff/internal)"]
   abff --> abffdb[("admin-bff-db<br/>bff_session.*_enc (AES-256-GCM custody)")]
@@ -68,7 +68,7 @@ sequenceDiagram
     autonumber
     participant B as Browser (login-ui)
     participant C as Casdoor (IdP)
-    participant GW as snapdragon-gateway
+    participant GW as hugmesh-gateway
     participant UB as user-bff
     participant AB as admin-bff (+ admin-bff-db)
     Note over B: "Sign in": native username/password (+MFA) form — NO client-side PKCE
@@ -102,10 +102,10 @@ Invariants to hold onto:
   and the raw `bff_` is never forwarded downstream.
 - The whole ensemble **ships dark** behind default-off flags
   (`app.bff.oidc.enabled`, `app.bff.custody-key`, `app.session.cookie.enabled`,
-  `snapdragon.gateway.bff-exchange.enabled`, `__SNAP_OIDC_ENABLED__`), so a default
+  `snapdragon.gateway.bff-exchange.enabled`, `__HUG_OIDC_ENABLED__`), so a default
   deployment is byte-identical to today's.
 
-Component ownership: **snapdragon-auth-core** (shared jar) holds the stateful auth
+Component ownership: **hugmesh-auth-core** (shared jar) holds the stateful auth
 stack (`AccountStore`/`BffSession`, `OidcExchangeClient`, `BffCustodyCipher`,
 `SessionCookieService`, `InternalTokenWebFilter`) consumed by admin-bff + user-bff
 only (kept off the gateway classpath); **admin-bff** owns account/session data + the
@@ -113,7 +113,7 @@ only (kept off the gateway classpath); **admin-bff** owns account/session data +
 server-side PKCE/state + the internal Casdoor login/exchange (`/api/login` + code
 exchange) driven by the native `POST /bff/login` credentials handoff (Casdoor is
 never browser-exposed and there is no browser redirect/callback);
-**snapdragon-gateway** owns the `BffJwtExchangeWebFilter` +
+**hugmesh-gateway** owns the `BffJwtExchangeWebFilter` +
 the PUBLIC `/bff/login` route seed; **login-ui** owns the native
 username/password form + `POST /bff/login`.
 
@@ -162,7 +162,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 A JWT issued by any of the platform's Casdoor instances is recognised
 consistently across the platform because the
 `casdoorAuthoritiesConverter()` code is identical in
-[snapdragon-gateway](https://github.com/Snapdragon-Systems/snapdragon-gateway/)
+[hugmesh-gateway](https://github.com/Snapdragon-Systems/hugmesh-gateway/)
 and
 [snapdragon-id-gateway](https://github.com/Snapdragon-Systems/snapdragon-id-gateway/).
 
@@ -185,7 +185,7 @@ It is not part of the default build.
 
 When games **is** enabled, a domain `admin`/`superadmin` who additionally holds the
 platform `game-master` role is propagated into the games realm as a games **admin**
-by the [snapdragon-actions](https://github.com/Snapdragon-Systems/snapdragon-actions/)
+by the [hugmesh-actions](https://github.com/Snapdragon-Systems/hugmesh-actions/)
 `GameMasterAdminSyncAction` — a cross-stack reconciler (a ~60 s Casdoor poll) that
 keeps the games realm's admin set in sync with the platform `game-master` holders.
 This propagation is **role-gated** (only `game-master` holders are eligible) and is
@@ -212,7 +212,7 @@ The gateway's edge nginx (or a managed LB upstream) holds the public
 edge cert from a publicly-trusted CA. The internal cert hierarchy
 between services is chained from the snapdragon.systems root CA —
 see
-[snapdragon-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/Snapdragon-Systems/snapdragon-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
+[hugmesh-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/Snapdragon-Systems/hugmesh-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
 
 snapdragon.systems is the canonical root: the cert chain script in
 the gateway repo (`scripts/pki/build-chained-cert.sh`) takes this

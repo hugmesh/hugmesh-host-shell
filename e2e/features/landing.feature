@@ -1,9 +1,9 @@
 Feature: Landing Page
-  The Snapdragon Systems landing page should load correctly and be navigable.
+  The HugMesh landing page should load correctly and be navigable.
 
   Scenario: Page loads with the correct title
     Given I go to "/"
-    Then the page title is "Snapdragon Systems"
+    Then the page title is "HugMesh"
 
   Scenario: Navigation bar is visible
     Given I go to "/"

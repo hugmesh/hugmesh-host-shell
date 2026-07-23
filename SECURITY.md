@@ -3,7 +3,7 @@
 ## Scope
 
 This repository is the brand-agnostic **native-federation host shell** for a
-Snapdragon brand. It exposes no feature surface of its own — every page is a
+HugMesh brand. It exposes no feature surface of its own — every page is a
 federated remote, and all authorization is enforced at the gateway and the role
 BFFs. Vulnerabilities in those upstreams should be reported against their own
 repositories; report issues in the host shell (chrome, authgate, route guards,
@@ -29,7 +29,7 @@ on `main` and the reporter is notified when the fix ships.
 
 - **Resolved (PR #108, #109):** the browser previously held an admin-capable
   `bffToken` in `localStorage` and sent it as `Authorization: Bearer`; that
-  finding is closed. Today `localStorage`'s `snap.session` entry
+  finding is closed. Today `localStorage`'s `hug.session` entry
   (`SessionService`) carries only identity/role claims (`id`, `label`,
   `provider`, `roles`, `registrationComplete`, `status`) — **no token field of
   any kind** — and `bearerInterceptor` attaches no `Authorization` header at

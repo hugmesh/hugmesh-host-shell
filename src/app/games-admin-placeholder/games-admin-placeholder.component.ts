@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
  * gamesAdminGuard on the /games/admin route), NOT a federated mount: no
  * games-admin UI remote exists yet, so there is deliberately NO
  * loadRemoteModule('gamesAdmin') here — this mirrors the ModPlaceholderComponent
- * precedent (the same pattern was used for /mod before snapdragon-mod-ui
+ * precedent (the same pattern was used for /mod before hugmesh-mod-ui
  * landed). When the games-admin UI remote ships, replace this route's
  * loadComponent with a loadChildren -> remote('gamesAdmin') mount and add
  * 'gamesAdmin' to federation.manifest.json.
@@ -31,5 +31,5 @@ import { RouterLink } from '@angular/router';
 })
 export class GamesAdminPlaceholderComponent {
   /** Surfaced in the template so the TODO is impossible to miss. */
-  readonly futureRemote = 'snapdragon-games-admin-ui';
+  readonly futureRemote = 'hugmesh-games-admin-ui';
 }

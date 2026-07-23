@@ -5,7 +5,7 @@
  *
  * The banner (src/app/account-status/) renders off the caller's OWN status as
  * read from {@code GET /bff/me} by AccountStatusService — NOT off the seeded
- * snap.session (the additive SnapSession.status field carries no enforcement).
+ * hug.session (the additive SnapSession.status field carries no enforcement).
  * The host-only stack has no BFF, so that read 404s and FAILS OPEN to `active`
  * (banner hidden). To drive the suspended/banned states HONESTLY we mock the
  * /bff/me response at the NETWORK level via Chrome DevTools (Nightwatch

@@ -23,9 +23,9 @@ describe('GamesPlaceholderComponent', () => {
     expect(badge?.textContent?.trim()).toBe('TODO');
   });
 
-  it('names the future snapdragon-games-ui remote it stands in for', () => {
+  it('names the future hugmesh-games-ui remote it stands in for', () => {
     const remote = el.querySelector('[data-testid="games-future-remote"]');
-    expect(remote?.textContent?.trim()).toBe('snapdragon-games-ui');
+    expect(remote?.textContent?.trim()).toBe('hugmesh-games-ui');
   });
 
   it('explains that no remote is mounted here', () => {

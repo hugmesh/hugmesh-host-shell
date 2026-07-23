@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
  * on the /games route), NOT a federated mount: no games-namespace UI remote
  * exists yet, so there is deliberately NO loadRemoteModule('games') here — this
  * mirrors the ModPlaceholderComponent precedent (the same pattern was used for
- * /mod before snapdragon-mod-ui landed). When the games UI remote ships, replace
+ * /mod before hugmesh-mod-ui landed). When the games UI remote ships, replace
  * this route's loadComponent with a loadChildren -> remote('games') mount and add
  * 'games' to federation.manifest.json.
  *
@@ -30,5 +30,5 @@ import { RouterLink } from '@angular/router';
 })
 export class GamesPlaceholderComponent {
   /** Surfaced in the template so the TODO is impossible to miss. */
-  readonly futureRemote = 'snapdragon-games-ui';
+  readonly futureRemote = 'hugmesh-games-ui';
 }

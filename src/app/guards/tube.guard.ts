@@ -1,7 +1,7 @@
 import { CanActivateFn } from '@angular/router';
 import { roleGuard } from './role-guard.factory';
 
-/** Gate the TUBE management micro-frontend (the snapdragon-tube-ui remote mounted
+/** Gate the TUBE management micro-frontend (the hugmesh-tube-ui remote mounted
  *  at /tube, exposing ./routes) on the tube access tier. Mirrors the wiki/owncast
  *  guards: allow vs the exact /login redirect (a UrlTree).
  *

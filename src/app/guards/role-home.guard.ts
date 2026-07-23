@@ -9,9 +9,9 @@ import { SessionService } from '../session.service';
  *   - anonymous            -> /login        (unauthenticated users get the login flow)
  *   - suspended / banned   -> /login/appeal (the appeal short-circuit, BEFORE the
  *                                            role redirect — see below)
- *   - admin                -> /admin        (snapdragon-admin-ui remote)
- *   - mod                  -> /mod          (snapdragon-mod-ui   remote)
- *   - user (the default)   -> /user         (snapdragon-user-ui  remote)
+ *   - admin                -> /admin        (hugmesh-admin-ui remote)
+ *   - mod                  -> /mod          (hugmesh-mod-ui   remote)
+ *   - user (the default)   -> /user         (hugmesh-user-ui  remote)
  *
  * Role precedence (admin > mod > user) lives in SessionService.role(); this guard
  * just maps that to the matching role-home path. Returning a UrlTree performs the

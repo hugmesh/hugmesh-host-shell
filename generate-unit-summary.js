@@ -4,10 +4,10 @@
 const fs   = require('fs');
 const path = require('path');
 
-const JUNIT_DIR    = 'coverage/snapdragon';
+const JUNIT_DIR    = 'coverage/hugmesh';
 const JUNIT_FILE   = 'test-results.xml';
-const COVERAGE_PATH = 'coverage/snapdragon/coverage-summary.json';
-const PR_COMMENT   = 'coverage/snapdragon/pr-comment.md';
+const COVERAGE_PATH = 'coverage/hugmesh/coverage-summary.json';
+const PR_COMMENT   = 'coverage/hugmesh/pr-comment.md';
 const SUMMARY_FILE = process.env.GITHUB_STEP_SUMMARY;
 const RUN_URL      = process.env.RUN_URL || '';
 

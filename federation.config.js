@@ -1,5 +1,5 @@
 // HOST shell config. This repo is the native-federation HOST (the fe-gateway /**
-// catch-all, snapdragon-systems-web). It exposes NOTHING — it only CONSUMES the
+// catch-all, hugmesh-systems-web). It exposes NOTHING — it only CONSUMES the
 // login/matrix/mastodon/admin remotes at runtime via loadRemoteModule, resolving
 // each remoteEntry.json from src/assets/federation.manifest.json.
 //
@@ -10,6 +10,6 @@
 // this host is ^22.0.0 — with strictVersion that mismatch fails at runtime. The
 // remotes must be bumped (or this host pinned to their major) before a real
 // mount succeeds. See the open issue tracked in the host shell PR.
-const { snapdragonHost } = require('./federation-base');
+const { hugmeshHost } = require('./federation-base');
 
-module.exports = snapdragonHost({ name: 'snapdragon-host' });
+module.exports = hugmeshHost({ name: 'hugmesh-host' });

@@ -51,7 +51,7 @@ export interface SessionResponse {
 export const SESSION_ENDPOINT = '/bff/session';
 
 /** Holds the logged-in session (persisted to localStorage under the canonical
- *  "snap.session" key the login remote writes) and derives the Casdoor-style role
+ *  "hug.session" key the login remote writes) and derives the Casdoor-style role
  *  flags + the registration-complete gate the host uses to unlock the
  *  Matrix/Mastodon micro-frontends, plus the admin/mod role routing of Phase 10.
  *
@@ -60,12 +60,12 @@ export const SESSION_ENDPOINT = '/bff/session';
  *  the ROLE_ADMIN/ROLE_MOD/ROLE_USER names are the Casdoor labels behind them. */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
-  private readonly key = 'snap.session';
+  private readonly key = 'hug.session';
   private readonly channel = 'snap-session-change';
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
-  /** Moderator role -> the /mod role-home (snapdragon-mod-ui remote). */
+  /** Moderator role -> the /mod role-home (hugmesh-mod-ui remote). */
   readonly isMod = computed(() => (this.session()?.roles ?? []).includes('mod'));
   /** Superadmin role (cross-domain manage-all, sits ABOVE admin in the cascade
    *  SUPERADMIN > ADMIN > MOD > USER). Lowercase 'superadmin' role string, mirroring
@@ -140,7 +140,7 @@ export class SessionService {
       // localStorage mirror re-read, so a mid-session role grant/revoke is picked
       // up. hydrate() never writes the mirror nor broadcasts, so this can't loop.
       window.addEventListener(this.channel, () => void this.hydrate());
-      // A cross-TAB write to snap.session: the sibling tab already hydrated and
+      // A cross-TAB write to hug.session: the sibling tab already hydrated and
       // wrote the mirror, so re-reading the mirror here (no extra BFF round-trip,
       // and no fetch in a background tab) suffices.
       window.addEventListener('storage', (e) => { if (e.key === this.key) this.session.set(this.load()); });
@@ -160,7 +160,7 @@ export class SessionService {
    *
    * On 200 it maps the body into SnapSession and updates the in-memory signal
    * ONLY: it NEVER writes localStorage and NEVER broadcasts. login-ui owns the
-   * persisted `snap.session` mirror; a host write + broadcast would ping-pong with
+   * persisted `hug.session` mirror; a host write + broadcast would ping-pong with
    * it (and the broadcast re-enters this very hydrate). `status` is owned by GET
    * /bff/me (AccountStatusService) and is not carried on /bff/session, so the
    * current in-memory status is preserved rather than reset.

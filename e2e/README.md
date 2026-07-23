@@ -1,4 +1,4 @@
-# snapdragon.systems — e2e (Nightwatch 3 + Cucumber)
+# hugmesh.systems — e2e (Nightwatch 3 + Cucumber)
 
 Gherkin-readable e2e harness for the **host shell** (the top-level federation
 container that mounts the role-home / social remotes). `e2e/features` +
@@ -7,9 +7,9 @@ runner (`nightwatch.conf.js`).
 
 ## Framework deviation from the platform convention (KNOWN, TRACKED)
 
-Every other Snapdragon repo's e2e suite (`admin-ui`, `mod-ui`, `mastodon-ui`,
+Every other HugMesh repo's e2e suite (`admin-ui`, `mod-ui`, `mastodon-ui`,
 `matrix-ui`, `user-ui`, `wiki-ui`, `tube-ui`, `owncast-ui`, `login-ui`,
-`snapdragon.games`) runs **Playwright + playwright-bdd**: `.feature` files
+`hugmesh.games`) runs **Playwright + playwright-bdd**: `.feature` files
 compiled by `bddgen` into generated Playwright specs, with a `not @cluster`
 tag filter in `playwright.config.ts` gating live-stack-only scenarios out of
 the default/offline run, and a CI `e2e:bdd`-style job that proves the suite
@@ -108,7 +108,7 @@ Scoped as an actionable follow-up (not attempted here):
 
 1. **Add the toolchain.** `npm i -D @playwright/test playwright-bdd` (or
    equivalent pinned versions matching the platform's other repos — see
-   `snapdragon-admin-ui/e2e/package.json` for the proven version set) and a
+   `hugmesh-admin-ui/e2e/package.json` for the proven version set) and a
    `playwright.config.ts` with `defineBddConfig({ features:
    'e2e/features/**/*.feature', steps: [...], tags: 'not @cluster' })`,
    mirroring `matrix-ui`/`admin-ui`/`mod-ui`.
@@ -135,7 +135,7 @@ Scoped as an actionable follow-up (not attempted here):
    `mcr.microsoft.com/playwright:v1.55.1-jammy` image + `npx bddgen` +
    `npx playwright test --list` (compile-proof, `allow_failure: true`,
    `changes: [e2e/**/*]`-gated) job shape used by every already-migrated repo
-   — see `snapdragon-matrix-ui/.gitlab-ci.yml`'s `e2e:bdd` job for the
+   — see `hugmesh-matrix-ui/.gitlab-ci.yml`'s `e2e:bdd` job for the
    template to copy.
 6. **Drop `nightwatch`, `@nightwatch/*`, `cucumber`, `@cucumber/cucumber`,
    `cucumber-html-reporter`, `cucumber-pretty`** and the custom

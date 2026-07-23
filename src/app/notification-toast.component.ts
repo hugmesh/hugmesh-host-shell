@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { NotificationToastService } from './notification-toast.service';
 
 @Component({
-  selector: 'snap-notification-toast',
+  selector: 'hug-notification-toast',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './notification-toast.component.html',

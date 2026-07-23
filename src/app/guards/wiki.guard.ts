@@ -1,7 +1,7 @@
 import { CanActivateFn } from '@angular/router';
 import { roleGuard } from './role-guard.factory';
 
-/** Gate the WIKI management micro-frontend (the snapdragon-wiki-ui remote mounted
+/** Gate the WIKI management micro-frontend (the hugmesh-wiki-ui remote mounted
  *  at /wiki, exposing ./Wiki) on the wiki access tier. Mirrors the other federation
  *  route guards (admin/mod/user): allow vs the exact /login redirect (a UrlTree).
  *

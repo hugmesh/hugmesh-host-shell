@@ -37,9 +37,9 @@ describe('HomeComponent', () => {
     expect((fixture.nativeElement as HTMLElement).getAttribute('tabindex')).toBe('-1');
   });
 
-  it('should render the "What is Snapdragon?" section heading', () => {
+  it('should render the "What is HugMesh?" section heading', () => {
     const headings = Array.from(el.querySelectorAll('h2')).map(h => h.textContent?.trim());
-    expect(headings).toContain('What is Snapdragon?');
+    expect(headings).toContain('What is HugMesh?');
   });
 
   it('should render the pronouns section heading', () => {

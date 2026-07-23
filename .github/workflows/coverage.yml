@@ -33,4 +33,4 @@ jobs:
         if: always()
         with:
           files: |
-            coverage/snapdragon/**/test-results.xml
+            coverage/hugmesh/**/test-results.xml

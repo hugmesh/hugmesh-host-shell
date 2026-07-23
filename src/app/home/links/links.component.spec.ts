@@ -25,7 +25,7 @@ describe('LinksComponent', () => {
     el = fixture.nativeElement as HTMLElement;
   });
 
-  it('renders a link to the Snapdragon Systems GitHub org', () => {
+  it('renders a link to the HugMesh GitHub org', () => {
     const link = el.querySelector<HTMLAnchorElement>('a[href*="github.com/snapdragon-systems"]');
     expect(link).withContext('GitHub link must be present').toBeTruthy();
   });

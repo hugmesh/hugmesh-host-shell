@@ -16,7 +16,7 @@ app.use(limiter);
 var bodyParser = require("body-parser");
 app.use(bodyParser.json());
 
-var distDir = __dirname + "/public/snapdragon.systems/browser/";
+var distDir = __dirname + "/public/hugmesh.systems/browser/";
 app.use(express.static(distDir));
 
 function getRoot(request, response) {

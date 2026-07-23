@@ -7,7 +7,7 @@ import { ProfileModalService } from './profile-modal.service';
 /** Stands in for the user remote's exposed ProfileComponent so the modal has a
  *  real focusable surface to trap focus within, without loading native-federation. */
 @Component({
-  selector: 'snap-user-profile',
+  selector: 'hug-user-profile',
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `<input data-testid="remote-input" /><button data-testid="remote-save">Save</button>`,
 })

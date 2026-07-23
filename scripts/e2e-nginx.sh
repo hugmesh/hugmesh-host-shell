@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONTAINER=snapdragon-e2e-nginx
+CONTAINER=hugmesh-e2e-nginx
 PORT=8081
-IMAGE=snapdragon.systems:e2e-test
+IMAGE=hugmesh.systems:e2e-test
 
 cleanup() {
   docker stop "$CONTAINER" 2>/dev/null || true

@@ -25,7 +25,7 @@ describe('HeaderComponent', () => {
   it('should render an h1 with the site name', () => {
     const h1 = el.querySelector('h1');
     expect(h1).withContext('h1 must be present').toBeTruthy();
-    expect(h1!.textContent?.trim()).toBe('Snapdragon Systems');
+    expect(h1!.textContent?.trim()).toBe('HugMesh');
   });
 
   it('h1 should have tabindex="-1" for programmatic focus', () => {

@@ -15,18 +15,18 @@ import { roleHomeGuard } from './guards/role-home.guard';
  * Host shell routes. Every feature path is a native-federation REMOTE (its own
  * repo + nginx), loaded at runtime from the URLs in
  * `src/assets/federation.manifest.json`:
- *   login    -> snapdragon-login-ui     remote 'login'    exposes ./routes (LOGIN_ROUTES)
- *   matrix   -> snapdragon-matrix-ui    remote 'matrix'   exposes ./routes (MATRIX_ROUTES)
- *   mastodon -> snapdragon-mastodon-ui  remote 'mastodon' exposes ./routes (MASTODON_ROUTES)
- *   admin    -> snapdragon-admin-ui     remote 'admin'    exposes ./routes (ADMIN_ROUTES)
- *   mod      -> snapdragon-mod-ui       remote 'mod'      exposes ./routes (MOD_ROUTES)
- *   user     -> snapdragon-user-ui      remote 'user'     exposes ./routes (USER_ROUTES)
- *                                                         AND ./profile (ProfileComponent, modal)
- *   apidocs  -> snapdragon-api-docs     remote 'apidocs'  exposes ./routes (API_DOCS_ROUTES)
- *                                                         AND ./DocsShell (DocsShellComponent)
- *   wiki     -> snapdragon-wiki-ui      remote 'wiki'     exposes ./Wiki    (WIKI_ROUTES)
- *   tube     -> snapdragon-tube-ui      remote 'tube'     exposes ./Tube    (TUBE_ROUTES)
- *   owncast  -> snapdragon-owncast-ui   remote 'owncast'  exposes ./Owncast (OWNCAST_ROUTES)
+ *   login    -> hugmesh-login-ui     remote 'login'    exposes ./routes (LOGIN_ROUTES)
+ *   matrix   -> hugmesh-matrix-ui    remote 'matrix'   exposes ./routes (MATRIX_ROUTES)
+ *   mastodon -> hugmesh-mastodon-ui  remote 'mastodon' exposes ./routes (MASTODON_ROUTES)
+ *   admin    -> hugmesh-admin-ui     remote 'admin'    exposes ./routes (ADMIN_ROUTES)
+ *   mod      -> hugmesh-mod-ui       remote 'mod'      exposes ./routes (MOD_ROUTES)
+ *   user     -> hugmesh-user-ui      remote 'user'     exposes ./routes (USER_ROUTES)
+ *                                                       AND ./profile (ProfileComponent, modal)
+ *   apidocs  -> hugmesh-api-docs     remote 'apidocs'  exposes ./routes (API_DOCS_ROUTES)
+ *                                                       AND ./DocsShell (DocsShellComponent)
+ *   wiki     -> hugmesh-wiki-ui      remote 'wiki'     exposes ./Wiki    (WIKI_ROUTES)
+ *   tube     -> hugmesh-tube-ui      remote 'tube'     exposes ./Tube    (TUBE_ROUTES)
+ *   owncast  -> hugmesh-owncast-ui   remote 'owncast'  exposes ./Owncast (OWNCAST_ROUTES)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
  * /mod, /user, /admin/docs. Matrix/Mastodon require full registration; Admin and
  * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
@@ -57,7 +57,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // home-services.service.ts's CARD_CATALOG already ships a 'forum' launcher
   // card (slug 'forum', route '/social/forum', no requiresRegistration) that
   // renders 'enabled' once CapabilitiesService reports the forum slug
-  // installed — and the platform generator now wires snapdragon-forum-ui at
+  // installed — and the platform generator now wires hugmesh-forum-ui at
   // the gateway path /social/forum/** (generator PR #362, merged 2026-07-16).
   // Until a matching REMOTE_ROUTES entry is added here (mirroring
   // social/matrix|mastodon, once forum-ui's exposed module/guard shape is
@@ -69,7 +69,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES', canActivate: [adminGuard] },
   { path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES', canActivate: [modGuard] },
   { path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES', canActivate: [userGuard] },
-  // WIKI management remote (snapdragon-wiki-ui): exposes ./Wiki -> WIKI_ROUTES, NOT
+  // WIKI management remote (hugmesh-wiki-ui): exposes ./Wiki -> WIKI_ROUTES, NOT
   // the './routes' convention the role-homes use. Mounted at /wiki behind wikiGuard
   // (admin|superadmin|mod+ROLE_WIKI); the remote's own child guards then enforce the
   // per-view WIKI_READ/WRITE/MANAGE boundary. The remoteEntry is supplied at runtime
@@ -77,7 +77,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // internal, requiresRole wiki) unioned over the static floor — no static-manifest
   // edit is needed for an authed role-holder to resolve it.
   { path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES', canActivate: [wikiGuard] },
-  // TUBE management remote (snapdragon-tube-ui): exposes ./Tube -> TUBE_ROUTES,
+  // TUBE management remote (hugmesh-tube-ui): exposes ./Tube -> TUBE_ROUTES,
   // mirroring the wiki './Wiki' convention (NOT the './routes' of the role-homes).
   // Optional, DEFAULT-OFF, GPU-gated. Mounted at /tube behind tubeGuard
   // (admin|superadmin|ROLE_TUBE). The service is registered in the federation_modules
@@ -87,7 +87,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // by the DYNAMIC federation manifest (visibility internal, requiresRole TUBE) — no
   // static-manifest edit is needed for an authed role-holder to resolve it.
   { path: 'tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES', canActivate: [tubeGuard] },
-  // OWNCAST management remote (snapdragon-owncast-ui): exposes ./Owncast ->
+  // OWNCAST management remote (hugmesh-owncast-ui): exposes ./Owncast ->
   // OWNCAST_ROUTES, mirroring the wiki './Wiki' convention. Optional, DEFAULT-OFF,
   // GPU-gated. Mounted at /owncast behind owncastGuard (admin|superadmin|ROLE_OWNCAST).
   // Registered in the federation_modules registry (slug='owncast', enabled=false).
@@ -133,7 +133,7 @@ export const routes: Routes = [
   // Phase 8/10 GAMES entry-point + DERIVED games-admin mount. Neither is a
   // federated remote yet (no games UI repo exists), so these are GUARDED LOCAL
   // PLACEHOLDERS (see the mod-placeholder precedent this repo used for /mod
-  // before snapdragon-mod-ui landed) — a role-holder reaching either route sees
+  // before hugmesh-mod-ui landed) — a role-holder reaching either route sees
   // an honest TODO, never a silent 404 or a faked console. 'games/admin' MUST
   // precede 'games' (specific-before-general, mirroring admin/docs -> admin).
   {

@@ -16,7 +16,7 @@ class BackgroundStub {
   toggle() {}
 }
 
-@Component({ selector: 'snap-notification-toast', standalone: true, template: '' })
+@Component({ selector: 'hug-notification-toast', standalone: true, template: '' })
 class NotificationToastStub {}
 
 describe('AppComponent', () => {

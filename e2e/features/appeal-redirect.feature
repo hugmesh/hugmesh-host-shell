@@ -1,8 +1,8 @@
 @cluster
 Feature: Curtailed-account appeal short-circuit + access-restored routing (roleHomeGuard)
   Part of the cross-service "ban -> appeal -> admin approve -> access restored"
-  loop (see snapdragon-admin-ui's access-suspension.feature for the admin-side
-  ban/lift, and snapdragon-login-ui's appeal-contact.feature for the appeal
+  loop (see hugmesh-admin-ui's access-suspension.feature for the admin-side
+  ban/lift, and hugmesh-login-ui's appeal-contact.feature for the appeal
   page itself). This feature is the HOST ROUTING leg: roleHomeGuard
   (src/app/guards/role-home.guard.ts) short-circuits a suspended/banned
   session to `/login/appeal` BEFORE the normal role-home redirect, and — once
@@ -13,7 +13,7 @@ Feature: Curtailed-account appeal short-circuit + access-restored routing (roleH
   Like role-routing.feature (the un-curtailed role-home redirects this
   complements), asserting the RESOLVED URL requires the target route's
   loadChildren to succeed: `/login/appeal` is itself a federated remote
-  (snapdragon-login-ui, mounted at `/login`), so these are @cluster
+  (hugmesh-login-ui, mounted at `/login`), so these are @cluster
   (excluded from the default suite; run with `npm run e2e:integration`).
 
   The banner-only, routing-NOT-asserted behavior in status-gate.feature

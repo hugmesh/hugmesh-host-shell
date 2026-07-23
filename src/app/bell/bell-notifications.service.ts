@@ -4,7 +4,7 @@ import { BehaviorSubject, Observable, Subscription, timer } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { of } from 'rxjs';
 
-interface SnapdragonNotification {
+interface HugMeshNotification {
   id: string;
   readAt: string | null;
 }
@@ -17,7 +17,7 @@ export class BellNotificationsService implements OnDestroy {
 
   private readonly http = inject(HttpClient);
 
-  private readonly notifications$ = new BehaviorSubject<SnapdragonNotification[]>([]);
+  private readonly notifications$ = new BehaviorSubject<HugMeshNotification[]>([]);
   private pollSubscription: Subscription | null = null;
 
   readonly unreadCount$: Observable<number> = this.notifications$.pipe(
@@ -29,7 +29,7 @@ export class BellNotificationsService implements OnDestroy {
     if (this.pollSubscription) { return; }
     this.pollSubscription = timer(0, BellNotificationsService.POLL_INTERVAL_MS).pipe(
       switchMap(() => this.http
-        .get<SnapdragonNotification[]>(BellNotificationsService.ENDPOINT)
+        .get<HugMeshNotification[]>(BellNotificationsService.ENDPOINT)
         .pipe(catchError(() => of([])))),
     ).subscribe((ns) => this.notifications$.next(ns));
   }

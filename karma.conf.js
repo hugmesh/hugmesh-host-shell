@@ -14,12 +14,12 @@ module.exports = function (config) {
       clearContext: false,
     },
     junitReporter: {
-      outputDir: require("path").join(__dirname, "./coverage/snapdragon/"),
+      outputDir: require("path").join(__dirname, "./coverage/hugmesh/"),
       outputFile: "test-results.xml",
       useBrowserName: false,
     },
     coverageReporter: {
-      dir: "coverage/snapdragon",
+      dir: "coverage/hugmesh",
       reporters: [
         { type: "html",         subdir: "html"                               },
         { type: "lcovonly",     subdir: ".",   file: "lcov.info"             },

@@ -1,6 +1,6 @@
-# snapdragon.systems — host shell
+# hugmesh.systems — host shell
 
-The **native-federation HOST shell** for a Snapdragon brand. This Angular 22
+The **native-federation HOST shell** for a HugMesh brand. This Angular 22
 single-page app is the user-facing front door behind the gateway: it owns the
 chrome (header / menu / footer / background, the accessible skip-link and the
 shared profile modal), the authgate, the universal navigation, and the
@@ -89,7 +89,7 @@ remotes.
   rather than faking a working surface, and both are wired into the menu's
   profile dropdown ("Games Admin") and the home-services launcher (`games` /
   `games-admin` cards, install-state-gated on the shared `games` capability
-  slug). No `snapdragon-games-ui` remote exists yet — see Roadmap.
+  slug). No `hugmesh-games-ui` remote exists yet — see Roadmap.
 
 **Auth model (current).** The browser never holds a Casdoor JWT, and Casdoor is
 **internal-only** — it never redirects the browser. login-ui presents a **native
@@ -97,7 +97,7 @@ username/password (+MFA) form** that POSTs to the public **`/bff/login`** route;
 **user-bff** drives the PKCE/state and the internal Casdoor code→token exchange
 server-side and holds per-session JWT custody + refresh. What lands in the
 browser is an **HttpOnly `bff_`-prefixed session cookie**; the `SnapSession`
-object the host persists under the `snap.session` key (`id`, `label`,
+object the host persists under the `hug.session` key (`id`, `label`,
 `provider`, `roles`, `registrationComplete`, `status`) carries identity/role
 claims only — it never carries a token. The gateway is a **pure Casdoor-JWT
 OAuth2 resource server**: a pre-security exchange filter swaps the `bff_`
@@ -107,11 +107,11 @@ role gate run unchanged. Authorization is data-driven by the
 `GatewayRouteAccessFilter` — `ADMIN`/`GAME-MASTER` bypass within their own domain,
 `SUPERADMIN` cross-domain. Login / session / account logic is being **relocated
 from admin-bff to user-bff**, with the shared account/session/MFA/Casdoor-admin
-infra extracted into the new **snapdragon-auth-core** artifact; account/session
+infra extracted into the new **hugmesh-auth-core** artifact; account/session
 **data** stays in admin-bff-db (user-bff reaches it via admin-bff `/bff/internal`
 over mTLS + `X-Internal-Token`). Cloudflare fronts prod.
 
-From this host's point of view that means: the persisted `snap.session` that
+From this host's point of view that means: the persisted `hug.session` that
 `SessionService` reads is an identity/role projection, **not** a token — it must
 never be treated as, or decoded as, a JWT, and it carries no bearer value at all.
 `bearerInterceptor` sets `withCredentials: true` on every request so the HttpOnly
@@ -122,8 +122,8 @@ localStorage-token design; httpOnly-cookie custody is the shipped model.)
 
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
-built on the shared Maven artifacts `snapdragon-parent` (metapom 2.7.0),
-`snapdragon-commons` (2.7.0) and `snapdragon-auth-core` (2.3.0, consumed by
+built on the shared Maven artifacts `hugmesh-parent` (metapom 2.7.0),
+`hugmesh-commons` (2.7.0) and `hugmesh-auth-core` (2.3.0, consumed by
 user-bff + admin-bff). Spring Cloud
 Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
@@ -191,7 +191,7 @@ public, unguarded routes; everything else is federated and gated.
 flowchart LR
   browser["browser (opaque bff_ session only)"] --> ingress["Cloudflare / ingress (TLS)"]
   ingress --> fe["fe-gateway"]
-  fe --> host["snapdragon.systems<br/>(this host)"]
+  fe --> host["hugmesh.systems<br/>(this host)"]
   host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
   host -.->|"loadRemoteModule(...) — optional"| opt["wiki · tube · owncast<br/>(default-off / GPU-gated)"]
   fe --> be["be-gateway (bff_ → JWT swap + gateway_route_access)"]
@@ -223,7 +223,7 @@ see *Capabilities / graceful degrade* below.
   browser-side redirect to Casdoor; **user-bff** drives the PKCE/state and the
   internal Casdoor code→token exchange server-side and owns per-session JWT
   custody/refresh. What lands in the browser is an **HttpOnly `bff_`-prefixed
-  session cookie**, plus the canonical `snap.session` object (`localStorage`)
+  session cookie**, plus the canonical `hug.session` object (`localStorage`)
   carrying identity/role claims only — `id`, `label`, `provider`, `roles`,
   `registrationComplete`, `status` (**no token field**: `SnapSession` never
   carries a `bffToken`, `matrix` or `mastodon` handle); `SessionService`
@@ -273,23 +273,23 @@ remotes — see the note below the table.
 
 | Path | Remote | Guard | Gate |
 |---|---|---|---|
-| `/login` | `login` (`snapdragon-login-ui`) | — | public (native username/password (+MFA) login + registration flow — POSTs to `/bff/login`; Casdoor is internal-only, no browser redirect) |
-| `/user` | `user` (`snapdragon-user-ui`) | `userGuard` | any authenticated identity (the USER role-home; also exposes `./profile`) |
-| `/mod` | `mod` (`snapdragon-mod-ui`) | `modGuard` | Casdoor `mod` role |
-| `/admin` | `admin` (`snapdragon-admin-ui`) | `adminGuard` | Casdoor `admin` role |
-| `/admin/docs` | `apidocs` (`snapdragon-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
-| `/social/matrix` | `matrix` (`snapdragon-matrix-ui`) | `registeredGuard` | requires full registration |
-| `/social/mastodon` | `mastodon` (`snapdragon-mastodon-ui`) | `registeredGuard` | requires full registration |
-| `/wiki` | `wiki` (`snapdragon-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
-| `/tube` | `tube` (`snapdragon-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
-| `/owncast` | `owncast` (`snapdragon-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
+| `/login` | `login` (`hugmesh-login-ui`) | — | public (native username/password (+MFA) login + registration flow — POSTs to `/bff/login`; Casdoor is internal-only, no browser redirect) |
+| `/user` | `user` (`hugmesh-user-ui`) | `userGuard` | any authenticated identity (the USER role-home; also exposes `./profile`) |
+| `/mod` | `mod` (`hugmesh-mod-ui`) | `modGuard` | Casdoor `mod` role |
+| `/admin` | `admin` (`hugmesh-admin-ui`) | `adminGuard` | Casdoor `admin` role |
+| `/admin/docs` | `apidocs` (`hugmesh-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
+| `/social/matrix` | `matrix` (`hugmesh-matrix-ui`) | `registeredGuard` | requires full registration |
+| `/social/mastodon` | `mastodon` (`hugmesh-mastodon-ui`) | `registeredGuard` | requires full registration |
+| `/wiki` | `wiki` (`hugmesh-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
+| `/tube` | `tube` (`hugmesh-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
+| `/owncast` | `owncast` (`hugmesh-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
 | `/games` | — (local `GamesPlaceholderComponent`, no remote yet) | `gamesGuard` | any holder of `ROLE_GAMES` (plus `admin`/`superadmin`); renders an honest `TODO` placeholder, never a faked games surface |
 | `/games/admin` | — (local `GamesAdminPlaceholderComponent`, no remote yet) | `gamesAdminGuard` | derived `ROLE_GAMES_ADMIN` (`ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`, plus `superadmin`) |
 
-`/games` and `/games/admin` predate a `snapdragon-games-ui` remote (Phase 8/10,
+`/games` and `/games/admin` predate a `hugmesh-games-ui` remote (Phase 8/10,
 PR #120) — they're real, guarded, tested routes in this host's own bundle
 (mirroring the `ModPlaceholderComponent` precedent used for `/mod` before
-`snapdragon-mod-ui` landed), not federation mounts. When the games remote
+`hugmesh-mod-ui` landed), not federation mounts. When the games remote
 ships, swap each `loadComponent` for a `loadChildren → loadRemoteModule('games', …)`
 entry and add `games` to the federation manifest — see the `TODO(games-ui)` /
 `TODO(games-admin-ui)` comments at each placeholder component.
@@ -451,7 +451,7 @@ cross-cutting surface:
 | Script | What |
 |---|---|
 | `npm run start-dev` | `ng serve` dev server |
-| `npm run build` | production bundle (`public/snapdragon.systems/browser`) |
+| `npm run build` | production bundle (`public/hugmesh.systems/browser`) |
 | `npm test` / `npm run coverage` | Karma/Jasmine unit tests (+ coverage) |
 | `npm run e2e` | Nightwatch e2e (role authgate / nav / profile-modal suites) |
 | `npm run dockerBuild` / `dockerRun` | build + run the container image |
@@ -463,7 +463,7 @@ cross-cutting surface:
 ```
 src/app/
   app.routes.ts            REMOTE_ROUTES table (10 remotes) + authgate/role-home + federationLoader
-  session.service.ts       snap.session reader (id/roles/registrationComplete/status — identity claims, no token field); role precedence (admin>mod>user) + registration gate
+  session.service.ts       hug.session reader (id/roles/registrationComplete/status — identity claims, no token field); role precedence (admin>mod>user) + registration gate
   guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
   http/bearer.interceptor.ts          withCredentials always, no Authorization header (HttpOnly bff_ cookie seam; gateway swaps cookie → JWT server-side)
@@ -483,17 +483,17 @@ federation.config.js + federation-base.js    host federation config (consumer; s
 
 ## Related repos
 
-Gateways `snapdragon-gateway` / `snapdragon-id-gateway` (Casdoor-JWT resource
+Gateways `hugmesh-gateway` / `snapdragon-id-gateway` (Casdoor-JWT resource
 servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** ·
-federation `snapdragon-federation-api` + `snapdragon-remote-fragment` · the
-remotes `snapdragon-{login,user,mod,admin}-ui`, `snapdragon-{matrix,mastodon}-ui`,
-`snapdragon-{wiki,tube,owncast}-ui`, `snapdragon-api-docs` · role BFFs
-`snapdragon-{user,mod,admin,wiki}-bff-api` (**user-bff** owns the Casdoor OIDC
+federation `hugmesh-federation-api` + `hugmesh-remote-fragment` · the
+remotes `hugmesh-{login,user,mod,admin}-ui`, `hugmesh-{matrix,mastodon}-ui`,
+`hugmesh-{wiki,tube,owncast}-ui`, `hugmesh-api-docs` · role BFFs
+`hugmesh-{user,mod,admin,wiki}-bff-api` (**user-bff** owns the Casdoor OIDC
 code→token exchange + per-session JWT custody/refresh; login/session/account
 logic is being relocated admin-bff → user-bff) · shared Maven artifacts
-`snapdragon-parent` (metapom), `snapdragon-commons`, **`snapdragon-auth-core`**
+`hugmesh-parent` (metapom), `hugmesh-commons`, **`hugmesh-auth-core`**
 (shared account/session/MFA/Casdoor-admin infra) · cross-realm sync
-`snapdragon-actions`.
+`hugmesh-actions`.
 
 ---
 

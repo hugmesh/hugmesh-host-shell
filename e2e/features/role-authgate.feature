@@ -1,7 +1,7 @@
 Feature: Authgate and session lifecycle
   The host shell is a pure AUTHGATE at '/': an anonymous visitor is redirected to
   the login remote, and an authenticated visitor resolves to their role-home. The
-  role is driven by SEEDING the snap.session localStorage key (the SessionService
+  role is driven by SEEDING the hug.session localStorage key (the SessionService
   reads it) — no real Casdoor is needed.
 
   HOST-LEVEL vs INTEGRATION: the role-home and /login routes are federation

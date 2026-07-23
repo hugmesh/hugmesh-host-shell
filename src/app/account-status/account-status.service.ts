@@ -33,7 +33,7 @@ export const ME_ENDPOINT = '/bff/me';
  *    broker + gateway; this is purely to EXPLAIN a curtailment + offer an appeal.
  *  - only AUTHENTICATED sessions read (an anonymous visitor has no own-status);
  *    signing out resets to active.
- *  - SYNCS the successfully-read status into the shared snap.session
+ *  - SYNCS the successfully-read status into the shared hug.session
  *    ({@code SnapSession.status}) so the synchronous consumers (roleHomeGuard's
  *    suspended/banned short-circuit to /login/appeal) act on the same /bff/me
  *    truth this banner renders from.
@@ -91,7 +91,7 @@ export class AccountStatusService {
       const body = await firstValueFrom(this.http.get<unknown>(ME_ENDPOINT));
       const status = normalizeStatus(body);
       this.current.set(status);
-      // Sync the AUTHORITATIVE server status back into the shared snap.session
+      // Sync the AUTHORITATIVE server status back into the shared hug.session
       // (SnapSession.status) so synchronous consumers — roleHomeGuard's
       // suspended/banned short-circuit to /login/appeal — see the /bff/me truth
       // without their own HTTP read. Patch only on change: SessionService.patch

@@ -8,7 +8,7 @@
     }
   },
   "projects": {
-    "snapdragon.systems": {
+    "hugmesh.systems": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -20,10 +20,10 @@
           "options": {},
           "configurations": {
             "production": {
-              "target": "snapdragon.systems:esbuild:production"
+              "target": "hugmesh.systems:esbuild:production"
             },
             "development": {
-              "target": "snapdragon.systems:esbuild:development",
+              "target": "hugmesh.systems:esbuild:development",
               "dev": true
             }
           },
@@ -33,7 +33,7 @@
           "builder": "@angular-devkit/build-angular:application",
           "options": {
             "outputPath": {
-              "base": "public/snapdragon.systems"
+              "base": "public/hugmesh.systems"
             },
             "index": "src/index.html",
             "polyfills": [
@@ -100,7 +100,7 @@
         "serve": {
           "builder": "@angular-architects/native-federation:build",
           "options": {
-            "target": "snapdragon.systems:serve-original:development",
+            "target": "hugmesh.systems:serve-original:development",
             "rebuildDelay": 0,
             "dev": true,
             "port": 4200
@@ -110,10 +110,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "snapdragon.systems:esbuild:production"
+              "buildTarget": "hugmesh.systems:esbuild:production"
             },
             "development": {
-              "buildTarget": "snapdragon.systems:esbuild:development"
+              "buildTarget": "hugmesh.systems:esbuild:development"
             }
           },
           "defaultConfiguration": "development"
@@ -121,7 +121,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "snapdragon.systems:build"
+            "buildTarget": "hugmesh.systems:build"
           }
         },
         "test": {

@@ -62,7 +62,7 @@ describe('NotificationToastService', () => {
   }
 
   /** Real (non-fakeAsync) macrotask wait for the fetch → `reader.read()`
-   *  promise chain to settle — see snapdragon-user-ui's identical helper for
+   *  promise chain to settle — see hugmesh-user-ui's identical helper for
    *  why this needs a genuine timer rather than `tick()`/`flushMicrotasks()`
    *  (native `ReadableStream` internals aren't reliably zone-patched). */
   async function flushStream(): Promise<void> {
