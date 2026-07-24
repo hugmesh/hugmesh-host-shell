@@ -47,8 +47,15 @@ function sessionFor(role) {
     admin: ['admin', 'mod', 'user'],
     mod: ['mod', 'user'],
     user: ['user'],
+    // GAMES tiers (Phase 8/10). isGamesAdmin() is the DERIVED role
+    // ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD) — never granted directly — so a
+    // games-admin fixture holds 'games' TOGETHER WITH 'mod'. A bare 'games'
+    // member holds only 'games' (+ the baseline 'user'), so it must NOT earn the
+    // games-admin tier (default-deny; see SessionService.isGamesAdmin).
+    'games-admin': ['games', 'mod', 'user'],
+    games: ['games', 'user'],
   }[role];
-  assert.ok(roles, `Unknown role "${role}" (expected superadmin | admin | mod | user)`);
+  assert.ok(roles, `Unknown role "${role}" (expected superadmin | admin | mod | user | games-admin | games)`);
   return {
     id: `e2e:${role}@hugmesh.test`,
     label: `${role}@hugmesh.test`,
@@ -95,9 +102,28 @@ async function seedSession(session) {
 /** GIVEN I have a/an {admin|mod|user} session — seed the JWT-shaped session BEFORE
  *  the journey navigates, so SessionService derives that role for the guards/nav.
  *  The optional a/an article keeps the Gherkin natural ("an admin", "a mod"). */
-Given(/^I have an? (superadmin|admin|mod|user) session$/, async function (role) {
+Given(/^I have an? (superadmin|admin|mod|user|games-admin|games) session$/, async function (role) {
   await seedSession(sessionFor(role));
 });
+
+/** GIVEN I have a {role} session with the {service} service grant — seed the base
+ *  role fixture PLUS an additional PER-SERVICE access role (ROLE_WIKI / ROLE_TUBE
+ *  / ROLE_OWNCAST). These per-service grants are siblings of the cascade tiers: a
+ *  MOD granted ROLE_WIKI reaches the Wiki console the cascade alone would not, a
+ *  plain USER granted ROLE_TUBE reaches Tube, etc. (SessionService.hasRole, the
+ *  case-insensitive per-service check the menu + guards read). The base fixture
+ *  (sessionFor) hardcodes only the four cascade role sets, so this step is what
+ *  lets a scenario express the grant-based ALLOW side. */
+Given(
+  /^I have an? (superadmin|admin|mod|user) session with the "([^"]+)" service grant$/,
+  async function (role, grant) {
+    const session = sessionFor(role);
+    // Store the grant as the lowercase in-session role string the login remote
+    // persists; hasRole() matches case-insensitively on either form.
+    session.roles = [...session.roles, grant.toLowerCase()];
+    await seedSession(session);
+  },
+);
 
 /** GIVEN I have a pending user session — an authenticated identity that has NOT
  *  completed registration (registrationComplete:false). Registration is what

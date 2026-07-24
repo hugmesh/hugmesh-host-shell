@@ -42,9 +42,9 @@ describe('HomeComponent', () => {
     expect(headings).toContain('What is HugMesh?');
   });
 
-  it('should render the pronouns section heading', () => {
+  it('should render the "One account, every service" platform section heading', () => {
     const headings = Array.from(el.querySelectorAll('h2')).map(h => h.textContent?.trim());
-    expect(headings).toContain('Pronouns?');
+    expect(headings).toContain('One account, every service');
   });
 
   it('should render the links-grid component', () => {
@@ -71,7 +71,12 @@ describe('HomeComponent', () => {
     expect(el.querySelectorAll('p[tabindex]').length).toBe(0);
   });
 
-  it('should render .pronouns spans', () => {
-    expect(el.querySelectorAll('span.pronouns').length).toBeGreaterThan(0);
+  it('must NOT re-introduce the personal-site pronouns fill-in copy', () => {
+    // The public /home page used to carry personal-website leftover copy (a
+    // "Pronouns?" section with a fill-in instruction to system members). It was
+    // replaced with factual platform copy per the branding baseline; guard so it
+    // cannot creep back into this org host shell.
+    expect(el.querySelectorAll('span.pronouns').length).toBe(0);
+    expect((el.textContent ?? '').toLowerCase()).not.toContain('pronoun');
   });
 });

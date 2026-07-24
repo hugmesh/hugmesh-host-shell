@@ -52,6 +52,16 @@ Given(
   },
 );
 
+/** A TIMED suspension: /bff/me carries `until` (ISO instant the curtailment
+ *  lifts) alongside the reason. The banner's detail sentence weaves the expiry in
+ *  ("…suspended until <date>…") — a path status-gate previously never mocked. */
+Given(
+  /^the BFF reports my account suspended until "([^"]*)" with reason "([^"]*)"$/,
+  async function (until, reason) {
+    await mockMe(200, JSON.stringify({ status: 'suspended', until, reason }));
+  },
+);
+
 /** The fail-open path: a 5xx from /bff/me must degrade to `active` (no banner)
  *  rather than blocking the app or falsely accusing the caller. */
 Given('the BFF cannot report my account status', async function () {
@@ -81,6 +91,19 @@ Then(
     assert.strictEqual(meta.title, heading, `banner headline must read "${heading}"`);
   },
 );
+
+/** THEN the account-status banner detail includes {string} — the explanatory
+ *  sentence (status-gate-detail). Used to assert the timed-suspension phrasing
+ *  ("suspended until") without pinning the locale-formatted date text. */
+Then('the account-status banner detail includes {string}', async function (fragment) {
+  const text = await browser.execute(
+    () => (document.querySelector('[data-testid="status-gate-detail"]')?.textContent ?? '').trim(),
+  );
+  assert.ok(
+    text.includes(fragment),
+    `Expected the banner detail to include "${fragment}" but it read "${text}"`,
+  );
+});
 
 Then('the account-status banner shows the reason {string}', async function (reason) {
   const text = await browser.execute(

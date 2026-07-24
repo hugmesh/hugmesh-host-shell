@@ -40,12 +40,15 @@ describe('FooterComponent', () => {
     expect(label.length).toBeGreaterThan(0);
   });
 
-  it('should render a Creative Commons link', () => {
-    const cc = el.querySelector<HTMLAnchorElement>(
-      'a[href*="creativecommons.org"]',
-    );
-    expect(cc).withContext('CC0 license link must be present').toBeTruthy();
-    expect(cc!.getAttribute('target')).toBe('_blank');
+  it('should NOT render the stale personal-site CC0 mark', () => {
+    // The CC0 license mark (and its icons hotlinked from
+    // mirrors.creativecommons.org — broken on air-gapped/self-hosted deploys)
+    // was stale personal-website identity for the org host shell; it was removed
+    // per the branding baseline. Guard against re-introduction.
+    const cc = el.querySelector('a[href*="creativecommons.org"]');
+    expect(cc).withContext('CC0 license link must be gone').toBeNull();
+    const hotlinked = el.querySelector('img[src*="mirrors.creativecommons.org"]');
+    expect(hotlinked).withContext('no externally hotlinked CC icons').toBeNull();
   });
 
   it('should not render a horizontal rule', () => {

@@ -18,6 +18,23 @@ $font-family-base:           t.$font-sans;
 @import "bootstrap/scss/bootstrap";
 
 
+/* Brand display face. 'MoreSugar-Thin.ttf' is shipped in src/assets AND
+ * preloaded in index.html; this @font-face is what finally WIRES it (it was
+ * previously preloaded-but-unused because $font-fancy aliased Arial). The URL is
+ * root-absolute so it matches the index.html preload target exactly (both
+ * resolve to /assets/MoreSugar-Thin.ttf) and the bundler leaves it untouched.
+ * font-display:swap keeps the wordmark visible in the sans fallback until the
+ * face loads. Used by $font-fancy (styles/_tokens.scss) for the host h1
+ * wordmark; remotes never reach for this (host chrome only — see BRANDING.md). */
+@font-face {
+  font-family: 'More Sugar';
+  src: url('/assets/MoreSugar-Thin.ttf') format('truetype');
+  font-weight: 100 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 /* HugMesh WCAG-AA/AAA palette — centralised as runtime :root custom
  * properties (mirrors hugmesh.games/frontend/src/styles.scss). Each token
  * carries its contrast ratio against #0a0a12 (the darkest shell background) in

@@ -37,6 +37,17 @@ Feature: Account-status appeal-gate banner (suspended / banned /bff/me states)
     And the account-status banner links to the appeal page
 
   @bff-status-mock
+  Scenario: A timed suspension weaves the expiry date into the banner detail
+    # The /bff/me body carries `until` (the ISO instant the curtailment lifts);
+    # the banner's detail sentence includes it ("…suspended until <date>…") —
+    # previously only status+reason were ever mocked, never the timed expiry.
+    Given the BFF reports my account suspended until "2099-01-02T03:04:05Z" with reason "Repeated policy violations"
+    When I go to "/"
+    Then the account-status gate shows the "suspended" banner
+    And the account-status banner detail includes "suspended until"
+    And the account-status banner shows the reason "Repeated policy violations"
+
+  @bff-status-mock
   Scenario: A banned account sees the ban banner with the appeal link
     Given the BFF reports my account status as "banned"
     When I go to "/"

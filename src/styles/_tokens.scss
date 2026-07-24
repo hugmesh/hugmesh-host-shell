@@ -18,8 +18,14 @@ $pastel-lemon:    #fdffb6;
 $pastel-peach:    #ffd6a5;
 
 $font-sans:  Arial, Helvetica, sans-serif;
-$font-mono:  $font-sans;
-$font-fancy: $font-sans;
+// Real mono stack (baseline fleet-defect fix — was aliased to $font-sans, so
+// <code>/keys/ids rendered proportionally). Matches the canonical HugMesh
+// mono the fleet standardises on (ui-monospace precedent).
+$font-mono:  ui-monospace, 'Cascadia Mono', 'Courier New', monospace;
+// Display/wordmark font. 'More Sugar' is the shipped-and-preloaded brand face
+// wired via the @font-face in styles.scss (src/assets/MoreSugar-Thin.ttf); it
+// falls back to the sans stack until the font loads (font-display:swap).
+$font-fancy: 'More Sugar', $font-sans;
 
 $radius-sm:   0.5rem;
 $radius-md:   0.75rem;

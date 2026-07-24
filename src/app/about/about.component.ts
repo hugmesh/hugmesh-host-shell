@@ -1,11 +1,11 @@
 import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { AboutSectionComponent } from './about-section/about-section.component';
 
-// TODO(about-content): this public, unguarded route still renders placeholder
-// copy ("Example Question?" / "Example Paragraph" in about.component.html) and
-// has no nav link anywhere pointing at it (the menu's "Home" entry routes to
-// '/', not '/home' or '/about') — reachable only by typing the URL. Needs real
-// brand copy before it's worth linking; see README's "Known gaps".
+// NOTE: this public route now renders real HugMesh platform copy (was
+// placeholder "Example Question?" / "Example Paragraph"). It still has no nav
+// link anywhere pointing at it (the menu's "Home" entry routes to '/', not
+// '/home' or '/about') — reachable only by typing the URL. Wiring it into the
+// nav is a separate product decision; see README's "Known gaps".
 @Component({
   selector: '[about]',
   imports: [AboutSectionComponent],

@@ -2,6 +2,7 @@ import { CanActivateFn, Route, Routes } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
+import { forumGuard } from './guards/forum.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
 import { wikiGuard } from './guards/wiki.guard';
@@ -53,16 +54,21 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
   { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [registeredGuard] },
   { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [registeredGuard] },
-  // TODO(forum-remote): there is no 'social/forum' entry here, but
-  // home-services.service.ts's CARD_CATALOG already ships a 'forum' launcher
-  // card (slug 'forum', route '/social/forum', no requiresRegistration) that
-  // renders 'enabled' once CapabilitiesService reports the forum slug
-  // installed — and the platform generator now wires hugmesh-forum-ui at
-  // the gateway path /social/forum/** (generator PR #362, merged 2026-07-16).
-  // Until a matching REMOTE_ROUTES entry is added here (mirroring
-  // social/matrix|mastodon, once forum-ui's exposed module/guard shape is
-  // confirmed), an enabled Forum card is a dead link: the path falls through
-  // to the '**' redirect and silently bounces back to the role-home.
+  // FORUM remote (hugmesh-forum-ui): exposes './routes' -> FORUM_ROUTES
+  // (verified against forum-ui federation.config.js name:'forum' exposes
+  // './routes' -> src/app/forum.routes.ts FORUM_ROUTES; forum.routes.ts's own
+  // header even names /social/forum as the host mount). The platform generator
+  // wires hugmesh-forum-ui at the gateway path /social/forum/** (generator
+  // PR #362, merged 2026-07-16); this entry is the matching HOST mount that was
+  // missing — its absence made the home-services 'forum' launcher card a dead
+  // link (an 'enabled' card whose click fell through to the '**' redirect).
+  // Guarded by forumGuard (any AUTHENTICATED identity — NOT registeredGuard):
+  // the forum reuses our native federated identity, so it needs no per-service
+  // registration, exactly matching the card (slug 'forum', no
+  // requiresRegistration / requiresRole). Like wiki/tube/owncast, the remoteEntry
+  // is supplied at runtime by the DYNAMIC federation manifest, so no static
+  // floor edit is needed for an authed user to resolve it.
+  { path: 'social/forum', remoteName: 'forum', exposed: './routes', routesConst: 'FORUM_ROUTES', canActivate: [forumGuard] },
   // admin/docs (the admin-only API-docs console) MUST precede 'admin': the more
   // specific path has to match before the admin remote's loadChildren swallows it.
   { path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES', canActivate: [adminGuard] },

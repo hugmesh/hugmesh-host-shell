@@ -9,6 +9,9 @@
 }
 
 h1 {
+  // The brand wordmark renders in the display face ('More Sugar', wired via the
+  // @font-face in styles.scss); falls back to the sans stack until it loads.
+  font-family: t.$font-fancy;
   color: t.$neon;
   text-shadow: 0 0 12px rgba(t.$neon, 0.5), 0 0 30px rgba(t.$neon, 0.2);
   word-break: break-word;

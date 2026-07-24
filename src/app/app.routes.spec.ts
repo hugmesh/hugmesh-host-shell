@@ -3,6 +3,7 @@ import { Route } from '@angular/router';
 import { routes, REMOTE_ROUTES, federationLoader } from './app.routes';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
+import { forumGuard } from './guards/forum.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
 import { wikiGuard } from './guards/wiki.guard';
@@ -29,6 +30,9 @@ describe('app.routes federation wiring', () => {
       jasmine.objectContaining({ path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' }),
       jasmine.objectContaining({ path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES' }),
       jasmine.objectContaining({ path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES' }),
+      // The forum remote follows the './routes' -> FORUM_ROUTES convention of the
+      // social role-homes (verified against forum-ui federation.config.js).
+      jasmine.objectContaining({ path: 'social/forum', remoteName: 'forum', exposed: './routes', routesConst: 'FORUM_ROUTES' }),
       jasmine.objectContaining({ path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES' }),
       jasmine.objectContaining({ path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES' }),
       jasmine.objectContaining({ path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES' }),
@@ -64,6 +68,17 @@ describe('app.routes federation wiring', () => {
     expect(routeFor('social/matrix').canActivate).toContain(registeredGuard);
     expect(routeFor('social/mastodon').canActivate).toContain(registeredGuard);
     expect(routeFor('admin').canActivate).toContain(adminGuard);
+  });
+
+  it('mounts the forum remote at /social/forum behind forumGuard (authenticated, NOT registration-gated)', () => {
+    const forum = routeFor('social/forum');
+    // The forum reuses our native identity, so it is authenticated-only — the
+    // registration gate (matrix/mastodon per-service tokens) does NOT apply, and
+    // adding it would turn the 'enabled' launcher card into a dead link.
+    expect(forum.canActivate).withContext('authenticated-only forum gate').toContain(forumGuard);
+    expect(forum.canActivate ?? []).withContext('forum is not registration-gated').not.toContain(registeredGuard);
+    expect(forum.loadChildren).withContext('mounts the forum remote via loadChildren').toBeDefined();
+    expect(forum.loadComponent).withContext('not a local placeholder component').toBeUndefined();
   });
 
   it('/admin/docs mounts the api-docs remote behind the adminGuard', () => {

@@ -41,9 +41,11 @@ const CARD_CATALOG: readonly CardSpec[] = [
     id: 'mastodon', label: 'Mastodon', description: 'The fediverse timeline',
     route: '/social/mastodon', slug: 'mastodon', requiresRegistration: true,
   },
-  // TODO(forum-remote): route '/social/forum' has no matching REMOTE_ROUTES
-  // entry in app.routes.ts yet, so an 'enabled' card is currently a dead link
-  // (falls through to the '**' redirect) — see the TODO there for the fix.
+  // FORUM: route '/social/forum' is a real HOST mount (app.routes.ts
+  // REMOTE_ROUTES -> forum remote, forumGuard) so an 'enabled' card is a live
+  // link. slug-gated only (no requiresRegistration / requiresRole): the forum
+  // reuses our native federated identity, so any signed-in user reaches it —
+  // matching forumGuard's authenticated-only predicate (never a dead link).
   {
     id: 'forum', label: 'Forum', description: 'Discussion boards',
     route: '/social/forum', slug: 'forum',
