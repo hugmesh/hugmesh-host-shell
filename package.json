@@ -75,7 +75,7 @@
     "karma-jasmine-html-reporter": "^2.1.0",
     "karma-junit-reporter": "^2.0.1",
     "karma-spec-reporter": "^0.0.36",
-    "mocha": "^11.7.6",
+    "mocha": "^11.8.0",
     "nightwatch": "^3.16.0",
     "nightwatch-html-reporter": "^2.0.6",
     "sass": "^1.102.0",
