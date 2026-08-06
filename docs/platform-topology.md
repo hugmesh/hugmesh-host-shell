@@ -4,7 +4,7 @@ hugmesh.systems ships as part of the platform's multi-tier topology:
 a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
 gateway's revocation + URL-registry cache, and the Angular **native-federation
 host shell** (this repo) as the user-facing front door served behind the
-gateway. As of `main` this repo is itself a federation **host** mounting ten
+gateway. As of `main` this repo is itself a federation **host** mounting eleven
 remotes (see the [README](../README.md)) — it is no longer a monolithic
 single-page app.
 
@@ -154,7 +154,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 | Gateway instance name | `snapdragon-id-gateway` |
 | Cassandra keyspace | `snapdragon_systems_gateway` |
 | Casdoor organization | `snapdragon-systems` |
-| Frontend stack | Angular native-federation host + 10 remotes (this repo) |
+| Frontend stack | Angular native-federation host + 11 remotes (this repo) |
 | Browser-held credential | opaque `bff_` session only — never a Casdoor JWT |
 | Token custody | user-bff exchanges code→token; admin-bff-db holds the encrypted custody JWT (`bff_session.*_enc`); gateway swaps `bff_`→JWT pre-security |
 | Identity-layer responsibility | domain-scoped `superadmin > admin > mod > user` cascade |

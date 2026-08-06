@@ -32,10 +32,11 @@ scoped migration plan.
   needs the federation REMOTES served from their own dev servers / nginx at
   the manifest URLs (ports 4203-4206) plus a host server with a real SPA
   fallback — i.e. an integrated/live environment, not just a mocked host-only
-  run. Two whole features carry the tag at the `Feature:` level
-  (`role-routing.feature`, `role-home-content.feature`); a third
-  (`role-authgate.feature`) documents the split inline without itself
-  carrying scenarios that need it.
+  run. Five whole features carry the tag at the `Feature:` level
+  (`role-routing.feature`, `role-home-content.feature`,
+  `home-announcements.feature`, `appeal-redirect.feature`,
+  `home-services-cards.feature`); a sixth (`role-authgate.feature`) documents
+  the split inline without itself carrying scenarios that need it.
 - **`@skip`** is Nightwatch/Cucumber's existing manual-skip convention
   (defined in the base filter, `not @skip and not @cluster`, though nothing
   currently carries it — reserved for a scenario that needs to be temporarily

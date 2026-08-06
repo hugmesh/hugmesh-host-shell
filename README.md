@@ -6,10 +6,11 @@ chrome (header / menu / footer / background, the accessible skip-link and the
 shared profile modal), the authgate, the universal navigation, and the
 role-home routing. It **exposes nothing** of its own feature surface — every
 page under it is a separate repo loaded at runtime as a **native-federation
-remote**. ✅ On `main` it mounts **ten** remotes via the data-driven
+remote**. ✅ On `main` it mounts **eleven** remotes via the data-driven
 `REMOTE_ROUTES` table: login, user, mod, admin, api-docs, matrix, mastodon, plus
-the **optional** services wiki, tube and owncast (tube/owncast are default-off and
-GPU-gated; all three grey out via federation install-state when absent).
+the **optional** services wiki, forum, tube and owncast (tube/owncast are
+default-off and GPU-gated; all four grey out via federation install-state when
+absent).
 
 In the platform's two service tiers this sits in the **architecture tier**
 (core, always present) alongside the gateways, Casdoor + PKI, and the
@@ -23,10 +24,10 @@ remotes.
 
 ✅ Shipped on `main` today:
 
-- **Ten remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven core
-  (login/user/mod/admin/api-docs/matrix/mastodon) always present, three optional
-  (wiki/tube/owncast) that grey out via federation install-state when the service
-  is absent.
+- **Eleven remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven
+  core (login/user/mod/admin/api-docs/matrix/mastodon) always present, four
+  optional (wiki/forum/tube/owncast) that grey out via federation install-state
+  when the service is absent.
 - **Dynamic-first federation** — `resolveFederationSource()` reads the DB-driven
   manifest `GET /api/federation/manifest` and unions it over the bundled static
   floor, falling back to the static manifest on any failure so the shell always
@@ -136,15 +137,12 @@ manifest's gateway-served remote paths bind as intended.
   unguarded routes (`src/app/about/`, `src/app/home/`) and build/render fine,
   but no nav link anywhere points at either — the menu's "Home" entry routes to
   `/` (the authgate/role-home redirect), not `/home`, and nothing links `/about`
-  at all; both are reachable only by typing the URL directly.
-  `AboutComponent`/`AboutSectionComponent` also still render placeholder copy
-  ("Example Question?" / "Example Paragraph"). This is a product/content call
-  (real About copy is brand voice and shouldn't be invented; wiring a visible
-  link to placeholder copy would be worse than leaving it unlinked), not an
-  engineering gap — see the `TODO` left in `about.component.html`.
-- **The `forum` home-services card is a dead link today** — see the
-  `TODO(forum-remote)` comments in `src/app/app.routes.ts` and
-  `src/app/home-services/home-services.service.ts`.
+  at all; both are reachable only by typing the URL directly. `AboutComponent`
+  now renders real HugMesh platform copy (the old "Example Question?" /
+  "Example Paragraph" placeholder text is gone); only the missing-nav-link part
+  of this gap remains, which is a product/content call (wiring a visible link
+  is a separate decision from the copy itself), not an engineering gap — see
+  the NOTE left in `about.component.ts`.
 
 ---
 
@@ -193,7 +191,7 @@ flowchart LR
   ingress --> fe["fe-gateway"]
   fe --> host["hugmesh.systems<br/>(this host)"]
   host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
-  host -.->|"loadRemoteModule(...) — optional"| opt["wiki · tube · owncast<br/>(default-off / GPU-gated)"]
+  host -.->|"loadRemoteModule(...) — optional"| opt["wiki · forum · tube · owncast<br/>(tube/owncast default-off / GPU-gated)"]
   fe --> be["be-gateway (bff_ → JWT swap + gateway_route_access)"]
   be --> ubff["user-bff (Casdoor OIDC token custody/refresh)"]
   be --> bff["role BFFs (/bff/*)"]
@@ -205,8 +203,8 @@ flowchart LR
 ```
 
 The seven core remotes (login/user/mod/admin/api-docs/matrix/mastodon) are always
-mounted; the three optional remotes (wiki/tube/owncast, dashed) are mounted but
-**greyed-out via federation install-state** when the service is not deployed —
+mounted; the four optional remotes (wiki/forum/tube/owncast, dashed) are mounted
+but **greyed-out via federation install-state** when the service is not deployed —
 see *Capabilities / graceful degrade* below.
 
 - **Gateways:** the host is the fe-gateway `/**` catch-all upstream. Its in-app
@@ -280,6 +278,7 @@ remotes — see the note below the table.
 | `/admin/docs` | `apidocs` (`hugmesh-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
 | `/social/matrix` | `matrix` (`hugmesh-matrix-ui`) | `registeredGuard` | requires full registration |
 | `/social/mastodon` | `mastodon` (`hugmesh-mastodon-ui`) | `registeredGuard` | requires full registration |
+| `/social/forum` | `forum` (`hugmesh-forum-ui`) | `forumGuard` | any authenticated identity — reuses our native federated identity directly, so (unlike matrix/mastodon) no per-service registration is required |
 | `/wiki` | `wiki` (`hugmesh-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
 | `/tube` | `tube` (`hugmesh-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
 | `/owncast` | `owncast` (`hugmesh-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
@@ -306,6 +305,11 @@ Guards live in `src/app/guards/` and read `SessionService`:
   this only blocks anonymous visitors.
 - **`registeredGuard`** — Matrix/Mastodon are usable only after the login
   remote mints the per-service tokens (`registrationComplete === true`).
+- **`forumGuard`** — gates `/social/forum` on any **authenticated** identity
+  (not `registeredGuard`): the forum reuses our native federated identity
+  directly, so there is no per-service registration step to complete first —
+  matching the home-services `forum` card (slug-gated only, no
+  `requiresRegistration` / `requiresRole`).
 - **`wikiGuard`** — admits `admin`/`superadmin`, or a `mod` who also holds the
   per-service `ROLE_WIKI`; everyone else is bounced to `/login`. The wiki
   remote's own child guards then enforce the per-view `WIKI_READ`/`WRITE`/`MANAGE`
@@ -446,7 +450,11 @@ cross-cutting surface:
   in-cluster GitLab, which builds + pushes this service's image to the
   in-cluster registry on push of the default branch / a tag. **No keys ship in
   the image** — key material is supplied from the operator key-USB at first
-  boot. **GitHub Actions are intentionally not used anywhere in the platform.**
+  boot. The image build/deploy pipeline itself stays on GitLab as above, but
+  this repo also runs a real **GitHub Actions** workflow now:
+  [`.github/workflows/coverage.yml`](.github/workflows/coverage.yml) ("Code
+  Coverage") runs `npm run-script coverage` on push/PR to `main`/`release/*`
+  and publishes JUnit results via `EnricoMi/publish-unit-test-result-action`.
 
 | Script | What |
 |---|---|
@@ -462,7 +470,7 @@ cross-cutting surface:
 
 ```
 src/app/
-  app.routes.ts            REMOTE_ROUTES table (10 remotes) + authgate/role-home + federationLoader
+  app.routes.ts            REMOTE_ROUTES table (11 remotes) + authgate/role-home + federationLoader
   session.service.ts       hug.session reader (id/roles/registrationComplete/status — identity claims, no token field); role precedence (admin>mod>user) + registration gate
   guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
@@ -486,7 +494,7 @@ federation.config.js + federation-base.js    host federation config (consumer; s
 Gateways `hugmesh-gateway` / `hugmesh-pki-gateway` (Casdoor-JWT resource
 servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** ·
 federation `hugmesh-federation-api` + `hugmesh-remote-fragment` · the
-remotes `hugmesh-{login,user,mod,admin}-ui`, `hugmesh-{matrix,mastodon}-ui`,
+remotes `hugmesh-{login,user,mod,admin}-ui`, `hugmesh-{matrix,mastodon,forum}-ui`,
 `hugmesh-{wiki,tube,owncast}-ui`, `hugmesh-api-docs` · role BFFs
 `hugmesh-{user,mod,admin,wiki}-bff-api` (**user-bff** owns the Casdoor OIDC
 code→token exchange + per-session JWT custody/refresh; login/session/account
