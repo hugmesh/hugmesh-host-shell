@@ -9,7 +9,7 @@
 # the generator repo; the thin `pentest:*` jobs below `extends:` them so the full
 # harness (probes + nuclei) runs without duplicating any script here.
 include:
-  - project: 'hugmesh-net/snapdragon-generator'
+  - project: 'hugmesh/snapdragon-generator'
     ref: main
     file: '/tests/pentest/ci/pentest-stage.gitlab-ci.yml'
 

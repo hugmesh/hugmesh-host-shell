@@ -44,7 +44,7 @@ Then('the skip link is present', async function () {
 Then('the footer contains a link to the page source', async function () {
   const link = await browser.findElement(
     'css selector',
-    'a[href*="github.com/hugmesh-net"]',
+    'a[href*="github.com/hugmesh"]',
   );
   assert.ok(link, 'Footer must contain a GitHub source link');
 });

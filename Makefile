@@ -10,7 +10,7 @@ SHELL := /bin/bash
 
 # Generator repo carrying the shared DAST harness (tests/pentest/run-pentest.sh)
 # and the SCA Dependency-Check job definition. Override if vendored elsewhere.
-GENERATOR_REPO   ?= https://github.com/hugmesh-net/snapdragon-generator.git
+GENERATOR_REPO   ?= https://github.com/hugmesh/snapdragon-generator.git
 GENERATOR_REF    ?= main
 PENTEST_HARNESS  ?= ../snapdragon-generator/tests/pentest
 

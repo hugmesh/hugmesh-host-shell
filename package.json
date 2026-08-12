@@ -125,6 +125,6 @@
     "body-parser@^1.0.0": "^1.20.6"
   },
   "publishConfig": {
-    "registry": "https://github.com/hugmesh-net/"
+    "registry": "https://github.com/hugmesh/"
   }
 }

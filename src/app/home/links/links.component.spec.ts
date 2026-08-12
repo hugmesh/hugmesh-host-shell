@@ -26,7 +26,7 @@ describe('LinksComponent', () => {
   });
 
   it('renders a link to the HugMesh GitHub org', () => {
-    const link = el.querySelector<HTMLAnchorElement>('a[href*="github.com/hugmesh-net"]');
+    const link = el.querySelector<HTMLAnchorElement>('a[href*="github.com/hugmesh"]');
     expect(link).withContext('GitHub link must be present').toBeTruthy();
   });
 
