@@ -24,7 +24,7 @@ describe('FooterComponent', () => {
 
   it('should render a link to the GitHub source repo', () => {
     const link = el.querySelector<HTMLAnchorElement>(
-      'a[href*="github.com/snapdragon-systems"]',
+      'a[href*="github.com/hugmesh"]',
     );
     expect(link).withContext('GitHub source link must be present').toBeTruthy();
     expect(link!.getAttribute('target')).toBe('_blank');
@@ -33,7 +33,7 @@ describe('FooterComponent', () => {
 
   it('GitHub link must have an accessible label', () => {
     const link = el.querySelector<HTMLAnchorElement>(
-      'a[href*="github.com/snapdragon-systems"]',
+      'a[href*="github.com/hugmesh"]',
     );
     const label =
       link?.getAttribute('aria-label') ?? link?.getAttribute('title') ?? '';

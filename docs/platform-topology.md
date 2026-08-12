@@ -162,9 +162,9 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 A JWT issued by any of the platform's Casdoor instances is recognised
 consistently across the platform because the
 `casdoorAuthoritiesConverter()` code is identical in
-[hugmesh-gateway](https://github.com/Snapdragon-Systems/hugmesh-gateway/)
+[hugmesh-gateway](https://github.com/hugmesh/hugmesh-gateway/)
 and its identity-tier overlay
-[hugmesh-pki-gateway](https://github.com/Snapdragon-Systems/hugmesh-pki-gateway/)
+[hugmesh-pki-gateway](https://github.com/hugmesh/hugmesh-pki-gateway/)
 (a thin per-instance config layer built `FROM` the same shared gateway image —
 this repo's local docker-compose dev stack still labels its self-contained
 demo instance `snapdragon-id-gateway`, that overlay's pre-rename name).
@@ -188,7 +188,7 @@ It is not part of the default build.
 
 When games **is** enabled, a domain `admin`/`superadmin` who additionally holds the
 platform `game-master` role is propagated into the games realm as a games **admin**
-by the [hugmesh-actions](https://github.com/Snapdragon-Systems/hugmesh-actions/)
+by the [hugmesh-actions](https://github.com/hugmesh/hugmesh-actions/)
 `GameMasterAdminSyncAction` — a cross-stack reconciler (a ~60 s Casdoor poll) that
 keeps the games realm's admin set in sync with the platform `game-master` holders.
 This propagation is **role-gated** (only `game-master` holders are eligible) and is
@@ -215,7 +215,7 @@ The gateway's edge nginx (or a managed LB upstream) holds the public
 edge cert from a publicly-trusted CA. The internal cert hierarchy
 between services is chained from the snapdragon.systems root CA —
 see
-[hugmesh-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/Snapdragon-Systems/hugmesh-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
+[hugmesh-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/hugmesh/hugmesh-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
 
 snapdragon.systems is the canonical root: the cert chain script in
 the gateway repo (`scripts/pki/build-chained-cert.sh`) takes this

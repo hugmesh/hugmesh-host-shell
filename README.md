@@ -550,7 +550,7 @@ today.
 - ✅ **OWASP pen-test in CI (shipped).** `.gitlab-ci.yml` runs `pentest:sca` and
   `pentest:dast` jobs (`allow_failure: true`, on default-branch pushes and MRs)
   that `extend:` the centralized hidden `.pentest-sca` / `.pentest-dast-baseline`
-  jobs included from `Snapdragon-Systems/snapdragon-generator`
+  jobs included from `hugmesh/snapdragon-generator`
   `/tests/pentest/ci/pentest-stage.gitlab-ci.yml`.
 - 🔭 **Binhost fleet auto-update.** Gentoo binhost-driven fleet distribution is
   still platform roadmap.
