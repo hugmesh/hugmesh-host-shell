@@ -75,6 +75,27 @@ describe('federation-bootstrap', () => {
       expect(toRemotesMap(null)).toBeNull();
       expect(toRemotesMap({ remotes: [{ slug: 'x' }] } as never)).toBeNull();
     });
+
+    it('drops cluster-internal absolute URLs the browser cannot fetch (they must not override the floor)', () => {
+      // The federation_modules seed stores in-mesh service addresses for the
+      // remote-shell rows. Live 2026-08-13: a successful authenticated manifest
+      // read overrode the floor's working '/admin/remoteEntry.json' with
+      // 'http://admin:8080/remoteEntry.json' and the admin view never mounted
+      // (e2e specs 02/09). Same-origin absolute URLs stay allowed.
+      const map = toRemotesMap({
+        remotes: [
+          { slug: 'admin', remoteEntryUrl: 'http://admin:8080/remoteEntry.json' },
+          { slug: 'matrix', remoteEntryUrl: 'http://snapdragon-matrix-ui:8080/remoteEntry.json' },
+          { slug: 'login', remoteEntryUrl: '/login/remoteEntry.json' },
+          { slug: 'same-origin', remoteEntryUrl: `${window.location.origin}/so/remoteEntry.json` },
+          { slug: 'garbage', remoteEntryUrl: 'http://[not-a-url' },
+        ],
+      } as never);
+      expect(map).toEqual({
+        login: '/login/remoteEntry.json',
+        'same-origin': `${window.location.origin}/so/remoteEntry.json`,
+      });
+    });
   });
 
   describe('fetchDynamicRemotes — (a) calls the dynamic URL, (c) cookie-only auth', () => {

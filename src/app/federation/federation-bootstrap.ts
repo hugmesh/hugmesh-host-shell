@@ -73,11 +73,41 @@ export const FEDERATION_MANIFEST_URL =
   `${environment.federationApiBase}${environment.federationManifestUrl}`;
 
 /**
+ * True iff THIS BROWSER could actually fetch `url`: a relative path (served
+ * through the same front door as the shell) or an absolute URL on the page's own
+ * origin. The `federation_modules` seed stores CLUSTER-shaped absolute URLs for
+ * the remote-shell rows (`http://admin:8080/remoteEntry.json`,
+ * `http://snapdragon-matrix-ui:8080/...`) — in-mesh service addresses that no
+ * browser can resolve. Before this guard, a successful authenticated manifest
+ * read let those rows OVERRIDE the static floor's working relative URLs, so
+ * `loadRemoteModule('admin')` dialed a nonexistent host and the admin view
+ * never mounted — the overlay made the boot STRICTLY WORSE than the floor,
+ * which is exactly the invariant the union exists to prevent. Latent until the
+ * gateway's cookie->JWT exchange went live (before that, the shell's cookie
+ * fetch always 401'd at federation-api and the floor served alone).
+ *
+ * Outside a browser (unit tests / SSR: no window) only relative URLs are
+ * accepted — deterministic, and the strictest reading of "reachable".
+ */
+export function isBrowserReachable(url: string): boolean {
+  if (url.startsWith('/')) return true;
+  const origin = typeof window !== 'undefined' ? window.location?.origin : undefined;
+  if (!origin) return false;
+  try {
+    return new URL(url).origin === origin;
+  } catch {
+    return false; // unparseable — never hand it to initFederation
+  }
+}
+
+/**
  * Map the DB manifest's `remotes[]` to the `{ name: remoteEntryUrl }` shape
  * initFederation wants. Drops rows missing a slug or remoteEntryUrl (a malformed
- * row never poisons the map). Returns null when there is NOTHING usable (no
- * remotes / all rows malformed) so the caller treats it as a failure and falls
- * back to the static manifest rather than booting DARK with zero remotes.
+ * row never poisons the map) AND rows whose URL this browser could not fetch
+ * (see {@link isBrowserReachable} — a cluster-internal URL must not override the
+ * floor's working one). Returns null when there is NOTHING usable (no remotes /
+ * all rows malformed) so the caller treats it as a failure and falls back to the
+ * static manifest rather than booting DARK with zero remotes.
  */
 export function toRemotesMap(body: DynamicManifestResponse | null): RemotesMap | null {
   const remotes = body?.remotes;
@@ -85,7 +115,8 @@ export function toRemotesMap(body: DynamicManifestResponse | null): RemotesMap |
   const map: RemotesMap = {};
   for (const r of remotes) {
     if (r && typeof r.slug === 'string' && typeof r.remoteEntryUrl === 'string'
-        && r.slug.length > 0 && r.remoteEntryUrl.length > 0) {
+        && r.slug.length > 0 && r.remoteEntryUrl.length > 0
+        && isBrowserReachable(r.remoteEntryUrl)) {
       map[r.slug] = r.remoteEntryUrl;
     }
   }
