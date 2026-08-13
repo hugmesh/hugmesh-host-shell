@@ -65,8 +65,30 @@ export class SessionService {
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
-  /** Moderator role -> the /mod role-home (hugmesh-mod-ui remote). */
-  readonly isMod = computed(() => (this.session()?.roles ?? []).includes('mod'));
+  /** Moderator TIER -> the /mod role-home (hugmesh-mod-ui remote).
+   *
+   *  'admin' and 'superadmin' count, not just 'mod'. This is NOT a claim that
+   *  ADMIN implies MOD — admin-bff and mod-bff both deliberately document them as
+   *  SIBLINGS with no ADMIN > MOD hierarchy edge, and that stays true. It is that
+   *  every ENFORCEMENT layer already grants the admin tier this specific surface
+   *  explicitly:
+   *    - mod-bff ModController: @PreAuthorize("hasAnyRole('MOD','ADMIN')") on the
+   *      ban / block / domain-lock verbs
+   *    - mod-bff SecurityConfig: /bff/mod/** -> hasAnyRole("MOD","ADMIN","SUPERADMIN")
+   *    - gateway route-access: /mod/** and /bff/mod/** each carry ROLE_MOD AND
+   *      ROLE_ADMIN rows
+   *    - hugmesh-mod-ui's own SessionService: roles.includes('mod') || includes('admin')
+   *  This predicate was the ONLY layer disagreeing, and it is the one that decides
+   *  what the operator can SEE: menu.component.ts hides the Moderation entry unless
+   *  isMod(), and modGuard bounces /mod on the same signal. So an ADMIN or
+   *  SUPERADMIN without a literal 'mod' role was locked out of the Matrix and
+   *  Mastodon moderation console — the ban / block / domain-lock surface — which
+   *  reads as "the admin controls for Matrix and Mastodon don't exist" when they
+   *  are built and merely unreachable. Widening this grants no new privilege. */
+  readonly isMod = computed(() => {
+    const roles = this.session()?.roles ?? [];
+    return roles.includes('mod') || roles.includes('admin') || roles.includes('superadmin');
+  });
   /** Superadmin role (cross-domain manage-all, sits ABOVE admin in the cascade
    *  SUPERADMIN > ADMIN > MOD > USER). Lowercase 'superadmin' role string, mirroring
    *  isAdmin/isMod. Used by service guards that grant superadmins unconditional
