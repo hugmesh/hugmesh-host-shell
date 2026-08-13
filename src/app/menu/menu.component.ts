@@ -50,7 +50,8 @@ interface NavEntry {
 interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games-admin' | 'logout';
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games-admin'
+        | 'character-studio' | 'character-forge' | 'logout';
   route?: string;
   show: () => boolean;
   /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
@@ -103,7 +104,30 @@ export class MenuComponent {
       enabled: () => this.capabilities.installed('matrix') && this.session.fullyRegistered(),
       disabledReason: () => this.socialDisabledReason('matrix'),
     },
+    // Forum had a ROUTE (app.routes.ts 'social/forum'), a remote, and a registered
+    // capability — but no entry anywhere in the nav or the profile menu, so there was
+    // no way to reach it in the UI at all. Gated on isUser() to match forumGuard
+    // exactly: forum is deliberately NOT registration-gated (see app.routes.ts), so
+    // reusing the social registration predicate here would hide it from precisely the
+    // authenticated-but-unregistered identity the route was written to admit.
+    {
+      label: 'Forum', route: '/social/forum', testid: 'nav-forum', slug: 'forum',
+      enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
+      disabledReason: () => this.forumDisabledReason(),
+    },
   ];
+
+  /** Forum's own reason: it needs ROLE_USER, not completed registration, so the
+   *  social "complete your registration" copy would be actively misleading here. */
+  private forumDisabledReason(): string {
+    if (!this.capabilities.installed('forum')) {
+      return 'This service is not available on this deployment.';
+    }
+    if (!this.session.isUser()) {
+      return 'Sign in with a member account to use the forum.';
+    }
+    return '';
+  }
 
   /** Why a social entry is disabled: NOT installed on this deployment takes
    *  precedence over the registration gate (an absent service can't be unlocked by
@@ -158,6 +182,16 @@ export class MenuComponent {
     // mount, so the entry is never a dead link.
     { label: 'Games Admin', testid: 'menu-games-admin', action: 'games-admin', route: '/games/admin', show: () => this.canAccessGamesAdmin(),
       help: 'Manage the games namespace (games admins and superadmins only).' },
+    // CHARACTER remotes. Shown to any FULLY-REGISTERED session — deliberately not
+    // role-gated: the gateway admits a plain ROLE_USER to both (verified live: 200
+    // for e2e-user, 401 anonymous), and there is no per-service role to gate on, so
+    // a tighter `show` here would hide a feature the backend grants. `fullyRegistered`
+    // (not merely loggedIn) mirrors the registeredGuard on their routes, so the entry
+    // never offers a destination the guard will bounce.
+    { label: 'Character Studio', testid: 'menu-character-studio', action: 'character-studio', route: '/character-studio/', show: () => this.session.fullyRegistered(),
+      help: 'Build a layered anthro/furry character (the profile character generator).' },
+    { label: 'Character Forge',  testid: 'menu-character-forge',  action: 'character-forge',  route: '/character-forge/',  show: () => this.session.fullyRegistered(),
+      help: 'Forge a 3D character from your saved parts.' },
     { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
       help: 'Sign out and return to the login page.' },
   ];
@@ -381,6 +415,22 @@ export class MenuComponent {
       case 'tube':
       case 'games-admin':
         if (item.route) this.router.navigateByUrl(item.route);
+        break;
+      // The character apps are NOT federated remotes of this shell: the fe-gateway
+      // routes /character-studio/** and /character-forge/** straight to their own
+      // nginx, so they are STANDALONE SPAs served at those paths. A
+      // router.navigateByUrl() here would never reach them — the shell has no such
+      // route, so it falls through to the '**' redirect and lands the user back on
+      // their role home. That is exactly the dead-link shape /games/admin has, and
+      // it is what happened when this was first wired as a federated route: the
+      // remoteEntry was in the manifest and the route was in the table, but
+      // loadRemoteModule still failed with "Remote 'characterStudio' is not
+      // initialized" and the navigation silently redirected.
+      // A full page load is therefore the CORRECT navigation, not a workaround: it
+      // hands the URL to the gateway, which is the thing that knows how to serve it.
+      case 'character-studio':
+      case 'character-forge':
+        if (item.route) window.location.href = item.route;
         break;
       case 'logout':
         this.logout();
