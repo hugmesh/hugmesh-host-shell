@@ -102,6 +102,23 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // remoteEntry is supplied at runtime by the DYNAMIC federation manifest (visibility
   // internal, requiresRole OWNCAST) — kept OFF the static floor like wiki.
   { path: 'owncast', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES', canActivate: [owncastGuard] },
+  // CHARACTER remotes (hugmesh-character-studio-ui, hugmesh-character-forge-bff-api/
+  // frontend). Both expose './routes' (the role-home convention, NOT wiki's './Wiki').
+  //
+  // remoteName MUST be the kebab-case 'character-studio'/'character-forge', because
+  // native-federation registers a remote under the `name` declared INSIDE its own
+  // remoteEntry.json (and in its federation.config.js) — NOT under the key you give it
+  // in the manifest. A camelCase manifest key registers fine and then throws
+  // "Remote 'characterStudio' is not initialized" at loadRemoteModule time, with NO
+  // failed request to point at, because the entry was already fetched under its real
+  // name. Every other remote here happens to have key == name, which is why the
+  // constraint had never surfaced.
+  //
+  // registeredGuard matches the gateway's own gate, measured live: a plain ROLE_USER
+  // gets 200 on both paths and an anonymous caller gets 401, and there is no
+  // per-service role, so gating tighter here would deny users the backend admits.
+  { path: 'character-studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES', canActivate: [registeredGuard] },
+  { path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES', canActivate: [registeredGuard] },
 ];
 
 /** Resolve a remote's exported routes constant via native-federation. Indirected
