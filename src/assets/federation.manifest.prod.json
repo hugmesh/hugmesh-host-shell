@@ -5,5 +5,11 @@
   "admin": "/admin/remoteEntry.json",
   "mod": "/mod/remoteEntry.json",
   "user": "/user/remoteEntry.json",
-  "apidocs": "/apidocs/remoteEntry.json"
+  "apidocs": "/api-docs/remoteEntry.json",
+  "forum": "/social/forum/remoteEntry.json",
+  "wiki": "/wiki/remoteEntry.json",
+  "owncast": "/owncast/remoteEntry.json",
+  "tube": "/tube/remoteEntry.json",
+  "character-studio": "/character-studio/remoteEntry.json",
+  "character-forge": "/character-forge/remoteEntry.json"
 }

@@ -188,9 +188,9 @@ export class MenuComponent {
     // a tighter `show` here would hide a feature the backend grants. `fullyRegistered`
     // (not merely loggedIn) mirrors the registeredGuard on their routes, so the entry
     // never offers a destination the guard will bounce.
-    { label: 'Character Studio', testid: 'menu-character-studio', action: 'character-studio', route: '/character-studio/', show: () => this.session.fullyRegistered(),
+    { label: 'Character Studio', testid: 'menu-character-studio', action: 'character-studio', route: '/character-studio', show: () => this.session.fullyRegistered(),
       help: 'Build a layered anthro/furry character (the profile character generator).' },
-    { label: 'Character Forge',  testid: 'menu-character-forge',  action: 'character-forge',  route: '/character-forge/',  show: () => this.session.fullyRegistered(),
+    { label: 'Character Forge',  testid: 'menu-character-forge',  action: 'character-forge',  route: '/character-forge',  show: () => this.session.fullyRegistered(),
       help: 'Forge a 3D character from your saved parts.' },
     { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
       help: 'Sign out and return to the login page.' },
@@ -416,21 +416,14 @@ export class MenuComponent {
       case 'games-admin':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
-      // The character apps are NOT federated remotes of this shell: the fe-gateway
-      // routes /character-studio/** and /character-forge/** straight to their own
-      // nginx, so they are STANDALONE SPAs served at those paths. A
-      // router.navigateByUrl() here would never reach them — the shell has no such
-      // route, so it falls through to the '**' redirect and lands the user back on
-      // their role home. That is exactly the dead-link shape /games/admin has, and
-      // it is what happened when this was first wired as a federated route: the
-      // remoteEntry was in the manifest and the route was in the table, but
-      // loadRemoteModule still failed with "Remote 'characterStudio' is not
-      // initialized" and the navigation silently redirected.
-      // A full page load is therefore the CORRECT navigation, not a workaround: it
-      // hands the URL to the gateway, which is the thing that knows how to serve it.
+      // CHARACTER remotes. remoteName is the kebab-case 'character-studio' /
+      // 'character-forge' in app.routes.ts — native-federation registers a remote
+      // under the name declared inside its OWN remoteEntry.json, not the manifest
+      // key, so a camelCase key throws "Remote 'characterStudio' is not initialized"
+      // at load time with no failed request to point at.
       case 'character-studio':
       case 'character-forge':
-        if (item.route) window.location.href = item.route;
+        if (item.route) this.router.navigateByUrl(item.route);
         break;
       case 'logout':
         this.logout();
