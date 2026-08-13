@@ -60,6 +60,15 @@
           },
           "configurations": {
             "production": {
+              "assets": [
+                "src/favicon.ico",
+                {
+                  "glob": "**/*",
+                  "input": "src/assets",
+                  "output": "assets",
+                  "ignore": ["federation.manifest.json"]
+                }
+              ],
               "optimization": {
                 "scripts": true,
                 "styles": {
