@@ -21,7 +21,7 @@
       aria-label="Site sections"
       (keydown)="onMenuKeydown($event)"
     >
-      @for (entry of navEntries; track entry.route; let i = $index) {
+      @for (entry of visibleNavEntries(); track entry.route; let i = $index) {
         <li class="nav-item" role="none">
           @if (entry.enabled()) {
             <a

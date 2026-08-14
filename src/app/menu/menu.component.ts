@@ -41,6 +41,12 @@ interface NavEntry {
   slug?: string;
   enabled: () => boolean;
   disabledReason: () => string;
+  /** Whether the entry is LISTED AT ALL. Absent = always listed (the service
+   *  entries, which show greyed with a reason when unavailable — that greying is
+   *  informative: it tells you the service exists and why you cannot use it).
+   *  The role-gated CONSOLES use this instead: a moderation console a normal
+   *  member can never open is noise in their menubar, not information. */
+  visible?: () => boolean;
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
@@ -115,7 +121,37 @@ export class MenuComponent {
       enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
       disabledReason: () => this.forumDisabledReason(),
     },
+    // ── the role-gated CONSOLES ───────────────────────────────────────────────
+    // These existed and worked, but the ONLY way to reach them was to click your
+    // own username and find them in the profile dropdown — a place people look
+    // for "sign out", not for the moderation console. Operator report
+    // 2026-08-14: "this functionality should already exist but we can't find it
+    // nor any control UIs for any of the services." They keep their dropdown
+    // entries (muscle memory, and the dropdown carries the fuller list); this
+    // puts the two DAILY-DRIVER consoles where their users actually look.
+    //
+    // `visible` (not `enabled`): a member who can never open the admin console
+    // should not see a greyed one. Gated on the SAME predicates the profile
+    // dropdown uses, so the two can never disagree about who has access.
+    {
+      label: 'Admin', route: '/admin', testid: 'nav-admin',
+      visible: () => this.session.isAdmin(),
+      enabled: () => true,
+      disabledReason: () => '',
+    },
+    {
+      label: 'Moderation', route: '/mod', testid: 'nav-mod',
+      visible: () => this.session.isMod(),
+      enabled: () => true,
+      disabledReason: () => '',
+    },
   ];
+
+  /** The entries actually rendered — everything without a `visible` gate, plus
+   *  the role-gated consoles for the identities that hold their role. */
+  visibleNavEntries(): readonly NavEntry[] {
+    return this.navEntries.filter(e => (e.visible ? e.visible() : true));
+  }
 
   /** Forum's own reason: it needs ROLE_USER, not completed registration, so the
    *  social "complete your registration" copy would be actively misleading here. */
@@ -285,9 +321,14 @@ export class MenuComponent {
    *  arrow keys move DOM focus. -1 while the menu is closed (no item is a stop). */
   readonly profileActiveIndex = signal(-1);
 
-  /** Indices of the enabled primary entries (the arrow-key cycle skips disabled). */
+  /** Indices of the enabled primary entries (the arrow-key cycle skips disabled).
+   *  Indexes the RENDERED list — the template iterates visibleNavEntries(), so
+   *  indexing the full list would make the arrow keys address items that are not
+   *  in the DOM (focus silently going nowhere for anyone without the console
+   *  roles). The two must walk the same array. */
   private get enabledIndices(): number[] {
-    return this.navEntries.map((e, i) => (e.enabled() ? i : -1)).filter((i) => i !== -1);
+    return this.visibleNavEntries()
+        .map((e, i) => (e.enabled() ? i : -1)).filter((i) => i !== -1);
   }
 
   constructor() {
