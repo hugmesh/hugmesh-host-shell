@@ -1,4 +1,4 @@
-# hugmesh.systems — e2e (Nightwatch 3 + Cucumber)
+# hugmesh.net — e2e (Nightwatch 3 + Cucumber)
 
 Gherkin-readable e2e harness for the **host shell** (the top-level federation
 container that mounts the role-home / social remotes). `e2e/features` +

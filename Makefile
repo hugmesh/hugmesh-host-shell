@@ -37,7 +37,7 @@ pentest-sca:
 	fi
 	@echo "[pentest:sca] (optional) full OWASP Dependency-Check parity with CI:"
 	@echo "    docker run --rm -v \"$$PWD:/src\" $(DEPCHECK_IMAGE) \\"
-	@echo "      --project hugmesh.systems --scan /src --failOnCVSS 7 \\"
+	@echo "      --project hugmesh.net --scan /src --failOnCVSS 7 \\"
 	@echo "      --enableExperimental --format HTML --out /src/reports/sca"
 
 ## pentest-dast: delegate to the shared DAST harness against $DAST_TARGET_URL

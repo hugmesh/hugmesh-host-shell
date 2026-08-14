@@ -5,7 +5,7 @@
 #   browser  ──→  snapdragon-id-gateway (Spring Cloud Gateway, OAuth2
 #                  login client + JWT resource server)
 #                  │
-#                  ├──→  hugmesh.systems Angular frontend (this repo's
+#                  ├──→  hugmesh.net Angular frontend (this repo's
 #                  │      Dockerfile builds the bundle; nginx serves it)
 #                  │
 #                  └──→  Casdoor (OAuth2 issuer + admin API for user
@@ -17,7 +17,7 @@
 #
 # This compose deliberately reuses the published gateway image —
 # `snapdragon-systems/gateway:dev` — rather than building gateway code
-# from this repo. hugmesh.systems is the deployment artefact; the
+# from this repo. hugmesh.net is the deployment artefact; the
 # gateway is a platform dependency consumed via image registry.
 #
 # Bring up:
@@ -90,7 +90,7 @@ services:
         " && echo '✓ snapdragon_systems_gateway keyspace ready'
     restart: "no"
 
-  # hugmesh.systems Angular frontend. Built from this repo's
+  # hugmesh.net Angular frontend. Built from this repo's
   # Dockerfile; nginx serves the bundle on port 8080 internally.
   # Not directly exposed — the id-gateway is the public entry point.
   frontend:
@@ -100,7 +100,7 @@ services:
     expose:
       - "8080"
 
-  # The HugMesh platform gateway, configured as the hugmesh.systems
+  # The HugMesh platform gateway, configured as the hugmesh.net
   # identity layer. Same image the hugmesh-gateway repo publishes;
   # SPRING_APPLICATION_NAME flips it to the systems instance. Routes
   # `/api/auth/*` + `/login/*` to Casdoor and everything else to the

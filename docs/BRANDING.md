@@ -40,4 +40,4 @@ per-token contrast ratios documented).
   (`src/app/header/header.component.*`).
 - **Production tab title:** "HugMesh" (`src/index.html`). Remotes that
   are production-served use "HugMesh &lt;Surface&gt;" (no `(remote)` suffix).
-- **In-page brand strings** use the domain form `hugmesh.systems`.
+- **In-page brand strings** use the domain form `hugmesh.net`.

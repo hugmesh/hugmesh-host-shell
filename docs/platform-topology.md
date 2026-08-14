@@ -1,6 +1,6 @@
 # Platform Topology — where this host sits
 
-hugmesh.systems ships as part of the platform's multi-tier topology:
+hugmesh.net ships as part of the platform's multi-tier topology:
 a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
 gateway's revocation + URL-registry cache, and the Angular **native-federation
 host shell** (this repo) as the user-facing front door served behind the
@@ -35,7 +35,7 @@ flowchart TB
   end
   g1 -.->|"/bff/internal/session/exchange<br/>(mTLS + X-Internal-Token)"| abff
   gw -->|"PUBLIC /bff/login (native creds POST — no browser callback)"| ubff["user-bff<br/>(login/OIDC endpoints + token custody/refresh)"]
-  gw -->|"everything else"| host["hugmesh.systems<br/>(native-federation host, this repo)"]
+  gw -->|"everything else"| host["hugmesh.net<br/>(native-federation host, this repo)"]
   ubff -->|"OidcExchangeClient.exchangeCode"| casdoor["Casdoor :8000"]
   ubff -.->|"/bff/internal ensureAccount / createSession / custody-stamp<br/>(mTLS + X-Internal-Token)"| abff["admin-bff<br/>(owns account/session DATA + /bff/internal)"]
   abff --> abffdb[("admin-bff-db<br/>bff_session.*_enc (AES-256-GCM custody)")]
@@ -213,11 +213,11 @@ docker compose logs casdoor 2>&1 | grep -A4 "Casdoor seed credentials"
 
 The gateway's edge nginx (or a managed LB upstream) holds the public
 edge cert from a publicly-trusted CA. The internal cert hierarchy
-between services is chained from the snapdragon.systems root CA —
+between services is chained from the hugmesh.net root CA —
 see
 [hugmesh-gateway/docs/decisions/001-cert-chain-hierarchy.md](https://github.com/hugmesh/hugmesh-gateway/blob/main/docs/decisions/001-cert-chain-hierarchy.md).
 
-snapdragon.systems is the canonical root: the cert chain script in
+hugmesh.net is the canonical root: the cert chain script in
 the gateway repo (`scripts/pki/build-chained-cert.sh`) takes this
 root + key and emits the per-service intermediates signed by it.
 

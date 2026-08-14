@@ -8,7 +8,7 @@
     }
   },
   "projects": {
-    "hugmesh.systems": {
+    "hugmesh.net": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -20,10 +20,10 @@
           "options": {},
           "configurations": {
             "production": {
-              "target": "hugmesh.systems:esbuild:production"
+              "target": "hugmesh.net:esbuild:production"
             },
             "development": {
-              "target": "hugmesh.systems:esbuild:development",
+              "target": "hugmesh.net:esbuild:development",
               "dev": true
             }
           },
@@ -33,7 +33,7 @@
           "builder": "@angular-devkit/build-angular:application",
           "options": {
             "outputPath": {
-              "base": "public/hugmesh.systems"
+              "base": "public/hugmesh.net"
             },
             "index": "src/index.html",
             "polyfills": [
@@ -109,7 +109,7 @@
         "serve": {
           "builder": "@angular-architects/native-federation:build",
           "options": {
-            "target": "hugmesh.systems:serve-original:development",
+            "target": "hugmesh.net:serve-original:development",
             "rebuildDelay": 0,
             "dev": true,
             "port": 4200
@@ -119,10 +119,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "hugmesh.systems:esbuild:production"
+              "buildTarget": "hugmesh.net:esbuild:production"
             },
             "development": {
-              "buildTarget": "hugmesh.systems:esbuild:development"
+              "buildTarget": "hugmesh.net:esbuild:development"
             }
           },
           "defaultConfiguration": "development"
@@ -130,7 +130,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "hugmesh.systems:build"
+            "buildTarget": "hugmesh.net:build"
           }
         },
         "test": {

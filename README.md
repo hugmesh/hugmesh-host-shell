@@ -1,4 +1,4 @@
-# hugmesh.systems — host shell
+# hugmesh.net — host shell
 
 The **native-federation HOST shell** for a HugMesh brand. This Angular 22
 single-page app is the user-facing front door behind the gateway: it owns the
@@ -189,7 +189,7 @@ public, unguarded routes; everything else is federated and gated.
 flowchart LR
   browser["browser (opaque bff_ session only)"] --> ingress["Cloudflare / ingress (TLS)"]
   ingress --> fe["fe-gateway"]
-  fe --> host["hugmesh.systems<br/>(this host)"]
+  fe --> host["hugmesh.net<br/>(this host)"]
   host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
   host -.->|"loadRemoteModule(...) — optional"| opt["wiki · forum · tube · owncast<br/>(tube/owncast default-off / GPU-gated)"]
   fe --> be["be-gateway (bff_ → JWT swap + gateway_route_access)"]
@@ -459,7 +459,7 @@ cross-cutting surface:
 | Script | What |
 |---|---|
 | `npm run start-dev` | `ng serve` dev server |
-| `npm run build` | production bundle (`public/hugmesh.systems/browser`) |
+| `npm run build` | production bundle (`public/hugmesh.net/browser`) |
 | `npm test` / `npm run coverage` | Karma/Jasmine unit tests (+ coverage) |
 | `npm run e2e` | Nightwatch e2e (role authgate / nav / profile-modal suites) |
 | `npm run dockerBuild` / `dockerRun` | build + run the container image |

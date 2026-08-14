@@ -54,6 +54,6 @@ COPY --chmod=0755 docker-entrypoint.d/50-snap-theme.sh /docker-entrypoint.d/50-s
 ENV SNAP_THEME_OUT=/tmp/snap-theme.css
 
 #### copy artifact build from the 'build environment'
-COPY --from=build /usr/src/app/public/hugmesh.systems/browser /usr/share/nginx/html
+COPY --from=build /usr/src/app/public/hugmesh.net/browser /usr/share/nginx/html
 
 CMD ["nginx", "-g", "daemon off;"]

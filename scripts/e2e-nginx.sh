@@ -3,7 +3,7 @@ set -euo pipefail
 
 CONTAINER=hugmesh-e2e-nginx
 PORT=8081
-IMAGE=hugmesh.systems:e2e-test
+IMAGE=hugmesh.net:e2e-test
 
 cleanup() {
   docker stop "$CONTAINER" 2>/dev/null || true
