@@ -1,27 +1,31 @@
 @use 'tokens' as t;
 
 @mixin card-surface {
+  // Composed as rgba(var(--sd-*-rgb, r, g, b), a): the -rgb tokens are bare
+  // CHANNEL TRIPLES from the theme contract (theme.py) — rgba(<hex var>, a)
+  // would be silently invalid. Fallback triples = the shipped _tokens.scss
+  // literals, so un-themed output is byte-identical. Mirrors login-ui _mixins.
   background: linear-gradient(
     135deg,
-    rgba(t.$surface, 0.85) 0%,
-    rgba(t.$mid, 0.4) 100%
+    rgba(var(--sd-surface-rgb, 28, 28, 28), 0.85) 0%,
+    rgba(var(--sd-mid-rgb, 58, 58, 58), 0.4) 100%
   );
-  border: 1px solid rgba(t.$neon, t.$opacity-border);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), #{t.$opacity-border});
   border-radius: t.$radius-card;
   backdrop-filter: blur(6px);
-  box-shadow: 0 0 12px rgba(t.$neon, 0.07);
+  box-shadow: 0 0 12px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.07);
 }
 
 @mixin glass-float {
-  background: rgba(t.$charcoal, 0.62);
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.62);
   backdrop-filter: blur(16px) saturate(1.5);
   -webkit-backdrop-filter: blur(16px) saturate(1.5);
   border-radius: t.$radius-lg;
-  border: 1px solid rgba(t.$neon, 0.2);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.2);
   box-shadow:
     inset 0  1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 rgba(0, 0, 0, 0.30),
-    0 0 0 1px rgba(t.$neon, 0.06),
+    0 0 0 1px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.06),
     0 12px 40px rgba(0, 0, 0, 0.30),
     0  4px 12px rgba(0, 0, 0, 0.15);
 }

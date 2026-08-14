@@ -43,6 +43,21 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="apple-touch-icon" href="favicon.ico" />
     <title>HugMesh</title>
+    <!-- Runtime shell THEME, written at container start by
+         docker-entrypoint.d/50-snap-theme.sh from SNAP_THEME_CSS (same mechanism
+         as hugmesh-login-ui). It carries ALREADY-DERIVED "double-s-d" token text
+         under a doubled ":root:root" selector, which out-specifies the compiled
+         :root/var() fallbacks in the Angular-injected stylesheet regardless of
+         head order. Empty (zero-byte) on un-themed deploys, so every var() falls
+         back to the shipped literal and the chrome renders byte-identically.
+         RELATIVE href on purpose: it resolves against the base href above and
+         keeps working if this document is ever served under a path prefix.
+         The nginx CSP sub_filter rewrites ONLY script open-tags with the nonce;
+         this stylesheet tag is left untouched — and needs no nonce, because
+         style-src already includes 'self' and this is a same-origin sheet.
+         NOTE: keep literal tag tokens out of this comment — the Angular index
+         writer injects es-module-shims config after the first such token. -->
+    <link rel="stylesheet" href="snap-theme.css" />
   </head>
   <body>
     <main app-root></main>

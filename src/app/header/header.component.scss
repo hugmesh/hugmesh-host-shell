@@ -3,16 +3,42 @@
 
 :host {
   @include m.glass-float;
+  position: relative; // anchors the ::before flag ribbon below; no visual change alone
   display: block;
   margin: 1rem 1.5rem 0.5rem;
   padding: 0.75rem 1.5rem;
+}
+
+// OPTIONAL pride-flag accent — painted ONLY when the injected theme defines
+// --sd-flag-stripes (theme_presets.py flag presets: a 180deg hard-stop
+// linear-gradient of the REAL flag, top-to-bottom). The 180deg direction is why
+// this is a slim VERTICAL ribbon on the header's start edge and NOT a 3px top
+// border: on a 3px-tall bar the top-to-bottom stripes would blend to mush,
+// misrendering the flag. Un-themed (token unset): `background: none` paints
+// nothing and pointer-events pass through — byte-identical chrome. Decorative
+// only (empty content, no a11y-tree entry); --sd-flag-name exists in the
+// contract if a labelled treatment is ever wanted.
+:host::before {
+  content: '';
+  position: absolute;
+  // 0.8rem clears the glass-float 1.5rem corner radius at x <= 3px, so the
+  // ribbon never pokes past the rounded border.
+  inset-block: 0.8rem;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--sd-flag-stripes, none);
+  pointer-events: none;
 }
 
 h1 {
   // The brand wordmark renders in the display face ('More Sugar', wired via the
   // @font-face in styles.scss); falls back to the sans stack until it loads.
   font-family: t.$font-fancy;
-  color: t.$neon;
-  text-shadow: 0 0 12px rgba(t.$neon, 0.5), 0 0 30px rgba(t.$neon, 0.2);
+  // -soft, not the raw brand hex: the wordmark is TEXT, and --sd-primary-soft
+  // is the contract's contrast-solved primary-as-text token (for the shipped
+  // gold it IS #ffd700, so a default theme matches the fallback exactly).
+  color: var(--sd-primary-soft, #{t.$neon});
+  text-shadow: 0 0 12px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.5), 0 0 30px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.2);
   word-break: break-word;
 }
