@@ -21,6 +21,7 @@ import { ProfileModalService } from '../profile-modal/profile-modal.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { accessibleName } from '../accessible-name';
 import { BellNotificationsService } from '../bell/bell-notifications.service';
+import { ViewReloadService } from '../view-reload.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -83,6 +84,10 @@ export class MenuComponent {
   private readonly router = inject(Router);
   private readonly capabilities = inject(CapabilitiesService);
   private readonly bellNotifications = inject(BellNotificationsService);
+  /** The shell-wide RELOAD control. Lives HERE (one control in the chrome) rather
+   *  than per-remote, so every federated view is refreshed the same way and a
+   *  remote never has to ship its own reload affordance. */
+  readonly viewReload = inject(ViewReloadService);
 
   /** Unread notification count — drives the bell badge. Emits 0 when unauthenticated
    *  (polling is stopped and the BehaviorSubject is reset by stopPolling()). */
@@ -362,6 +367,14 @@ export class MenuComponent {
         this.profileActiveIndex.set(-1);
         this.doc.getElementById('maincontent')?.focus();
       });
+  }
+
+  /** Refresh whatever is currently in the router-outlet (see
+   *  {@link ViewReloadService}). Fire-and-forget from the template: the service
+   *  owns the busy flag AND the full-reload fallback, so nothing here can leave
+   *  the button stuck. */
+  onReload(): void {
+    void this.viewReload.reload();
   }
 
   /** Navigate to the notifications page (user-ui remote mounted at /user). */

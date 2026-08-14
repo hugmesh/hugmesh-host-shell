@@ -1,5 +1,10 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { NotificationToastService, SseToastEvent, parseSseField } from './notification-toast.service';
+import {
+  NotificationToastService,
+  SSE_NOTIFICATION_EVENT,
+  SseToastEvent,
+  parseSseField,
+} from './notification-toast.service';
 
 describe('parseSseField', () => {
   it('splits "name:value" with no space (the real Spring wire format)', () => {
@@ -88,6 +93,45 @@ describe('NotificationToastService', () => {
 
     expect(service.toasts().map((t) => t.id)).toEqual(['n11']);
     expect(service.toasts()[0].title).toBe('No-space wire format');
+  });
+
+  it('RE-BROADCASTS each SSE frame on window so remotes need no second stream', async () => {
+    // A federated remote gets its OWN injector, so it cannot reach this service
+    // instance; the window event is the only shared seam. Without it every
+    // mounted remote would open its own 4-minute-keepalive connection.
+    const seen: SseToastEvent[] = [];
+    const listener = (e: Event) => seen.push((e as CustomEvent<SseToastEvent>).detail);
+    window.addEventListener(SSE_NOTIFICATION_EVENT, listener);
+
+    globalThis.fetch = (() =>
+      Promise.resolve(
+        sseResponse(['data:{"id":"n20","category":"matrix.message","title":"Live"}\n\n']),
+      )) as typeof fetch;
+
+    try {
+      service.start();
+      await flushStream();
+    } finally {
+      window.removeEventListener(SSE_NOTIFICATION_EVENT, listener);
+    }
+
+    expect(seen.map((e) => e.id)).toEqual(['n20']);
+    expect(seen[0].category).toBe('matrix.message');
+  });
+
+  it('reports the connection state honestly (idle -> open -> idle on stop)', async () => {
+    expect(service.connection()).toBe('idle');
+
+    globalThis.fetch = (() =>
+      Promise.resolve(sseResponse(['data:{"id":"n21","category":"c","title":"t"}\n\n']))) as typeof fetch;
+    service.start();
+    await flushStream();
+    // The stream stayed open long enough to deliver a frame, then the fake body
+    // closed — which puts the service into its reconnect backoff, not idle.
+    expect(service.connection()).toBe('reconnecting');
+
+    service.stop();
+    expect(service.connection()).toBe('idle');
   });
 
   it('also tolerates a leading space after the colon (spec-compliant either way)', async () => {

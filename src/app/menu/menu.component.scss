@@ -110,12 +110,16 @@ nav.navbar {
   }
 }
 
-// Notification bell
+// Icon-only chrome controls (reload + notification bell). ONE rule for both so
+// they read as a single set rather than two unrelated affordances — and so this
+// already-over-budget stylesheet does not carry the geometry twice.
+.reload-nav-item,
 .bell-nav-item {
   display: flex;
   align-items: center;
 }
 
+.reload-btn,
 .bell-btn {
   position: relative;
   background: none;
@@ -134,6 +138,24 @@ nav.navbar {
     outline: 2px solid currentColor;
     outline-offset: 2px;
   }
+}
+
+// Reload in flight: keep the control VISIBLE (never display:none) and spin the
+// glyph, so the state change is legible without shifting the layout. The spin is
+// decoration only — the aria-live helptext already carries the state — so a
+// reduced-motion preference simply drops it.
+.reload-btn[aria-busy='true'] {
+  cursor: progress;
+
+  svg { animation: reload-spin 0.9s linear infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    svg { animation: none; }
+  }
+}
+
+@keyframes reload-spin {
+  to { transform: rotate(360deg); }
 }
 
 .bell-badge {

@@ -65,6 +65,56 @@
     <!-- Account region: anonymous -> Sign in; authenticated -> the profile menu
          (Profile modal + conditional Admin/Moderation + Sign out). -->
     <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
+      <!-- RELOAD — ONE control in the shell chrome that refreshes whatever the
+           router-outlet is currently showing, federated remote included. Not
+           gated on the session: an anonymous user looking at a wedged login or
+           home view needs it just as much. A real <button> (not an icon <div>),
+           so it is in the tab order and activates on Enter/Space natively. -->
+      <li class="nav-item reload-nav-item" role="none">
+        <button
+          class="reload-btn"
+          type="button"
+          data-testid="view-reload"
+          aria-label="Reload the current view"
+          aria-describedby="view-reload-help"
+          [attr.aria-busy]="viewReload.busy()"
+          [disabled]="viewReload.busy()"
+          (click)="onReload()"
+        >
+          <!-- Refresh SVG (22x22, outline style, matching the bell's feathericons
+               weight so the two icon buttons read as one set). -->
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M23 4v6h-6"/>
+            <path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+            <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+          </svg>
+        </button>
+        <!-- VISIBLE, palette-honoring help (the same .field-help idiom the
+             bg-toggle and profile trigger use) so BOTH sighted and screen-reader
+             users are told what the icon-only control does; aria-live reflects
+             the in-flight state so it is announced when it changes. -->
+        <span
+          id="view-reload-help"
+          class="field-help reload-btn__help"
+          data-testid="view-reload-help"
+          aria-live="polite"
+        >{{ viewReload.busy()
+            ? 'Reloading the current view…'
+            : 'Reload the current view without losing your session.' }}</span>
+      </li>
+
       <!-- Notification bell — only for authenticated users -->
       @if (session.loggedIn()) {
         <li class="nav-item bell-nav-item">

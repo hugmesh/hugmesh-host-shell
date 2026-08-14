@@ -33,6 +33,23 @@ export function parseSseField(line: string): { name: string; value: string } | n
   return { name, value };
 }
 
+/**
+ * The window event this service re-publishes every parsed SSE frame on, so a
+ * FEDERATED REMOTE can react to a live notification WITHOUT opening a second
+ * `/bff/user/notifications/events` connection of its own.
+ *
+ * Why a window event and not a shared service: each native-federation remote
+ * bootstraps with its OWN injector, so `inject(NotificationToastService)` inside
+ * matrix-ui/mastodon-ui would construct a SEPARATE instance and a SEPARATE
+ * stream. Two streams is not merely wasteful — under HTTP/1.1 the browser allows
+ * six connections per origin, and every one of them is held open for the
+ * server's full 4-minute keepalive window, so a handful of remotes each holding
+ * their own would starve ordinary XHR. One stream, re-broadcast, is the only
+ * shape that scales with the number of mounted remotes. Mirrors the
+ * 'hug-session-change' window seam SessionService already uses.
+ */
+export const SSE_NOTIFICATION_EVENT = 'hug:sse-notification';
+
 @Injectable({ providedIn: 'root' })
 export class NotificationToastService {
   private static readonly SSE_ENDPOINT = '/bff/user/notifications/events';
@@ -41,6 +58,13 @@ export class NotificationToastService {
   private static readonly RECONNECT_MS = 5_000;
 
   readonly toasts = signal<SseToastEvent[]>([]);
+
+  /** Live connection state for the stream — 'idle' before start()/after stop(),
+   *  'open' once the server has answered 2xx, 'reconnecting' during the backoff
+   *  after the server closed the stream on its keepalive timeout. Exposed so the
+   *  shell can HONESTLY tell a user whether live updates are actually flowing
+   *  rather than implying they are whenever the feature is compiled in. */
+  readonly connection = signal<'idle' | 'open' | 'reconnecting'>('idle');
 
   private controller: AbortController | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -58,6 +82,7 @@ export class NotificationToastService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.connection.set('idle');
   }
 
   addToast(event: SseToastEvent): void {
@@ -70,6 +95,18 @@ export class NotificationToastService {
     setTimeout(() => {
       this.toasts.update(current => current.filter(t => t.id !== event.id));
     }, NotificationToastService.DISMISS_MS);
+    this.rebroadcast(event);
+  }
+
+  /** Re-publish one parsed SSE frame on `window` for the mounted remotes (see
+   *  {@link SSE_NOTIFICATION_EVENT}). Guarded for a non-browser document and
+   *  fail-soft: a listener that throws must never break the toast pipeline that
+   *  the shell's own UI depends on. */
+  private rebroadcast(event: SseToastEvent): void {
+    if (typeof window === 'undefined') { return; }
+    try {
+      window.dispatchEvent(new CustomEvent(SSE_NOTIFICATION_EVENT, { detail: event }));
+    } catch { /* a listener threw — the shell's own toast is unaffected */ }
   }
 
   private async consume(): Promise<void> {
@@ -85,6 +122,7 @@ export class NotificationToastService {
         return;
       }
 
+      this.connection.set('open');
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -94,6 +132,7 @@ export class NotificationToastService {
         if (done) {
           // Server closed the stream (e.g. 4-minute SSE timeout) — reconnect after backoff
           if (this.controller) {
+            this.connection.set('reconnecting');
             this.reconnectTimer = setTimeout(() => {
               this.reconnectTimer = null;
               this.consume();
