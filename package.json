@@ -58,7 +58,7 @@
     "axios": "1.19.0",
     "chai": "^6.2.1",
     "chokidar": "^5.0.0",
-    "chromedriver": "^151.0.0",
+    "chromedriver": "^151.0.5",
     "cucumber": "^6.0.7",
     "cucumber-html-reporter": "^7.2.0",
     "cucumber-pretty": "^6.0.1",
