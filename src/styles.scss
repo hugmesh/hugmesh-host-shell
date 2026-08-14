@@ -6,7 +6,10 @@ $body-bg:                    t.$black;
 $body-color:                 t.$offwhite;
 $link-color:                 t.$neon;
 $link-hover-color:           t.$neon-bright;
-$navbar-dark-color:          t.$light;
+// $light (#bbbbbb) measures 3.05-3.11:1 against the menubar's real painted backdrop
+// (its translucent bar over the pastel gradient) — below WCAG AA. $offwhite is
+// 4.77-4.87:1 there. See menu.component.scss `&__item`.
+$navbar-dark-color:          t.$offwhite;
 $navbar-dark-hover-color:    t.$neon;
 $navbar-dark-active-color:   t.$neon;
 $navbar-dark-disabled-color: rgba(t.$light, t.$opacity-muted);
@@ -16,6 +19,34 @@ $font-family-sans-serif:     t.$font-sans;
 $font-family-base:           t.$font-sans;
 
 @import "bootstrap/scss/bootstrap";
+
+// ── Runtime-theme chrome overrides (snap-theme.css --sd-* contract) ──────────
+// Bootstrap above COMPILED the $body-*/$link-* SCSS literals into the sheet;
+// these re-state ONLY the shell-frame properties as var(--sd-*, <same literal>)
+// so an injected :root:root theme restyles the frame at runtime while an
+// un-themed deploy (empty snap-theme.css — every var() falls back) renders
+// byte-identically. Deliberately NOT done by threading var() through the
+// bootstrap $variables: several of those feed Sass colour maths or data-URI
+// SVGs (e.g. $form-select-indicator-color), where a var() string breaks the
+// build or the emitted asset. Must sit AFTER the import to win the cascade.
+body {
+  background-color: var(--sd-bg-0, #{t.$black});
+  color: var(--sd-text, #{t.$offwhite});
+}
+
+// Links: --sd-accent-soft is the contract's only accent-as-text token —
+// contrast-solved against --sd-bg-0 by construction (theme.py); raw --sd-accent
+// is backgrounds/borders only. Themed hover keeps the same colour (the WCAG
+// 1.4.1 underline-thickness block below is the hover cue); un-themed hover
+// still brightens via the $neon-bright fallback.
+a {
+  color: var(--sd-accent-soft, #{t.$neon});
+
+  &:hover,
+  &:focus-visible {
+    color: var(--sd-accent-soft, #{t.$neon-bright});
+  }
+}
 
 
 /* Brand display face. 'MoreSugar-Thin.ttf' is shipped in src/assets AND
@@ -43,17 +74,22 @@ $font-family-base:           t.$font-sans;
  * The host's neon SCSS tokens (styles/_tokens.scss) drive the visual theme;
  * these --hug-* vars are the cross-repo HugMesh contract any remote can reach
  * for instead of pasting hex literals. */
+/* Each --hug-* value now READS the runtime --sd-* theme first (snap-theme.css's
+ * :root:root block, written at container start from SNAP_THEME_CSS) and falls
+ * back to the shipped literal — so ONE injected theme re-skins every --hug-*
+ * consumer (shell chrome help text AND remotes), while an un-themed deploy
+ * renders byte-identically. */
 :root {
-  --hug-bg-0:        #0a0a12; /* shell + login backdrop */
-  --hug-bg-1:        #12121e; /* cards, panels */
-  --hug-bg-2:        #1a1a2e; /* scrollbar trough */
-  --hug-border:      #1e1e32;
-  --hug-text:        #e8e8f0; /* 15.9:1 AAA */
-  --hug-text-muted:  #a8acc4; /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
-  --hug-accent:      #7c4dff; /* backgrounds/borders only — 3.22:1 as text */
-  --hug-accent-soft: #b388ff; /*  7.38:1 AAA — use this for accent text */
-  --hug-success:     #4caf50;
-  --hug-error:       #ff6b6b;
+  --hug-bg-0:        var(--sd-bg-0, #0a0a12); /* shell + login backdrop */
+  --hug-bg-1:        var(--sd-bg-1, #12121e); /* cards, panels */
+  --hug-bg-2:        var(--sd-bg-2, #1a1a2e); /* scrollbar trough */
+  --hug-border:      var(--sd-border, #1e1e32);
+  --hug-text:        var(--sd-text, #e8e8f0); /* 15.9:1 AAA */
+  --hug-text-muted:  var(--sd-text-muted, #a8acc4); /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
+  --hug-accent:      var(--sd-accent, #7c4dff); /* backgrounds/borders only — 3.22:1 as text */
+  --hug-accent-soft: var(--sd-accent-soft, #b388ff); /*  7.38:1 AAA — use this for accent text */
+  --hug-success:     var(--sd-success, #4caf50);
+  --hug-error:       var(--sd-error, #ff6b6b);
 }
 
 
@@ -76,6 +112,66 @@ header,
 footer {
   position: relative;
   z-index: t.$z-content;
+}
+
+// ── Routed-content backpane ──────────────────────────────────────────────────
+// The shell paints an animated PASTEL gradient (<app-background>) behind a DARK
+// palette ($black #0a0a0a page, $offwhite #e8e8e8 text). Routed views set no
+// background of their own — hug-user-home's section computes to rgba(0,0,0,0) —
+// so #e8e8e8 body copy landed straight on #fdffb6 / #bde0fe and was unreadable.
+// Headings and help text outside a card were the worst hit.
+// (A contrast probe still reports ~15:1 there, because it resolves the backdrop by
+// walking up to <body>. The body is not what is painted behind the text — the fixed
+// gradient is. Trust the screenshot, not the ratio, for this specific check.)
+//
+// `router-outlet + *` is the routed component's host: Angular inserts it as the
+// outlet's next sibling, so this reaches EVERY routed view — including the
+// federated remotes (Matrix, Mastodon, wiki, forum…), which we do not control from
+// here — without touching a single remote's own styles or the shell template.
+// It cannot go on `main`: <app-background> is a CHILD of main, so main's own
+// background paints UNDER the gradient (see $z-background in styles/_tokens.scss).
+router-outlet + * {
+  display: block;
+  position: relative;
+  z-index: t.$z-content;
+  background: rgba(t.$black, 0.82);
+  border: 1px solid rgba(t.$offwhite, t.$opacity-border);
+  border-radius: t.$radius-page;
+  // Responsive: hugs the viewport on a phone, never sprawls on a wide monitor, and
+  // the gradient stays visible around it rather than being blanked out.
+  margin: clamp(0.5rem, 1.5vw, 1.25rem) auto;
+  padding: clamp(0.75rem, 2.5vw, 1.75rem);
+  max-width: 90rem;
+}
+
+// Frosted where supported — keeps the animation legible THROUGH the pane instead of
+// hiding it. Behind @supports because backdrop-filter without it degrades to a flat
+// wash on browsers that ignore the property.
+@supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
+  router-outlet + * {
+    background: rgba(t.$black, 0.62);
+    backdrop-filter: blur(10px) saturate(120%);
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+  }
+}
+
+// WCAG 1.4.3/1.4.6 escape hatch: when the reader asks for more contrast, drop the
+// translucency entirely rather than merely deepening it.
+@media (prefers-contrast: more) {
+  router-outlet + * {
+    background: t.$black;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: t.$offwhite;
+  }
+}
+
+// Reduced motion already pauses the gradient (see background.component.scss); pair it
+// with an opaque pane so a stationary bright field is never the text's backdrop.
+@media (prefers-reduced-motion: reduce) {
+  router-outlet + * {
+    background: rgba(t.$black, 0.92);
+  }
 }
 
 [menu] {
@@ -102,10 +198,10 @@ h2 {
     width: auto;
     height: auto;
     padding: 0.6rem 1.2rem;
-    background: t.$charcoal;
+    background: var(--sd-charcoal, #{t.$charcoal});
     font-size: 1rem;
     font-weight: 700;
-    border: 2px solid t.$neon;
+    border: 2px solid var(--sd-primary, #{t.$neon});
     border-radius: t.$radius-sm;
     outline: none;
     clip: auto;
@@ -118,7 +214,11 @@ h2 {
 // High-contrast two-layer ring (copied from usidiamond.dev) — a solid light
 // outline plus a dark halo so the ring stays visible on ANY background.
 :focus-visible {
-  outline: 3px solid #ffffff;
+  // Ring paint follows the theme via --sd-accent-soft — the one accent token
+  // contrast-solved against the page bg on BOTH ramps (light mode re-derives
+  // it); the dark halo below stays literal so the two-layer any-background
+  // guarantee keeps holding. Un-themed: the shipped white ring, byte-identical.
+  outline: 3px solid var(--sd-accent-soft, #ffffff);
   outline-offset: 2px;
   box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.75);
 }
@@ -201,8 +301,8 @@ a {
   max-width: min(16rem, 60vw);
   margin-top: 0;
   padding: 0.4rem 0.6rem;
-  background: rgba(t.$charcoal, 0.95);
-  border: 1px solid rgba(t.$neon, 0.4);
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
   border-radius: 0.375rem;
   color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   text-align: end;
@@ -230,8 +330,8 @@ a {
 .bg-toggle {
   position: static;
   flex: 0 0 auto;
-  background: rgba(t.$charcoal, 0.8);
-  border: 1px solid rgba(t.$neon, 0.3);
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.8);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.3);
   border-radius: 50%;
   width: 2.5rem;
   height: 2.5rem;
@@ -244,13 +344,13 @@ a {
 
   &:hover,
   &:focus-visible {
-    box-shadow: 0 0 10px rgba(t.$neon, 0.5);
-    outline: 2px solid t.$neon;
+    box-shadow: 0 0 10px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.5);
+    outline: 2px solid var(--sd-primary, #{t.$neon});
     outline-offset: 2px;
   }
 
   svg {
-    fill: t.$neon;
+    fill: var(--sd-primary, #{t.$neon});
     width: 1rem;
     height: 1rem;
   }

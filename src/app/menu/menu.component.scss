@@ -19,7 +19,7 @@ nav.navbar {
   &__trigger {
     background: none;
     border: 0;
-    color: t.$offwhite;
+    color: var(--sd-text, #{t.$offwhite});
   }
 
   &__name {
@@ -41,7 +41,12 @@ nav.navbar {
   &__item {
     background: none;
     border: 0;
-    color: t.$light;
+    // $light (#bbbbbb) fails WCAG AA here. The menubar sets `background: none`, so
+    // these labels are painted over the translucent bar ON TOP OF the animated pastel
+    // gradient — the effective backdrop measures around rgb(79,108,79)-rgb(108,100,73),
+    // not the dark page colour. Sampled from real screenshots: $light lands at
+    // 3.05-3.11:1 (needs 4.5), $offwhite at 4.77-4.87:1.
+    color: var(--sd-text, #{t.$offwhite});
     display: block;
     font-size: 1rem;
     font-weight: 600;
@@ -51,7 +56,7 @@ nav.navbar {
 
     &:hover,
     &:focus-visible {
-      color: t.$neon;
+      color: var(--sd-accent-soft, #{t.$neon});
     }
   }
 
@@ -73,8 +78,8 @@ nav.navbar {
     max-width: min(18rem, 70vw);
     margin-top: 0;
     padding: 0.4rem 0.6rem;
-    background: rgba(t.$charcoal, 0.95);
-    border: 1px solid rgba(t.$neon, 0.4);
+    background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
+    border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
     border-radius: 0.375rem;
     color: var(--hug-text); // 15.9:1 AAA on the solid bubble
     opacity: 0;
@@ -139,7 +144,7 @@ nav.navbar {
   height: 1.1rem;
   padding: 0 0.25rem;
   border-radius: 0.55rem;
-  background: #e74c3c;
+  background: var(--sd-error, #e74c3c);
   color: #fff;
   font-size: 0.65rem;
   font-weight: 700;
@@ -154,7 +159,7 @@ nav.navbar {
 }
 
 .nav-link {
-  color: t.$light;
+  color: var(--sd-light, #{t.$light});
   min-width: 5rem;
   text-align: start;
 
@@ -168,13 +173,13 @@ nav.navbar {
 
   &:not(.navbar-toggler):hover,
   &:not(.navbar-toggler):focus-visible {
-    color: t.$neon;
+    color: var(--sd-accent-soft, #{t.$neon});
 
     &::after { content: ' UwO'; }
   }
 
   &.active {
-    color: t.$neon;
+    color: var(--sd-accent-soft, #{t.$neon});
 
     &::after { content: ' OwO'; }
   }
