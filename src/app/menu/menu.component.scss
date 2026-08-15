@@ -189,21 +189,37 @@ nav.navbar {
     min-width: 10.625rem;
   }
 
+  // DECORATIVE NAV SUFFIX — now a THEME OPTION, and OFF by default.
+  //
+  // These three states used to hard-code ' UwU', ' UwO' and ' OwO'. Two problems with
+  // that. It was not the operator's choice on a platform whose whole appearance is
+  // otherwise themeable; and pseudo-element `content` IS announced by screen readers, so
+  // every nav link read as "Home UwU" with no way to turn it off.
+  //
+  // The `/ ''` is the fix for the second problem and is the reason this is safe to offer
+  // at all: CSS alt-text syntax marks the generated content as DECORATIVE, so assistive
+  // tech skips it while sighted users still see it. A browser too old to parse the alt
+  // syntax drops the whole declaration, which renders no suffix — the safe direction for
+  // something purely ornamental.
+  //
+  // Empty default = no suffix, so the shipped chrome is unchanged from a plain build.
+  // A theme sets --hug-nav-suffix (and optionally the hover/active variants, which fall
+  // back to the base) to turn it on. See hugmesh-generator studio core/theme.py.
   &::after {
-    content: ' UwU';
+    content: var(--hug-nav-suffix, '') / '';
   }
 
   &:not(.navbar-toggler):hover,
   &:not(.navbar-toggler):focus-visible {
     color: var(--sd-accent-soft, #{t.$neon});
 
-    &::after { content: ' UwO'; }
+    &::after { content: var(--hug-nav-suffix-hover, var(--hug-nav-suffix, '')) / ''; }
   }
 
   &.active {
     color: var(--sd-accent-soft, #{t.$neon});
 
-    &::after { content: ' OwO'; }
+    &::after { content: var(--hug-nav-suffix-active, var(--hug-nav-suffix, '')) / ''; }
   }
 
   &.disabled {
