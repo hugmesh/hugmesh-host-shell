@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
@@ -14,6 +14,9 @@ import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 class SessionStub {
   loggedIn = signal(false);
   fullyRegistered = signal(false);
+  // Mirrors SessionService.isUser (session.service.ts:114) — see the note in
+  // menu.component.spec.ts. Derived from loggedIn so it cannot drift.
+  isUser = computed(() => this.loggedIn());
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);

@@ -44,6 +44,13 @@ describe('app.routes federation wiring', () => {
       // ./Tube -> TUBE_ROUTES and ./Owncast -> OWNCAST_ROUTES (NOT './routes').
       jasmine.objectContaining({ path: 'tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES' }),
       jasmine.objectContaining({ path: 'owncast', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES' }),
+      // The CHARACTER remotes. remoteName MUST stay kebab-case: native-federation
+      // registers a remote under the `name` declared inside its OWN remoteEntry.json,
+      // not the manifest key, so a camelCase key throws "Remote 'characterStudio' is
+      // not initialized" at loadRemoteModule time with no failed request to point at
+      // (app.routes.ts:105-119). Both expose './routes', like the role-homes.
+      jasmine.objectContaining({ path: 'character-studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES' }),
+      jasmine.objectContaining({ path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES' }),
     ]);
   });
 

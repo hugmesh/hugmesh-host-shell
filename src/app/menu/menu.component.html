@@ -61,16 +61,18 @@
         </li>
       }
     </ul>
-
-    <!-- Account region: anonymous -> Sign in; authenticated -> the profile menu
-         (Profile modal + conditional Admin/Moderation + Sign out). -->
-    <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
-      <!-- RELOAD — ONE control in the shell chrome that refreshes whatever the
+      <!-- RELOAD — deliberately OUTSIDE role="menubar".
+           A menubar cycles NAVIGATION DESTINATIONS under Arrow/Home/End; reload is
+           an ACTION, so listing it there made it a 4th "section", broke the
+           entry-count and keyboard-wrap contracts, and would have had Arrow keys
+           land on a button that navigates nowhere. As a sibling it stays fully
+           keyboard-reachable via Tab and activates on Enter/Space.
+           Original note: — ONE control in the shell chrome that refreshes whatever the
            router-outlet is currently showing, federated remote included. Not
            gated on the session: an anonymous user looking at a wedged login or
            home view needs it just as much. A real <button> (not an icon <div>),
            so it is in the tab order and activates on Enter/Space natively. -->
-      <li class="nav-item reload-nav-item" role="none">
+      <div class="nav-item reload-nav-item">
         <button
           class="reload-btn"
           type="button"
@@ -113,7 +115,12 @@
         >{{ viewReload.busy()
             ? 'Reloading the current view…'
             : 'Reload the current view without losing your session.' }}</span>
-      </li>
+      </div>
+
+
+    <!-- Account region: anonymous -> Sign in; authenticated -> the profile menu
+         (Profile modal + conditional Admin/Moderation + Sign out). -->
+    <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
 
       <!-- Notification bell — only for authenticated users -->
       @if (session.loggedIn()) {

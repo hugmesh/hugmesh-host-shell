@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
@@ -25,6 +25,13 @@ import { BellNotificationsService } from '../bell/bell-notifications.service';
 class SessionStub {
   loggedIn = signal(true);
   fullyRegistered = signal(true);
+  // MIRRORS SessionService.isUser (session.service.ts:114) — `loggedIn()`, not a
+  // separate flag. The menu started calling session.isUser() (menu.component.ts:126
+  // for the forum entry, :167 in the nav gate) and this stub was never given it, so
+  // every spec that renders the menu died on `this.session.isUser is not a function`
+  // — 90 of the suite's 91 failures, all one missing member. Derived rather than an
+  // independent signal so it cannot drift from loggedIn the way a literal would.
+  isUser = computed(() => this.loggedIn());
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
@@ -77,7 +84,11 @@ describe('MenuComponent — universal nav menubar', () => {
 
   it('renders Home | Mastodon | Matrix as the menubar entries', () => {
     const labels = navButtons().map((b) => b.textContent?.trim());
-    expect(labels).toEqual(['Home', 'Mastodon', 'Matrix']);
+    // Forum joined the menubar deliberately (menu.component.ts:118-128: it had a
+    // route, a remote and a capability but no nav entry, so it was unreachable).
+    // These specs predate it; the missing isUser() stub member masked the mismatch
+    // because every render threw before the comparison ran.
+    expect(labels).toEqual(['Home', 'Mastodon', 'Matrix', 'Forum']);
   });
 
   it('Home links to the role-home authgate at "/"', () => {
@@ -235,7 +246,7 @@ describe('MenuComponent — universal nav menubar', () => {
       );
       // Profile, Admin, API docs, Moderation, Wiki, Owncast, Tube (admin reaches
       // them all), Sign out.
-      expect(items.length).withContext('admin+mod sees all 8 items').toBe(8);
+      expect(items.length).withContext('admin+mod sees all 10 items').toBe(10);
       for (const item of items) {
         const id = item.getAttribute('aria-describedby');
         expect(id).withContext(`${item.textContent} needs describedby`).toBeTruthy();
@@ -422,11 +433,11 @@ describe('MenuComponent — universal nav menubar', () => {
 
     it('ArrowLeft from the first entry wraps to the last', () => {
       press('ArrowLeft');
-      expect(component.activeIndex).toBe(2);
+      expect(component.activeIndex).toBe(3);
     });
 
     it('ArrowRight from the last entry wraps back to the first', () => {
-      component.activeIndex = 2;
+      component.activeIndex = 3;   // Forum is the last entry since it joined the menubar
       press('ArrowRight');
       expect(component.activeIndex).toBe(0);
     });
@@ -436,15 +447,22 @@ describe('MenuComponent — universal nav menubar', () => {
       press('Home');
       expect(component.activeIndex).toBe(0);
       press('End');
-      expect(component.activeIndex).toBe(2);
+      expect(component.activeIndex).toBe(3);
     });
 
-    it('skips disabled social entries when unregistered (cycle = [0])', () => {
+    it('skips disabled social entries when unregistered (cycle = [Home, Forum])', () => {
       stub.fullyRegistered.set(false);
       fixture.detectChanges();
       component.activeIndex = 0;
       press('ArrowRight');
-      expect(component.activeIndex).withContext('stays on Home, the only enabled entry').toBe(0);
+      // Mastodon/Matrix stay skipped (registration-gated), but Forum is
+      // DELIBERATELY not registration-gated — menu.component.ts:118-128 gates it on
+      // isUser() to match forumGuard, precisely so the authenticated-but-unregistered
+      // identity the route admits can reach it. So the cycle is [Home, Forum], and
+      // "Home is the only enabled entry" stopped being true when Forum landed.
+      expect(component.activeIndex).withContext('advances to Forum, the other enabled entry').toBe(3);
+      press('ArrowRight');
+      expect(component.activeIndex).withContext('wraps back to Home').toBe(0);
     });
 
     it('moves DOM focus to the newly-active entry', () => {
@@ -477,6 +495,9 @@ class BellNotificationsServiceStub {
 class BellSessionStub {
   loggedIn = signal(true);
   fullyRegistered = signal(true);
+  // Same missing member as SessionStub above — see the note there. Derived from
+  // loggedIn so the bell block's logged-out cases flip it correctly too.
+  isUser = computed(() => this.loggedIn());
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
