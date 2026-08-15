@@ -2,10 +2,16 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { LinksComponent } from './links/links.component';
 import { HomeAnnouncementsComponent } from '../announcements/home-announcements.component';
 import { HomeServicesComponent } from '../home-services/home-services.component';
+import { DeniedNoticeComponent } from './denied-notice.component';
 
 @Component({
   selector: '[home]',
-  imports: [LinksComponent, HomeAnnouncementsComponent, HomeServicesComponent],
+  imports: [
+    LinksComponent,
+    HomeAnnouncementsComponent,
+    HomeServicesComponent,
+    DeniedNoticeComponent,
+  ],
   host: {
     id: 'maincontent',
     tabindex: '-1',
