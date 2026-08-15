@@ -13,12 +13,19 @@ WORKDIR /usr/src/app
 COPY package*.json .npmrc ./
 
 #### install angular cli
-# ── injected by scripts/patch-stack-src.sh (LOCAL stack build) ───────────────
-# This lock resolves two copies of @softarc/native-federation; the hoisted one
-# is older than the copy @angular-architects/native-federation nests, so the
-# orchestrator typings fail to compile (TS2724 DenseSharedInfo). Collapse them
-# onto the nested version — read from this repo's own lockfile.
-RUN npm pkg set 'overrides.@softarc/native-federation'=4.3.2
+# NOTE: an earlier revision pinned @softarc/native-federation here with
+# `npm pkg set 'overrides…'=4.3.2`, injected by the generator's
+# scripts/patch-stack-src.sh and then accidentally COMMITTED. It is removed
+# because a hardcoded version in this file silently OVERWRITES whatever
+# package.json resolved to, so the pin could only ever go stale downward — and
+# it did: it held 4.3.2 while @angular-architects/native-federation@22.1.1
+# began requiring ^4.4.0, and this build failed with
+#   The requested module '@softarc/native-federation/internal' does not provide
+#   an export named 'isUnderAnyDir'
+# The override now lives ONCE, in package.json, where the lockfile records it
+# and Dependabot can see it. The generator script derives its value from the
+# lockfile and re-injects only when two copies actually diverge, which is the
+# self-healing behaviour committing its output defeated.
 RUN npm install -g @angular/cli
 
 #### install project dependencies

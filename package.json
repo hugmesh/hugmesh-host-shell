@@ -83,8 +83,11 @@
     "tslib": "^2.8.1",
     "typescript": "^6.0.3"
   },
+  "_overridesNote": {
+    "@softarc/native-federation": "MUST satisfy the range @angular-architects/native-federation depends on (^4.4.0 at 22.1.1), and MUST be bumped together with the angular group. The override exists to collapse two copies onto one: without it the hoisted copy is older than the one @angular-architects nests and the orchestrator typings fail to compile (TS2724 DenseSharedInfo). A stale pin here does NOT fail the unit tests -- it only breaks 'ng build --prod', which is how the angular-group bump to 22.1.1 landed green while leaving the production bundle unbuildable."
+  },
   "overrides": {
-    "@softarc/native-federation": "4.3.1",
+    "@softarc/native-federation": "4.4.1",
     "@babel/core": "7.29.7",
     "lodash": "4.18.1",
     "axios": "1.19.0",

@@ -1,0 +1,44 @@
+# WITHOUT THIS FILE THE IMAGE IS BUILT FROM THE DEVELOPER'S DISK.
+#
+# The Dockerfile installs dependencies from package.json/package-lock.json and only
+# then does `COPY . .`. With no ignore list that COPY includes the host's own
+# node_modules, which lands ON TOP of the freshly resolved tree and silently replaces
+# it. The build then runs against whatever the developer happened to have installed
+# locally, not against the lockfile.
+#
+# That is not hypothetical: it is exactly how a corrected
+# `overrides.@softarc/native-federation` (4.4.1, exporting isUnderAnyDir) produced a
+# build that still failed with "does not provide an export named 'isUnderAnyDir'" --
+# the stale local 4.3.1 had overwritten it. It also hid the failure in the other
+# direction, because the .stack-src build tree is a fresh clone with no node_modules,
+# so the identical Dockerfile built fine there and broke here.
+#
+# It is also the single biggest cost in the build: the context upload was over 20
+# seconds, almost entirely node_modules and .angular cache.
+node_modules
+.angular
+dist
+out
+coverage
+
+# VCS and editor noise -- never needed to build, and .git alone is tens of MB.
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+
+# Local env/secrets must never enter an image layer.
+.env
+.env.*
+!.env.example
+
+# Test/report output.
+playwright-report
+test-results
+*.log
+
+# Docker's own files: changing the Dockerfile should not invalidate the context.
+Dockerfile
+.dockerignore
