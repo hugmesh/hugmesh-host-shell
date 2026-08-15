@@ -127,7 +127,7 @@ describe('AccountStatusService', () => {
       await p;
       expect(service.curtailed()).toBeTrue();
 
-      sessionSvc.clear();
+      await sessionSvc.clear(); // async now: it expires the SERVER session first
       // status() / curtailed() are gated on loggedIn() — clearing hides the banner
       expect(service.curtailed()).toBeFalse();
       expect(service.status().status).toBe('active');

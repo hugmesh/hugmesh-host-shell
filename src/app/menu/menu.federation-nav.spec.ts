@@ -26,7 +26,9 @@ class SessionStub {
   session = signal<{ label: string } | null>(null);
   cleared = false;
   hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
-  clear() { this.cleared = true; }
+  // ASYNC, mirroring the real SessionService.clear(): it awaits POST /bff/sessionOut so the
+  // server session is expired before anything can re-read it.
+  async clear() { this.cleared = true; this.loggedIn.set(false); this.session.set(null); }
 }
 
 describe('MenuComponent account region + profile menu (role-aware)', () => {
@@ -415,14 +417,35 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     expect(component.profileOpen()).toBeFalse();
   });
 
-  it('Sign out clears the session and returns to the authgate at "/"', () => {
+  it('Sign out clears the session and returns to the authgate at "/"', async () => {
     stub.loggedIn.set(true);
     stub.session.set({ label: 'alice' });
     fixture.detectChanges();
     const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
     openProfile();
     (el.querySelector('[data-testid="menu-logout"]') as HTMLButtonElement).click();
+    // logout() AWAITS the server sign-out before navigating, so the redirect lands a
+    // microtask later. Ordering, not timing: the nav must not race the cookie expiry.
+    await Promise.resolve();
+    await Promise.resolve();
     expect(stub.cleared).withContext('session cleared').toBeTrue();
     expect(navSpy).toHaveBeenCalledWith('/');
+  });
+
+  it('Sign out expires the SERVER session BEFORE navigating', async () => {
+    // Regression guard for the ordering: navigating first would run roleHomeGuard while the
+    // cookie is still live, which is what let a "signed-out" user land back in their
+    // role-home instead of the login screen.
+    stub.loggedIn.set(true);
+    stub.session.set({ label: 'alice' });
+    fixture.detectChanges();
+    const order: string[] = [];
+    stub.clear = async () => { order.push('clear'); stub.cleared = true; stub.loggedIn.set(false); };
+    spyOn(TestBed.inject(Router), 'navigateByUrl').and.callFake(((): Promise<boolean> => {
+      order.push('navigate');
+      return Promise.resolve(true);
+    }) as never);
+    await component.logout();
+    expect(order).toEqual(['clear', 'navigate']);
   });
 });

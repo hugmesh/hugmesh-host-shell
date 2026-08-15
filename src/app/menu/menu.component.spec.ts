@@ -41,7 +41,10 @@ class SessionStub {
   session = signal<{ label: string } | null>({ label: 'alice' });
   cleared = false;
   hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
-  clear() { this.cleared = true; }
+  // ASYNC, mirroring the real SessionService.clear(): it now awaits POST /bff/sessionOut so
+  // the cookie is dead before anything can re-read it. A sync stub here would let
+  // menu.logout() resolve in an order the real one cannot.
+  async clear() { this.cleared = true; this.loggedIn.set(false); this.session.set(null); }
 }
 
 describe('MenuComponent — universal nav menubar', () => {
@@ -89,6 +92,34 @@ describe('MenuComponent — universal nav menubar', () => {
     // These specs predate it; the missing isUser() stub member masked the mismatch
     // because every render threw before the comparison ran.
     expect(labels).toEqual(['Home', 'Mastodon', 'Matrix', 'Forum']);
+  });
+
+  describe('SIGNED OUT — the menubar is Home only', () => {
+    // Operator report: after signing out the shell still listed the service entries and
+    // still showed the signed-out user's id. The root cause was that sign-out did not
+    // expire the SERVER session (see SessionService.clear) so `loggedIn()` went back to
+    // true a tick later; these assert the rendering half, which is what is visible.
+    beforeEach(() => {
+      stub.loggedIn.set(false);
+      stub.session.set(null);
+      fixture.detectChanges();
+    });
+
+    it('lists ONLY Home — no Mastodon / Matrix / Forum for an anonymous visitor', () => {
+      expect(navButtons().map((b) => b.textContent?.trim())).toEqual(['Home']);
+    });
+
+    it('does not render the profile trigger, so no user id is shown', () => {
+      expect(el.querySelector('[data-testid="nav-user"]')).toBeNull();
+      expect(component.profileTriggerLabel()).toBe('Account menu');
+    });
+
+    it('signing back in restores the service entries', () => {
+      stub.loggedIn.set(true);
+      fixture.detectChanges();
+      expect(navButtons().map((b) => b.textContent?.trim()))
+        .toEqual(['Home', 'Mastodon', 'Matrix', 'Forum']);
+    });
   });
 
   it('Home links to the role-home authgate at "/"', () => {

@@ -193,9 +193,9 @@ describe('SessionService', () => {
     expect(service.fullyRegistered()).toBeTrue();
   });
 
-  it('clear() removes the key and drops loggedIn', () => {
+  it('clear() removes the key and drops loggedIn', async () => {
     service.set(makeSession());
-    service.clear();
+    await service.clear();
     expect(localStorage.getItem('hug.session')).toBeNull();
     expect(service.loggedIn()).toBeFalse();
   });
@@ -276,5 +276,67 @@ describe('SessionService', () => {
     localStorage.setItem('other.key', 'x');
     window.dispatchEvent(new StorageEvent('storage', { key: 'other.key' }));
     expect(service.fullyRegistered()).toBeTrue();
+  });
+
+  describe('clear() — REAL sign-out, not just local state', () => {
+    it('POSTs /bff/sessionOut so the server session is expired', async () => {
+      service.set(makeSession({}));
+      fetchSpy.calls.reset();
+      fetchSpy.and.resolveTo(okJson({ loggedOut: true }));
+
+      await service.clear();
+
+      const call = fetchSpy.calls.allArgs().find(([url]) => String(url).endsWith('/bff/sessionOut'));
+      expect(call).withContext('sign-out must expire the SERVER session, not only localStorage').toBeDefined();
+      expect(call![1].method).toBe('POST');
+      expect(call![1].credentials)
+        .withContext('the HttpOnly bff_session cookie must ride along or nothing is revoked')
+        .toBe('include');
+    });
+
+    it('REGRESSION: the broadcast-triggered re-read cannot resurrect the session', async () => {
+      // THE BUG. clear() used to drop local state only. Its own broadcast() re-enters
+      // hydrate(), which re-reads /bff/session WITH the surviving cookie, gets a 200 and
+      // puts the session straight back — so "Sign out" left you navigable, kept your id in
+      // the menubar and never showed the login screen.
+      //
+      // The server is modelled STATEFULLY, because that is the actual mechanism: while the
+      // session lives /bff/session answers 200, and POSTing /bff/sessionOut is what flips it
+      // to 401. So this test fails if clear() never calls sessionOut (the original bug: the
+      // cookie stays alive, the re-read 200s, the session returns) AND it fails if clear()
+      // calls it without awaiting (the re-read can win the race and 200 first). Only
+      // expiring the session BEFORE broadcasting passes.
+      let serverSessionAlive = true;
+      fetchSpy.and.callFake((url: string) => {
+        if (String(url).endsWith('/bff/sessionOut')) {
+          serverSessionAlive = false;
+          return Promise.resolve(okJson({ loggedOut: true }));
+        }
+        return Promise.resolve(serverSessionAlive
+          ? okJson({ id: 'google:alice@gmail.com', roles: ['user'], registrationComplete: true })
+          : status(401));
+      });
+
+      service.set(makeSession({}));
+      expect(service.loggedIn()).toBeTrue();
+
+      await service.clear();
+      await flush(); // let the broadcast-triggered hydrate resolve
+
+      expect(service.loggedIn())
+        .withContext('signed out must STAY signed out after the authoritative re-read')
+        .toBeFalse();
+      expect(service.session()).toBeNull();
+    });
+
+    it('still signs out locally when the server call fails (offline / already-dead cookie)', async () => {
+      service.set(makeSession({}));
+      fetchSpy.and.rejectWith(new Error('offline'));
+
+      await service.clear();
+
+      expect(service.loggedIn()).withContext('a network failure must not strand the user signed in').toBeFalse();
+      expect(localStorage.getItem('hug.session')).toBeNull();
+    });
   });
 });

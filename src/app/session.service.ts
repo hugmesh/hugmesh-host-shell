@@ -50,6 +50,13 @@ export interface SessionResponse {
  *  served same-origin behind the gateway), cookie-carrying, dev + prod alike. */
 export const SESSION_ENDPOINT = '/bff/session';
 
+/** Same-origin REAL logout. POSTing here deletes the opaque {@code bff_session} row (so the
+ *  token stops resolving), EXPIRES the session cookie, and best-effort revokes the subject's
+ *  Matrix/Mastodon homeserver localparts at the gateway — see admin-bff {@code AuthController
+ *  #sessionOut}. CSRF-exempt server-side (it is one of the cookie-mint endpoints), so no token
+ *  is echoed. This is the SAME endpoint login-ui's SessionService.clear() posts to. */
+export const SESSION_OUT_ENDPOINT = '/bff/sessionOut';
+
 /** Holds the logged-in session (persisted to localStorage under the canonical
  *  "hug.session" key the login remote writes) and derives the Casdoor-style role
  *  flags + the registration-complete gate the host uses to unlock the
@@ -256,7 +263,36 @@ export class SessionService {
   }
   set(s: SnapSession): void { localStorage.setItem(this.key, JSON.stringify(s)); this.session.set(s); this.broadcast(); }
   patch(p: Partial<SnapSession>): void { const s = this.session(); if (s) this.set({ ...s, ...p }); }
-  clear(): void { localStorage.removeItem(this.key); this.session.set(null); this.broadcast(); }
+  /**
+   * Sign out. EXPIRES THE SERVER SESSION FIRST, and AWAITS it.
+   *
+   * <p>This used to drop client state only — which did not log anyone out. The HttpOnly
+   * {@code bff_session} cookie survived, and {@link #broadcast} below re-enters
+   * {@link #hydrate}, which re-reads {@link SESSION_ENDPOINT} WITH that still-valid cookie,
+   * gets a 200, and puts the session straight back. Signing out therefore left you able to
+   * navigate, left your id in the menubar, left the service entries listed and never showed
+   * the login screen — because the session had genuinely been RESTORED, not merely left on
+   * screen. Nothing was stale; it was live again a tick later.
+   *
+   * <p>Best-effort on the RESULT (an already-dead cookie 401s, an offline browser throws —
+   * neither may strand the user signed-in locally) but NOT on the ORDER: the {@code await} is
+   * the whole fix. It guarantees the cookie is dead before anything can re-read it, so the
+   * hydrate that our own broadcast triggers resolves to "not logged in".
+   */
+  async clear(): Promise<void> {
+    try {
+      await fetch(SESSION_OUT_ENDPOINT, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { accept: 'application/json' },
+      });
+    } catch {
+      // Deliberately swallowed — local sign-out must still happen when the network is down.
+    }
+    localStorage.removeItem(this.key);
+    this.session.set(null);
+    this.broadcast();
+  }
   /** Notify the other in-page SessionService instances (host + remotes) to re-read. */
   private broadcast(): void { if (typeof window !== 'undefined') window.dispatchEvent(new Event(this.channel)); }
 }
