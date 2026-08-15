@@ -205,6 +205,23 @@ export class SessionService {
       if (!body || typeof body.id !== 'string' || body.id === '') {
         throw new Error('session body missing id');
       }
+      // ROLES ARE LOAD-BEARING, so an ABSENT roles array is an UNUSABLE body, exactly
+      // like a missing id — not "this user has no roles".
+      //
+      // Every other field in fromBody falls back to its current value; roles could not,
+      // because a genuinely EMPTY array has to mean revocation (that is the whole point
+      // of hydrating: "a role granted/revoked MID-SESSION is reflected without a
+      // re-login"). That left absent and empty indistinguishable, so any 200 whose body
+      // omitted or renamed the field silently downgraded a live session to no roles —
+      // the menu would empty out and every console would start refusing, with a
+      // successful request as the only trace.
+      //
+      // Failing here routes it into the catch below, which restores the localStorage
+      // mirror rather than dropping to anonymous. So: empty => honoured as revocation;
+      // absent => rejected as malformed.
+      if (!Array.isArray(body.roles)) {
+        throw new Error('session body missing roles');
+      }
       const next = this.fromBody(body);
       this.session.set(next);
       return next;

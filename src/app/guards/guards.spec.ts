@@ -30,6 +30,11 @@ class SessionStub {
   /** The session's access status (roleHomeGuard's appeal short-circuit input);
    *  'active' default mirrors the real computed's absent-field fail-open. */
   accessStatus: AccessStatus = 'active';
+  /** The raw session object. The factory distinguishes NOT-SIGNED-IN (null) from
+   *  SIGNED-IN-BUT-UNAUTHORIZED, so the stub must model both. Default: signed in,
+   *  which is the case nearly every test below is really about. */
+  sessionValue: unknown = { id: 'casdoor:stub' };
+  session = () => this.sessionValue;
   isAdmin = () => this.admin;
   isMod = () => this.mod;
   isUser = () => this.user;
@@ -43,10 +48,12 @@ class SessionStub {
   curtailed = () => this.accessStatus === 'suspended' || this.accessStatus === 'banned';
 }
 
-function run(guard: typeof adminGuard): boolean | UrlTree {
-  return TestBed.runInInjectionContext(() => guard({} as never, {} as never)) as
-    | boolean
-    | UrlTree;
+/** The path a denied test pretends to be navigating to. */
+const ATTEMPTED = '/attempted';
+
+function run(guard: typeof adminGuard, url: string = ATTEMPTED): boolean | UrlTree {
+  return TestBed.runInInjectionContext(() =>
+    guard({} as never, { url } as never)) as boolean | UrlTree;
 }
 
 describe('federation route guards', () => {
@@ -64,16 +71,52 @@ describe('federation route guards', () => {
     router = TestBed.inject(Router);
   });
 
+  /** What a SIGNED-IN but unauthorized user must now get: kept inside the app, with
+   *  the refused path carried, instead of being told to log in again (they are
+   *  logged in — that is what made the operator's 2026-08-14 report read as a broken
+   *  mesh rather than a permissions boundary). */
+  function denied(url: string = ATTEMPTED): UrlTree {
+    return router.createUrlTree(['/home'], { queryParams: { denied: url } });
+  }
+
+  /** THE DEFECT the operator hit on 2026-08-14 ("moderation menu option just
+   *  redirects to login"). The two failures are different and must not share a
+   *  destination: being signed out is fixable by signing in, lacking a role is not.
+   *  Collapsing them told a signed-in user to sign in, which read as a broken mesh
+   *  and actively misdirected the diagnosis toward sessions when the real fault was
+   *  stripped Casdoor role membership. */
+  describe('authenticated-but-unauthorized vs not-authenticated', () => {
+    it('keeps a SIGNED-IN user in the app and names the refused path', () => {
+      session.sessionValue = { id: 'casdoor:someone' };
+      session.mod = false;
+      const result = run(modGuard, '/mod');
+      expect(result).toEqual(denied('/mod'));
+      expect((result as UrlTree).queryParams['denied']).toBe('/mod');
+    });
+
+    it('does NOT send a signed-in user to /login', () => {
+      session.sessionValue = { id: 'casdoor:someone' };
+      session.mod = false;
+      expect(run(modGuard, '/mod')).not.toEqual(router.parseUrl('/login'));
+    });
+
+    it('still sends a SIGNED-OUT visitor to /login', () => {
+      session.sessionValue = null;
+      session.mod = false;
+      expect(run(modGuard, '/mod')).toEqual(router.parseUrl('/login'));
+    });
+  });
+
   describe('adminGuard', () => {
     it('allows when the session has the admin role', () => {
       session.admin = true;
       expect(run(adminGuard)).toBeTrue();
     });
 
-    it('redirects non-admins to /login', () => {
+    it('redirects non-admins to the denied landing', () => {
       session.admin = false;
       const result = run(adminGuard);
-      expect(result).toEqual(router.parseUrl('/login'));
+      expect(result).toEqual(denied());
     });
   });
 
@@ -83,9 +126,9 @@ describe('federation route guards', () => {
       expect(run(registeredGuard)).toBeTrue();
     });
 
-    it('redirects an unregistered user to /login', () => {
+    it('redirects an unregistered user to the denied landing', () => {
       session.registered = false;
-      expect(run(registeredGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(registeredGuard)).toEqual(denied());
     });
   });
 
@@ -95,15 +138,15 @@ describe('federation route guards', () => {
       expect(run(modGuard)).toBeTrue();
     });
 
-    it('redirects a non-moderator to /login', () => {
+    it('redirects a non-moderator to the denied landing', () => {
       session.mod = false;
-      expect(run(modGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(modGuard)).toEqual(denied());
     });
 
     it('does NOT admit an admin who lacks the mod role', () => {
       session.admin = true;
       session.mod = false;
-      expect(run(modGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(modGuard)).toEqual(denied());
     });
   });
 
@@ -114,6 +157,7 @@ describe('federation route guards', () => {
     });
 
     it('redirects an anonymous visitor to /login', () => {
+      session.sessionValue = null;
       session.user = false;
       expect(run(userGuard)).toEqual(router.parseUrl('/login'));
     });
@@ -136,18 +180,19 @@ describe('federation route guards', () => {
       expect(run(wikiGuard)).toBeTrue();
     });
 
-    it('DENIES a bare moderator WITHOUT ROLE_WIKI (redirect to /login)', () => {
+    it('DENIES a bare moderator WITHOUT ROLE_WIKI (redirect to the denied landing)', () => {
       session.mod = true;
       session.roles = ['mod'];
-      expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(wikiGuard)).toEqual(denied());
     });
 
-    it('DENIES a plain user (redirect to /login)', () => {
+    it('DENIES a plain user (redirect to the denied landing)', () => {
       session.user = true;
-      expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(wikiGuard)).toEqual(denied());
     });
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
+      session.sessionValue = null;
       expect(run(wikiGuard)).toEqual(router.parseUrl('/login'));
     });
   });
@@ -169,19 +214,20 @@ describe('federation route guards', () => {
       expect(run(tubeGuard)).toBeTrue();
     });
 
-    it('DENIES a plain user WITHOUT ROLE_TUBE (redirect to /login)', () => {
+    it('DENIES a plain user WITHOUT ROLE_TUBE (redirect to the denied landing)', () => {
       session.user = true;
       session.roles = ['user'];
-      expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(tubeGuard)).toEqual(denied());
     });
 
-    it('DENIES a bare moderator WITHOUT ROLE_TUBE (redirect to /login)', () => {
+    it('DENIES a bare moderator WITHOUT ROLE_TUBE (redirect to the denied landing)', () => {
       session.mod = true;
       session.roles = ['mod'];
-      expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(tubeGuard)).toEqual(denied());
     });
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
+      session.sessionValue = null;
       expect(run(tubeGuard)).toEqual(router.parseUrl('/login'));
     });
   });
@@ -209,19 +255,20 @@ describe('federation route guards', () => {
       expect(run(owncastGuard)).toBeTrue();
     });
 
-    it('DENIES a plain user WITHOUT ROLE_OWNCAST (redirect to /login)', () => {
+    it('DENIES a plain user WITHOUT ROLE_OWNCAST (redirect to the denied landing)', () => {
       session.user = true;
       session.roles = ['user'];
-      expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(owncastGuard)).toEqual(denied());
     });
 
-    it('DENIES a bare moderator WITHOUT ROLE_OWNCAST (redirect to /login)', () => {
+    it('DENIES a bare moderator WITHOUT ROLE_OWNCAST (redirect to the denied landing)', () => {
       session.mod = true;
       session.roles = ['mod'];
-      expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(owncastGuard)).toEqual(denied());
     });
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
+      session.sessionValue = null;
       expect(run(owncastGuard)).toEqual(router.parseUrl('/login'));
     });
   });
