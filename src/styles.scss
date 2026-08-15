@@ -99,6 +99,18 @@ body {
   overflow-wrap: anywhere;
 }
 
+// NOTE: the shell itself no longer renders a <main>. app.component.html is
+// <app-background> + header/nav + <router-outlet>, all root-level siblings.
+//
+// This rule is NOT dead, though — it is global, and the federated remotes render
+// INSIDE this document, so today it styles THEIR <main> elements (admin-ui and
+// character-studio-ui both emit one). That is a different rule than the one
+// written here: it was authored for a shell-owned element and now reaches into
+// remotes we do not control from this repo.
+//
+// Left as-is deliberately rather than deleted: removing it would change the
+// layout of every remote that emits <main>, which is a visual change that needs
+// to be checked against those remotes rather than reasoned about here.
 main {
   position: absolute;
   top: 0;
@@ -128,8 +140,11 @@ footer {
 // outlet's next sibling, so this reaches EVERY routed view — including the
 // federated remotes (Matrix, Mastodon, wiki, forum…), which we do not control from
 // here — without touching a single remote's own styles or the shell template.
-// It cannot go on `main`: <app-background> is a CHILD of main, so main's own
-// background paints UNDER the gradient (see $z-background in styles/_tokens.scss).
+// It cannot go on `main`, for two independent reasons. The shell renders no
+// <main> at all any more (see the note on the `main` rule above), so the selector
+// would reach nothing it owns — and even when it did, <app-background> sat inside
+// that element, so main's own background painted UNDER the gradient (see
+// $z-background in styles/_tokens.scss).
 router-outlet + * {
   display: block;
   position: relative;
