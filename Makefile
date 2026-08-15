@@ -10,9 +10,9 @@ SHELL := /bin/bash
 
 # Generator repo carrying the shared DAST harness (tests/pentest/run-pentest.sh)
 # and the SCA Dependency-Check job definition. Override if vendored elsewhere.
-GENERATOR_REPO   ?= https://github.com/hugmesh/snapdragon-generator.git
+GENERATOR_REPO   ?= https://github.com/hugmesh/hugmesh-generator.git
 GENERATOR_REF    ?= main
-PENTEST_HARNESS  ?= ../snapdragon-generator/tests/pentest
+PENTEST_HARNESS  ?= ../hugmesh-generator/tests/pentest
 
 # DAST target: when set, the full ZAP/probe/nuclei harness runs against it.
 DAST_TARGET_URL  ?=
@@ -51,6 +51,6 @@ pentest-dast:
 	else \
 		echo "[pentest:dast] harness not found at $(PENTEST_HARNESS)/run-pentest.sh"; \
 		echo "[pentest:dast] clone it, then re-run:"; \
-		echo "    git clone --depth 1 -b $(GENERATOR_REF) $(GENERATOR_REPO) ../snapdragon-generator"; \
+		echo "    git clone --depth 1 -b $(GENERATOR_REF) $(GENERATOR_REPO) ../hugmesh-generator"; \
 		echo "    bash $(PENTEST_HARNESS)/run-pentest.sh --env compose --scan baseline --pipeline main"; \
 	fi
