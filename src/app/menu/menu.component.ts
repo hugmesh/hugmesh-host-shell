@@ -107,11 +107,13 @@ export class MenuComponent {
     },
     {
       label: 'Mastodon', route: '/social/mastodon', testid: 'nav-mastodon', slug: 'mastodon',
+      visible: () => this.serviceListed('mastodon'),
       enabled: () => this.capabilities.installed('mastodon') && this.session.fullyRegistered(),
       disabledReason: () => this.socialDisabledReason('mastodon'),
     },
     {
       label: 'Matrix', route: '/social/matrix', testid: 'nav-matrix', slug: 'matrix',
+      visible: () => this.serviceListed('matrix'),
       enabled: () => this.capabilities.installed('matrix') && this.session.fullyRegistered(),
       disabledReason: () => this.socialDisabledReason('matrix'),
     },
@@ -123,6 +125,7 @@ export class MenuComponent {
     // authenticated-but-unregistered identity the route was written to admit.
     {
       label: 'Forum', route: '/social/forum', testid: 'nav-forum', slug: 'forum',
+      visible: () => this.serviceListed('forum'),
       enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
       disabledReason: () => this.forumDisabledReason(),
     },
@@ -156,6 +159,27 @@ export class MenuComponent {
    *  the role-gated consoles for the identities that hold their role. */
   visibleNavEntries(): readonly NavEntry[] {
     return this.navEntries.filter(e => (e.visible ? e.visible() : true));
+  }
+
+  /**
+   * Whether a SERVICE entry is listed at all (Mastodon / Matrix / Forum).
+   *
+   * <p>SIGNED OUT => not listed, so the anonymous menubar is Home ONLY. A greyed "Mastodon"
+   * sitting above a login screen advertises nothing an anonymous visitor can act on, and its
+   * own helptext ("Complete your registration to use this") is written for someone who
+   * already HAS an account. Operator report: a signed-out shell still showed the service
+   * entries.
+   *
+   * <p>SIGNED IN => listed, and the existing enabled/disabledReason treatment applies
+   * unchanged. That greying is deliberate and documented on {@link NavEntry} ("grey +
+   * EXPLAIN, never hide"): it tells a member the service exists and WHY they cannot use it
+   * yet — "not available on this deployment" vs "complete your registration" — and the
+   * second of those is precisely the prompt that lets them fix it. Hiding an uninstalled or
+   * unregistered service from a signed-in member is a REVERSAL of that decision, not an
+   * extension of this one, so it is deliberately not done here.
+   */
+  private serviceListed(_slug: string): boolean {
+    return this.session.loggedIn();
   }
 
   /** Forum's own reason: it needs ROLE_USER, not completed registration, so the
@@ -480,7 +504,7 @@ export class MenuComponent {
         if (item.route) this.router.navigateByUrl(item.route);
         break;
       case 'logout':
-        this.logout();
+        void this.logout();
         break;
     }
   }
@@ -492,13 +516,18 @@ export class MenuComponent {
     if (restoreFocus) this.profileTriggerRef?.nativeElement.focus();
   }
 
-  /** Sign out: clear the shared session then return to the authgate at '/', which
-   *  redirects anonymous users into the login remote. */
-  logout(): void {
-    this.session.clear();
+  /** Sign out: expire the SERVER session, then return to the authgate at '/', which
+   *  redirects anonymous users into the login remote.
+   *
+   *  The await is load-bearing. {@link SessionService.clear} now posts /bff/sessionOut and
+   *  waits for it, because the cookie has to be dead BEFORE we navigate — roleHomeGuard
+   *  reads the session on the way through, and a live cookie would let a re-hydrate restore
+   *  the session and route the "signed-out" user straight back into their role-home. */
+  async logout(): Promise<void> {
+    await this.session.clear();
     this.profileOpen.set(false);
     this.profileActiveIndex.set(-1);
-    this.router.navigateByUrl('/');
+    await this.router.navigateByUrl('/');
   }
 
   /** Roving-tabindex keyboard handler for the primary menubar. Arrow/Home/End
