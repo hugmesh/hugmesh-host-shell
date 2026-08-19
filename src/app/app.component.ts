@@ -10,6 +10,7 @@ import { StatusGateComponent } from './account-status/status-gate.component';
 import { NotificationToastComponent } from './notification-toast.component';
 import { NotificationToastService } from './notification-toast.service';
 import { SessionService } from './session.service';
+import { MenuBarModeService } from './menu/menu-bar-mode.service';
 
 @Component({
   selector: '[app-root]',
@@ -29,8 +30,13 @@ import { SessionService } from './session.service';
 })
 export class AppComponent implements OnDestroy {
   private readonly doc = inject(DOCUMENT);
-  private readonly session = inject(SessionService);
+  protected readonly session = inject(SessionService);
   private readonly notificationToastService = inject(NotificationToastService);
+  /** The menubar-mode pick (static vs auto — issue #19). The switch lives HERE,
+   *  in the always-present floating chrome, NOT in the bar it hides: a control
+   *  that hides its own container would strand the user with no way back the
+   *  moment it worked. */
+  protected readonly menuBarMode = inject(MenuBarModeService);
 
   constructor() {
     effect(() => {

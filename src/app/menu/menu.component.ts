@@ -12,7 +12,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { filter } from 'rxjs';
 
@@ -22,6 +22,8 @@ import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { accessibleName } from '../accessible-name';
 import { BellNotificationsService } from '../bell/bell-notifications.service';
 import { ViewReloadService } from '../view-reload.service';
+import { AnnouncementsService } from '../announcements/announcements.service';
+import { MenuBarModeService } from './menu-bar-mode.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -101,6 +103,21 @@ export class MenuComponent {
    *  (polling is stopped and the BehaviorSubject is reset by stopPolling()). */
   readonly unreadCount$ = this.bellNotifications.unreadCount$;
 
+  /** The visitor's menubar mode: 'static' (always shown, default) vs 'auto'
+   *  (content-earned + dismissable). Public — the template gates on it. */
+  readonly barMode = inject(MenuBarModeService);
+
+  /** Active home announcements (shared root instance — the same list the home
+   *  banner renders). In auto mode their PRESENCE is half of what earns the bar
+   *  its screen space. */
+  private readonly announcements = inject(AnnouncementsService);
+
+  /** The unread count as a signal, so barVisible() can compose it with the other
+   *  signals. Same source as the badge's async-piped unreadCount$ above. */
+  private readonly unreadCount = toSignal(this.bellNotifications.unreadCount$, {
+    initialValue: 0,
+  });
+
   /** The URL the outlet is currently showing (seeded with the router's current
    *  url, then NavigationEnd-fed). Drives the login-page chrome gate below. */
   private readonly currentUrl = signal<string>(this.router.url);
@@ -117,8 +134,20 @@ export class MenuComponent {
     () => !this.session.loggedIn() && isLoginUrl(this.currentUrl()),
   );
 
-  /** Render gate for the WHOLE menubar (the template's outermost @if). */
-  readonly barVisible = computed(() => !this.loginChromeHidden());
+  /** AUTO-mode content gate: is there anything that EARNS the bar its space?
+   *  Active (non-dismissed) announcements or unread notifications. */
+  readonly hasBarContent = computed(
+    () => this.announcements.visible().length > 0 || this.unreadCount() > 0,
+  );
+
+  /** Render gate for the WHOLE menubar (the template's outermost @if).
+   *  Login-page chrome wins outright; then 'static' means always shown, and
+   *  'auto' shows the bar only while content is present and not dismissed. */
+  readonly barVisible = computed(() => {
+    if (this.loginChromeHidden()) return false;
+    if (this.barMode.mode() === 'static') return true;
+    return this.hasBarContent() && !this.barMode.dismissed();
+  });
 
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
@@ -406,6 +435,27 @@ export class MenuComponent {
     // home-services cards reuse the same fetch). Fire-and-forget: a failed/empty
     // load greys every optional service rather than breaking the shell.
     void this.capabilities.load();
+
+    // AUTO mode decides visibility from announcement PRESENCE, so it must load
+    // the shared list itself — the home banner's own load only runs when the
+    // home page renders. Static mode never fetches here (unchanged behaviour).
+    // Fire-and-forget like the capabilities load: a failed fetch means an empty
+    // list, i.e. an honest "nothing to show".
+    effect(() => {
+      if (this.barMode.mode() === 'auto' && this.session.loggedIn()) {
+        void this.announcements.load();
+      }
+    });
+
+    // Fresh content re-earns the bar: ANY change in what is present (a new
+    // announcement, the unread count moving) clears a standing dismissal. The
+    // effect tracks the COUNTS, not the boolean, so a second notification
+    // arriving while content was already present still re-reveals.
+    effect(() => {
+      const announcements = this.announcements.visible().length;
+      const unread = this.unreadCount();
+      if (announcements > 0 || unread > 0) this.barMode.reveal();
+    });
 
     this.router.events
       .pipe(

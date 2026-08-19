@@ -333,6 +333,27 @@ a {
   visibility: visible;
 }
 
+// The floating MENUBAR-MODE control (issue #19): the same icon-button + revealed
+// help idiom as the bg-toggle it sits one slot above (2.5rem button + the 1rem
+// edge inset + a 0.75rem gap). Its button/bubble reuse .bg-toggle/.bg-toggle__help
+// wholesale; only the anchor point and its own hover/focus reveal live here.
+.menubar-mode-control {
+  position: fixed;
+  inset-inline-end: 1rem;
+  bottom: 4.25rem;
+  z-index: t.$z-overlay;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.menubar-mode-control:hover .bg-toggle__help,
+.menubar-mode-control:focus-within .bg-toggle__help {
+  opacity: 1;
+  visibility: visible;
+}
+
 // prefers-contrast / forced colors: keep the help readable with a solid backdrop.
 @media (prefers-contrast: more) {
   .bg-toggle__help {

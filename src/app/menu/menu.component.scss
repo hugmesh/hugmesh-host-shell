@@ -110,17 +110,20 @@ nav.navbar {
   }
 }
 
-// Icon-only chrome controls (reload + notification bell). ONE rule for both so
-// they read as a single set rather than two unrelated affordances — and so this
-// already-over-budget stylesheet does not carry the geometry twice.
+// Icon-only chrome controls (reload + notification bell + the auto-mode
+// dismiss). ONE rule for all so they read as a single set rather than
+// unrelated affordances — and so this already-over-budget stylesheet does not
+// carry the geometry twice.
 .reload-nav-item,
-.bell-nav-item {
+.bell-nav-item,
+.dismiss-nav-item {
   display: flex;
   align-items: center;
 }
 
 .reload-btn,
-.bell-btn {
+.bell-btn,
+.menubar-dismiss {
   position: relative;
   background: none;
   border: none;
