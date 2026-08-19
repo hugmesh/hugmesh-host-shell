@@ -103,4 +103,41 @@ describe('AppComponent', () => {
     const skip = el.querySelector('a.skip') as HTMLAnchorElement;
     expect(skip?.getAttribute('href')).toBe('#maincontent');
   });
+
+  // ── Sticky footer (issue #19): flex column min-height pattern ──────────────
+  describe('sticky footer', () => {
+    it('lays the shell out as a min-viewport-height flex column', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const cs = getComputedStyle(host);
+      expect(cs.display).withContext('shell root is a flex container').toBe('flex');
+      expect(cs.flexDirection).withContext('stacked as a column').toBe('column');
+      // min-height resolves to at least one viewport (100vh / 100dvh where supported).
+      expect(parseFloat(cs.minHeight))
+        .withContext('shell must always fill the viewport')
+        .toBeGreaterThanOrEqual(document.documentElement.clientHeight - 1);
+    });
+
+    it('pins the footer to the bottom edge of the shell when content is short', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const footer = host.querySelector('footer') as HTMLElement;
+      expect(footer).withContext('footer must be present').toBeTruthy();
+
+      // The routed outlet renders nothing here (no routes), so content is SHORT:
+      // the footer's auto block-start margin must have absorbed the free space,
+      // leaving the footer at the shell's bottom edge (within its own 1rem
+      // bottom margin) instead of hovering right under the menu.
+      const hostRect = host.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      expect(hostRect.height)
+        .withContext('shell is at least a viewport tall even with short content')
+        .toBeGreaterThanOrEqual(document.documentElement.clientHeight - 1);
+      expect(hostRect.bottom - footerRect.bottom)
+        .withContext('footer sits at the viewport-bottom end of the shell')
+        .toBeLessThanOrEqual(40);
+    });
+  });
 });
