@@ -67,6 +67,14 @@ interface ProfileMenuItem {
   help: string;
 }
 
+/** True when the given router URL is the LOGIN remote — '/login' itself or any of
+ *  its child/query/fragment forms ('/login/appeal', '/login?next=…'). String-based
+ *  on the NavigationEnd url (not route data) because the login mount is a
+ *  federated remote whose child routes this host cannot enumerate. */
+function isLoginUrl(url: string): boolean {
+  return url === '/login' || /^\/login[/?#]/.test(url);
+}
+
 @Component({
   selector: '[menu]',
   imports: [RouterLink, RouterLinkActive, AsyncPipe],
@@ -92,6 +100,25 @@ export class MenuComponent {
   /** Unread notification count — drives the bell badge. Emits 0 when unauthenticated
    *  (polling is stopped and the BehaviorSubject is reset by stopPolling()). */
   readonly unreadCount$ = this.bellNotifications.unreadCount$;
+
+  /** The URL the outlet is currently showing (seeded with the router's current
+   *  url, then NavigationEnd-fed). Drives the login-page chrome gate below. */
+  private readonly currentUrl = signal<string>(this.router.url);
+
+  /** LOGIN-PAGE CHROME GATE (operator requirement, issue #19): while the LOGIN
+   *  remote is what the outlet shows AND nobody is signed in, the menubar has
+   *  nothing to offer — 'Home' leads straight back to the authgate that put the
+   *  visitor here, and 'Sign in' points at the page already on screen. So the
+   *  bar hides ENTIRELY (no Home-only stub). It comes back the moment the
+   *  session signal flips (login-ui broadcasts, SessionService re-hydrates) —
+   *  no navigation needed — and anonymous visitors on the PUBLIC pages
+   *  (/home, /about) keep their Home + Sign-in bar unchanged. */
+  readonly loginChromeHidden = computed(
+    () => !this.session.loggedIn() && isLoginUrl(this.currentUrl()),
+  );
+
+  /** Render gate for the WHOLE menubar (the template's outermost @if). */
+  readonly barVisible = computed(() => !this.loginChromeHidden());
 
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
@@ -385,7 +412,9 @@ export class MenuComponent {
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
         takeUntilDestroyed(destroyRef),
       )
-      .subscribe(() => {
+      .subscribe((e) => {
+        // Track where the outlet now points (login-page chrome gate input).
+        this.currentUrl.set(e.urlAfterRedirects ?? e.url);
         // Close the profile menu on navigation, then focus the routed content.
         this.profileOpen.set(false);
         this.profileActiveIndex.set(-1);
