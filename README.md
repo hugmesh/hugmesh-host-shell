@@ -149,9 +149,11 @@ manifest's gateway-served remote paths bind as intended.
 ## What it is
 
 - **Stack:** Angular 22 standalone components + signals, `@angular-architects/native-federation`
-  (`@softarc/native-federation-node`), Bootstrap 5, Vanta background. Built to a
-  static bundle and served by nginx (`Dockerfile`, `nginx.conf`) or by the tiny
-  Express fallback (`server.js`).
+  (`@softarc/native-federation-node`), Bootstrap 5, and a theme-driven animated
+  CSS-gradient backdrop (`src/app/background/` — pure CSS, no WebGL; it reads
+  the runtime `--sd-*` theme tokens and falls back to the shipped pastels).
+  Built to a static bundle and served by nginx (`Dockerfile`, `nginx.conf`) or
+  by the tiny Express fallback (`server.js`).
 - **Role:** the federation **host/consumer** only. `federation.config.js` (via
   the shared `federation-base.js` helper) declares the host with **no `exposes`
   block** — it solely `loadRemoteModule(...)`s the remotes named in
