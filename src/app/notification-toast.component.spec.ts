@@ -68,9 +68,16 @@ describe('NotificationToastComponent — placement', () => {
     // Pure style recomputation: no detectChanges needed, nothing in the
     // component reacts to direction — that is the point of logical properties.
     const rect = region.getBoundingClientRect();
+    // Under rtl Chrome moves a classic scrollbar to the LEFT, which shifts the
+    // layout viewport's left edge by the scrollbar width when the suite's other
+    // fixtures make the page scroll — so allow [offset, offset + scrollbar].
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
     expect(rect.left)
       .withContext('inset-inline-end resolves to the left edge under rtl')
-      .toBeCloseTo(edgeOffsetPx(), 0);
+      .toBeGreaterThanOrEqual(edgeOffsetPx() - 1);
+    expect(rect.left)
+      .withContext('…at the viewport edge, give or take a left-side scrollbar')
+      .toBeLessThanOrEqual(edgeOffsetPx() + scrollbar + 1);
   });
 
   it('renders each toast with its title and body', () => {
