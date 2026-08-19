@@ -1,3 +1,8 @@
+<!-- LOGIN-PAGE CHROME GATE: the whole bar unmounts while the login remote is on
+     screen with nobody signed in (see MenuComponent.barVisible). The component
+     itself STAYS mounted so the session/bell effects keep watching for the login
+     that brings the bar back. -->
+@if (barVisible()) {
 <nav class="navbar navbar-expand-lg navbar-dark" aria-label="Main navigation">
   <button
     class="navbar-toggler"
@@ -231,5 +236,49 @@
         </li>
       }
     </ul>
+
+    <!-- AUTO-mode dismiss (issue #19): in 'auto' the bar only rendered because
+         announcements/notifications are present, so it carries the control that
+         sends it away again. Dismissal is "not right now" — fresh content (or a
+         reload, or switching modes) brings the bar back. Static mode never
+         renders this: an always-on bar must not offer a close box that fresh
+         content would silently override. -->
+    @if (barMode.mode() === 'auto') {
+      <div class="nav-item dismiss-nav-item">
+        <button
+          class="menubar-dismiss"
+          type="button"
+          data-testid="menubar-dismiss"
+          aria-label="Hide the menu bar"
+          aria-describedby="menubar-dismiss-help"
+          (click)="barMode.dismiss()"
+        >
+          <!-- X SVG (22x22, outline style, matching the reload/bell icon set). -->
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 6 6 18"/>
+            <path d="m6 6 12 12"/>
+          </svg>
+        </button>
+        <!-- VISIBLE help (the .field-help idiom the reload button uses) so BOTH
+             sighted and screen-reader users know the bar returns on its own. -->
+        <span
+          id="menubar-dismiss-help"
+          class="field-help menubar-dismiss__help"
+          data-testid="menubar-dismiss-help"
+        >Hide the menu bar until new announcements or notifications arrive.</span>
+      </div>
+    }
   </div>
 </nav>
+}

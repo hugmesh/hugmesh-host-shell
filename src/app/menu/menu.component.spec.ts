@@ -640,3 +640,96 @@ describe('MenuComponent — bell icon', () => {
     expect(bellStub.stopPolling).toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Login-page chrome gate (issue #19) — isolated describe block with its own
+// TestBed so the REAL router navigation it drives does not leak into the
+// suites above. While the login remote is on screen and nobody is signed in,
+// the ENTIRE bar unmounts (no Home-only stub); it comes back on login without
+// any navigation, and anonymous visitors on the public pages keep their bar.
+// ---------------------------------------------------------------------------
+
+describe('MenuComponent — login-page chrome gate', () => {
+  let fixture: ComponentFixture<MenuComponent>;
+  let stub: SessionStub;
+  let router: Router;
+
+  beforeEach(async () => {
+    stub = new SessionStub();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MenuComponent],
+      providers: [
+        // Componentless, childless routes: the specs only need NavigationEnd to
+        // fire with the right URL — nothing renders (the menu sits OUTSIDE the
+        // router-outlet in the real shell too).
+        provideRouter([
+          { path: 'login', children: [] },
+          { path: 'login/appeal', children: [] },
+          { path: 'home', children: [] },
+        ]),
+        { provide: SessionService, useValue: stub },
+        { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+        { provide: BellNotificationsService, useValue: new BellNotificationsServiceStub() },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MenuComponent);
+    router = TestBed.inject(Router);
+    fixture.detectChanges();
+  });
+
+  function navbar(): HTMLElement | null {
+    return (fixture.nativeElement as HTMLElement).querySelector('nav.navbar');
+  }
+
+  it('hides the WHOLE bar (not a Home-only stub) on /login while signed out', async () => {
+    stub.loggedIn.set(false);
+    stub.session.set(null);
+    await router.navigateByUrl('/login');
+    fixture.detectChanges();
+    expect(navbar()).withContext('no menubar over the login screen').toBeNull();
+    // Truly nothing of the bar remains — no nav entries, no Sign-in link.
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="nav-home"]')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="nav-login"]')).toBeNull();
+  });
+
+  it('hides the bar on the login remote CHILD routes too (/login/appeal)', async () => {
+    stub.loggedIn.set(false);
+    stub.session.set(null);
+    await router.navigateByUrl('/login/appeal');
+    fixture.detectChanges();
+    expect(navbar()).toBeNull();
+  });
+
+  it('brings the bar back the moment the session flips to logged-in — no navigation needed', async () => {
+    stub.loggedIn.set(false);
+    stub.session.set(null);
+    await router.navigateByUrl('/login');
+    fixture.detectChanges();
+    expect(navbar()).withContext('hidden while signed out on /login').toBeNull();
+
+    stub.loggedIn.set(true);
+    stub.session.set({ label: 'alice' });
+    fixture.detectChanges();
+    expect(navbar()).withContext('menu must come back after login').toBeTruthy();
+  });
+
+  it('keeps the anonymous Home + Sign-in bar on PUBLIC pages (/home)', async () => {
+    stub.loggedIn.set(false);
+    stub.session.set(null);
+    await router.navigateByUrl('/home');
+    fixture.detectChanges();
+    expect(navbar()).withContext('public pages keep the bar').toBeTruthy();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="nav-login"]'))
+      .withContext('anonymous bar still offers Sign in')
+      .toBeTruthy();
+  });
+
+  it('keeps the bar for a LOGGED-IN user even on /login', async () => {
+    stub.loggedIn.set(true);
+    await router.navigateByUrl('/login');
+    fixture.detectChanges();
+    expect(navbar()).toBeTruthy();
+  });
+});

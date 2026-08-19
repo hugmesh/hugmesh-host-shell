@@ -1,7 +1,11 @@
+// Upper-RIGHT of the screen — and upper-LEFT under RTL locales (issue #19).
+// CSS LOGICAL properties, not a JS direction switch: inset-inline-end resolves
+// to `right` when the document direction is ltr and to `left` under dir="rtl",
+// so one declaration serves every locale and follows a runtime dir flip for free.
 .toast-region {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
+  inset-block-start: 1.5rem;
+  inset-inline-end: 1.5rem;
   z-index: 200;
   display: flex;
   flex-direction: column;
@@ -19,8 +23,9 @@
   animation: hug-toast-in 0.2s ease-out;
 }
 
+// Slides DOWN into place now that the stack hangs from the top edge.
 @keyframes hug-toast-in {
-  from { opacity: 0; transform: translateY(0.5rem); }
+  from { opacity: 0; transform: translateY(-0.5rem); }
   to   { opacity: 1; transform: translateY(0); }
 }
 

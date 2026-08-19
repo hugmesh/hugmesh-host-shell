@@ -1,0 +1,22 @@
+// ── STICKY FOOTER (flex column min-height pattern, issue #19) ────────────────
+// The shell root (main[app-root] in index.html) becomes a flex COLUMN at least
+// one viewport tall. The fixed/absolute chrome (background, bg-toggle, toasts,
+// modal) is out of flow and unaffected; the in-flow children — header, menubar,
+// status gate, the routed view, footer — stack exactly as before.
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  // Dynamic-viewport units where supported, so a phone's collapsing URL bar
+  // never leaves the footer floating above (or clipped below) the fold.
+  min-height: 100dvh;
+}
+
+// The footer is the last IN-FLOW child: an auto block-start margin absorbs all
+// the free space when the routed view is short, pinning the footer to the
+// viewport bottom — and yields to normal flow (the footer's own 0.5rem gap)
+// once content is taller than the viewport. This element belongs to the app
+// template, so the scoped selector reaches it without ::ng-deep.
+footer[personal-footer] {
+  margin-block-start: auto;
+}

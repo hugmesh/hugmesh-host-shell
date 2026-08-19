@@ -330,20 +330,24 @@ describe('federation route guards', () => {
     });
   });
 
-  describe('roleHomeGuard (authgate + role-home redirect)', () => {
+  describe('roleHomeGuard (authgate + member-home redirect)', () => {
     it('redirects an anonymous visitor to /login', () => {
       session.effectiveRole = null;
       expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login'));
     });
 
-    it('redirects an admin to /admin', () => {
+    // ADMIN/MOD ARE NOT THE HOME PAGE (issue #19): the consoles are reachable
+    // from the menubar, but the default route lands EVERY signed-in identity on
+    // the member home. userGuard admits any authenticated identity, so the
+    // shared destination can never bounce a role-holder.
+    it('redirects an admin to /user — the admin console is NOT the home page', () => {
       session.effectiveRole = 'admin';
-      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/admin'));
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/user'));
     });
 
-    it('redirects a moderator to /mod', () => {
+    it('redirects a moderator to /user — the mod console is NOT the home page', () => {
       session.effectiveRole = 'mod';
-      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/mod'));
+      expect(run(roleHomeGuard)).toEqual(router.parseUrl('/user'));
     });
 
     it('redirects a plain user to /user', () => {

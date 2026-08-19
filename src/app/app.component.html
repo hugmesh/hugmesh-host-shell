@@ -40,6 +40,42 @@
       : 'Pause the moving background (helps reduce motion).' }}</span>
 </div>
 
+<!-- MENUBAR-MODE toggle (issue #19): static (always shown) vs auto (the bar
+     renders only while announcements/notifications are present, and can be
+     dismissed). Deliberately in this always-present floating chrome, one slot
+     above the animation toggle and reusing its exact button/help idiom — if it
+     sat inside the menubar, switching to auto could remove the only control
+     able to switch back. Signed-in only: the anonymous login screen has no bar
+     content for auto mode to wait for. -->
+@if (session.loggedIn()) {
+  <div class="menubar-mode-control">
+    <button
+      class="bg-toggle menubar-mode-toggle"
+      type="button"
+      data-testid="menubar-mode-toggle"
+      (click)="menuBarMode.toggleMode()"
+      [attr.aria-pressed]="menuBarMode.mode() === 'auto'"
+      aria-label="Auto-hide the menu bar"
+      aria-describedby="menubar-mode-help"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/>
+      </svg>
+    </button>
+    <!-- Same visible-help contract as the bg-toggle: always in the a11y tree via
+         aria-describedby, revealed as a bubble on hover/focus, announces the
+         state change via aria-live. -->
+    <span
+      id="menubar-mode-help"
+      class="field-help bg-toggle__help"
+      data-testid="menubar-mode-help"
+      aria-live="polite"
+    >{{ menuBarMode.mode() === 'auto'
+        ? 'Menu bar auto-hides: it appears when announcements or notifications are present. Activate to keep it always shown.'
+        : 'Menu bar is always shown. Activate to show it only when announcements or notifications are present.' }}</span>
+  </div>
+}
+
 <header personal-header></header>
 <div menu></div>
 

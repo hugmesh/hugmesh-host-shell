@@ -3,7 +3,12 @@
 
 nav.navbar {
   @include m.glass-float;
-  margin: 0.5rem auto;
+  // CHROME DENSITY (issue #19): halved block margins + halved bootstrap
+  // navbar block padding (--bs-navbar-padding-y is 0.5rem). Together with the
+  // compact header this returns roughly a third of the old chrome height to
+  // the routed content.
+  margin: 0.25rem auto;
+  padding-block: 0.25rem;
   width: fit-content;
 }
 
@@ -110,17 +115,20 @@ nav.navbar {
   }
 }
 
-// Icon-only chrome controls (reload + notification bell). ONE rule for both so
-// they read as a single set rather than two unrelated affordances — and so this
-// already-over-budget stylesheet does not carry the geometry twice.
+// Icon-only chrome controls (reload + notification bell + the auto-mode
+// dismiss). ONE rule for all so they read as a single set rather than
+// unrelated affordances — and so this already-over-budget stylesheet does not
+// carry the geometry twice.
 .reload-nav-item,
-.bell-nav-item {
+.bell-nav-item,
+.dismiss-nav-item {
   display: flex;
   align-items: center;
 }
 
 .reload-btn,
-.bell-btn {
+.bell-btn,
+.menubar-dismiss {
   position: relative;
   background: none;
   border: none;
@@ -185,8 +193,11 @@ nav.navbar {
   min-width: 5rem;
   text-align: start;
 
+  // CHROME DENSITY (issue #19): the old 10.625rem floor per entry cost the bar
+  // ~64rem across six entries and forced the collapse breakpoint early. 7rem
+  // still clears the longest label ('Moderation') with room to breathe.
   @media (min-width: #{t.$bp-md}) {
-    min-width: 10.625rem;
+    min-width: 7rem;
   }
 
   // DECORATIVE NAV SUFFIX — now a THEME OPTION, and OFF by default.
