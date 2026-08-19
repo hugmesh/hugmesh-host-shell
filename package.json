@@ -49,7 +49,7 @@
     "@nightwatch/angular": "^3.1.1",
     "@nightwatch/mobile-helper": "^2.0.0",
     "@nightwatch/schematics": "^1.2.1",
-    "@swc/core": "^1.15.47",
+    "@swc/core": "^1.16.0",
     "@types/chai": "^5.2.3",
     "@types/cucumber": "^7.0.3",
     "@types/jasmine": "^6.0.0",
