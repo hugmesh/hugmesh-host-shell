@@ -11,7 +11,7 @@ The fleet deliberately runs **two** accent families. They are not a conflict to
 
 | Tier | Where it is defined | Who uses it |
 | --- | --- | --- |
-| **Host neon gold** on near-black | `src/styles/_tokens.scss` (`$neon #ffd700`, `$neon-bright #ffe566`, `$neon-dim #cc9900`; `$black #0a0a0a`, `$charcoal #111`, `$surface #1c1c1c`, `$offwhite #e8e8e8`; six pastels for the animated backdrop) | **The host shell chrome ONLY** — the wordmark, nav, skip-link, background toggle, footer. |
+| **Host neon gold** on near-black | `src/styles/_tokens.scss` (`$neon #ffd700`, `$neon-bright #ffe566`, `$neon-dim #cc9900`; `$black #0a0a0a`, `$charcoal #111`, `$surface #1c1c1c`, `$offwhite #e8e8e8`; six pastels as the animated backdrop's **un-themed fallback** — a deploy with an injected `--sd-*` theme paints the backdrop from the theme instead, see `src/app/background/background.component.scss`) | **The host shell chrome ONLY** — the wordmark, nav, skip-link, background toggle, footer. |
 | **Cross-repo `--hug-*` purple** (WCAG-AA/AAA) | `src/styles.scss` `:root` (`--hug-bg-0 #0a0a12`, `--hug-text #e8e8f0`, `--hug-accent #7c4dff` (bg/borders only), `--hug-accent-soft #b388ff` (accent text), …) | **Every federated remote** (matrix / mastodon / forum / admin / mod / user / wiki / tube / owncast). Remotes are chromeless under federation and reach for these vars instead of pasting hex literals. |
 
 **CANONICAL RULE:** gold = host chrome only; every remote styles exclusively with
