@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+      - name: Theme-token contract gate
+        run: npm run-script check:theme-tokens
       - name: npm install and coverage
         run: |
           npm install

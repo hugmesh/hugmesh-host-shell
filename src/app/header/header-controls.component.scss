@@ -38,8 +38,8 @@
 .bg-toggle {
   position: static;
   flex: 0 0 auto;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.8);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.3);
+  background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.8);
+  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.3);
   border-radius: 50%;
   width: 2.25rem;
   height: 2.25rem;
@@ -52,13 +52,13 @@
 
   &:hover,
   &:focus-visible {
-    box-shadow: 0 0 10px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.5);
-    outline: 2px solid var(--sd-primary, #{t.$neon});
+    box-shadow: 0 0 10px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.5);
+    outline: 2px solid var(--hug-primary, #{t.$neon});
     outline-offset: 2px;
   }
 
   svg {
-    fill: var(--sd-primary, #{t.$neon});
+    fill: var(--hug-primary, #{t.$neon});
     width: 1rem;
     height: 1rem;
   }

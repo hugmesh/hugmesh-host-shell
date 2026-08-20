@@ -29,6 +29,11 @@ $font-family-base:           t.$font-sans;
 // bootstrap $variables: several of those feed Sass colour maths or data-URI
 // SVGs (e.g. $form-select-indicator-color), where a var() string breaks the
 // build or the emitted asset. Must sit AFTER the import to win the cascade.
+//
+// These two stay on --sd-* while the rest of the shell chrome moved to --hug-*:
+// --hug-bg-0/--hug-text are DEFINED in the :root block below with different
+// compiled literals (#0a0a12/#e8e8f0 vs $black/$offwhite), so reading them here
+// would change un-themed rendering. See the PREFIX DOCTRINE note there.
 body {
   background-color: var(--sd-bg-0, #{t.$black});
   color: var(--sd-text, #{t.$offwhite});
@@ -79,6 +84,33 @@ a {
  * back to the shipped literal — so ONE injected theme re-skins every --hug-*
  * consumer (shell chrome help text AND remotes), while an un-themed deploy
  * renders byte-identically. */
+/* ── PREFIX DOCTRINE: which prefix a chrome rule may read ─────────────────────
+ * The generator emits EVERY --sd-* token a second time under --hug-* (theme.py
+ * css_root's runtime-contract bridge — a verified 48/48 twin table), so on the
+ * wire the two prefixes are indistinguishable. The prefix therefore only
+ * decides what a rule renders UN-THEMED, and that splits the shell's chrome
+ * reads in two:
+ *
+ *   - A token this :root block does NOT define (--hug-primary, --hug-charcoal,
+ *     --hug-light, --hug-primary-soft, every --hug-*-rgb, ...) is undefined
+ *     un-themed, so a --hug-* read reaches exactly the literal fallback its
+ *     --sd-* spelling reached. Those reads are on --hug-* now: one prefix, no
+ *     split brain, and a theme that sets only the --hug-* contract still
+ *     reaches them.
+ *
+ *   - A token this :root block DOES define (the ten below) is NEVER undefined
+ *     anywhere in the document, so such a read can never fall through to its
+ *     OWN literal — it inherits this block's value instead. The two literals
+ *     differ on purpose: --hug-accent-soft is #b388ff here while the link and
+ *     focus-ring rules fall back to the brand gold/white, and --hug-bg-0 /
+ *     --hug-text carry the WCAG-audited #0a0a12 / #e8e8f0 rather than
+ *     $black / $offwhite. Swapping the prefix there would silently repaint an
+ *     un-themed deploy (gold links to purple, most visibly), so those reads
+ *     deliberately stay on --sd-*. Moving them is a palette decision, not a
+ *     rename — it belongs in its own change with its own screenshots.
+ *
+ * scripts/check-theme-token-contract.sh enforces both halves.
+ * ─────────────────────────────────────────────────────────────────────────── */
 :root {
   --hug-bg-0:        var(--sd-bg-0, #0a0a12); /* shell + login backdrop */
   --hug-bg-1:        var(--sd-bg-1, #12121e); /* cards, panels */
@@ -229,10 +261,10 @@ h2 {
     width: auto;
     height: auto;
     padding: 0.6rem 1.2rem;
-    background: var(--sd-charcoal, #{t.$charcoal});
+    background: var(--hug-charcoal, #{t.$charcoal});
     font-size: 1rem;
     font-weight: 700;
-    border: 2px solid var(--sd-primary, #{t.$neon});
+    border: 2px solid var(--hug-primary, #{t.$neon});
     border-radius: t.$radius-sm;
     outline: none;
     clip: auto;
@@ -353,8 +385,8 @@ a {
   max-width: min(18rem, 70vw);
   margin-top: 0;
   padding: 0.4rem 0.6rem;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
+  background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.95);
+  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.4);
   border-radius: 0.375rem;
   color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   opacity: 0;
