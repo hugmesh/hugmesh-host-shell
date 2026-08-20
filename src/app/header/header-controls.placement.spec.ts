@@ -219,6 +219,51 @@ describe('Shell chrome placement — the named controls live in the header, once
     el.style.width = '';
   });
 
+  it('paints the banner ABOVE the menubar, so its popups are not buried by the bar', () => {
+    // Found by measuring the built shell: the user menu's dropdown hangs BELOW
+    // the banner's own box and lands on top of `[menu]`, which styles.scss gives
+    // `position: relative; z-index: $z-nav`. The banner only had $z-content, so
+    // the first ~80px of the open dropdown was painted over and un-clickable.
+    // Matching $z-nav is NOT a fix either: at an equal z-index the later element
+    // in tree order wins, and `[menu]` comes after the header. Strictly greater
+    // is the contract.
+    const menu = el.querySelector<HTMLElement>('#menu')!;
+    expect(menu).withContext('the menubar host must be rendered').toBeTruthy();
+    const menuCs = getComputedStyle(menu);
+    expect(menuCs.position)
+      .withContext('premise: the bar is positioned, so it competes on z-index at all')
+      .not.toBe('static');
+
+    const bannerZ = Number(getComputedStyle(header()).zIndex);
+    const menuZ = Number(menuCs.zIndex);
+    expect(Number.isFinite(bannerZ))
+      .withContext('the banner must declare a z-index, not inherit auto')
+      .toBeTrue();
+    expect(bannerZ)
+      .withContext(`banner z-index ${bannerZ} must outrank the menubar's ${menuZ}`)
+      .toBeGreaterThan(menuZ);
+  });
+
+  it('hangs the open user menu over the bar rather than tucking it above', () => {
+    // The geometric half of the same defect: the dropdown genuinely extends past
+    // the banner and into the bar's box, which is why the paint order above is
+    // load-bearing rather than theoretical. (A hit test at that band was tried
+    // and dropped: it needs the shell pinned into the viewport, and karma keeps
+    // every fixture in one shared document, which made it order-dependent. The
+    // real overlap was confirmed with a browser probe against the built page.)
+    const trigger = header().querySelector<HTMLButtonElement>('[data-testid="profile-trigger"]')!;
+    trigger.click();
+    fixture.detectChanges();
+
+    const list = el.querySelector<HTMLElement>('#profile-menu-list');
+    expect(list).withContext('the dropdown must open').toBeTruthy();
+    const listRect = list!.getBoundingClientRect();
+    const menuRect = el.querySelector<HTMLElement>('#menu')!.getBoundingClientRect();
+    expect(Math.min(listRect.bottom, menuRect.bottom))
+      .withContext('the dropdown overlaps the bar, so the two compete on z-index')
+      .toBeGreaterThan(Math.max(listRect.top, menuRect.top));
+  });
+
   it('keeps every a11y contract the controls carried in their old homes', () => {
     const h = header();
     const bg = h.querySelector<HTMLButtonElement>('[data-testid="bg-toggle"]')!;

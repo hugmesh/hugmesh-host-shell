@@ -108,6 +108,14 @@ describe('MenuComponent — chrome help bubbles are revealed, not resident', () 
     expandCollapse();
   });
 
+  // The menubar mode PERSISTS to localStorage, so a spec that leaves it on
+  // 'auto' hands the next FILE a bar that only renders when content is present
+  // — and jasmine randomises file order, so the victims move around. Observed as
+  // "Expected null to be truthy" storms in menu.component.spec's menubar and
+  // login-gate suites roughly one run in three. Every other spec that touches
+  // the mode already cleans up here; this one set 'auto' and did not.
+  afterEach(() => localStorage.removeItem(MENU_BAR_MODE_KEY));
+
   /**
    * The bar's contents live inside bootstrap's `.collapse.navbar-collapse`,
    * which is `display: none` below the `lg` breakpoint — and the karma iframe is

@@ -76,12 +76,41 @@ describe('HeaderComponent', () => {
       .toBeTruthy();
   });
 
-  it('lays the banner out so the controls can sit at the inline end without covering the title', () => {
-    const cs = getComputedStyle(fixture.nativeElement as HTMLElement);
-    expect(cs.display).withContext('banner is a flex row').toBe('flex');
-    expect(cs.flexWrap)
-      .withContext('controls must WRAP below the wordmark rather than overlap it when narrow')
-      .toBe('wrap');
+  it('mirrors the controls with an empty gutter so the wordmark is TRULY centred', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    host.style.width = '900px';
+    fixture.detectChanges();
+
+    const bar = host.querySelector<HTMLElement>('.header__bar')!;
+    const h1 = host.querySelector<HTMLHeadingElement>('h1')!;
+    const barRect = bar.getBoundingClientRect();
+    const h1Rect = h1.getBoundingClientRect();
+
+    // The failure this pins: end-align the controls with no mirroring gutter and
+    // the "centred" title silently shifts left by half the controls' width.
+    const h1Centre = h1Rect.left + h1Rect.width / 2;
+    const barCentre = barRect.left + barRect.width / 2;
+    expect(Math.abs(h1Centre - barCentre))
+      .withContext('the wordmark must sit on the banner midpoint, not left of it')
+      .toBeLessThanOrEqual(2);
+    host.style.width = '';
+  });
+
+  it('stacks the controls under the title at narrow widths instead of squeezing them', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    // The banner is its own @container, so its OWN width decides the layout —
+    // which is what makes the stacked rendering reachable from a unit test.
+    host.style.width = '320px';
+    fixture.detectChanges();
+
+    const h1 = host.querySelector<HTMLHeadingElement>('h1')!.getBoundingClientRect();
+    const controls = host
+      .querySelector<HTMLElement>('[data-testid="header-controls"]')!
+      .getBoundingClientRect();
+    expect(controls.top)
+      .withContext('at phone width the controls take a row of their own, below the wordmark')
+      .toBeGreaterThanOrEqual(h1.bottom - 1);
+    host.style.width = '';
   });
 
   it('omits the background toggle when no backdrop was handed down', () => {
