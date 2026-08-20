@@ -30,9 +30,15 @@
   // The moving gradient reads the ACTIVE theme instead of compiled literals.
   // The theme arrives as CSS text: docker-entrypoint.d/50-snap-theme.sh writes
   // snap-theme.css from $SNAP_THEME_CSS at container start, and its
-  // `:root:root { --sd-*: ... }` block is the runtime token contract every
-  // themed surface in this shell already reads (see the --hug-* mapping in
-  // styles.scss). Consuming those tokens through var() — rather than reading
+  // `:root:root { ... }` block is the runtime token contract every themed
+  // surface in this shell already reads. The reads below are on the --hug-*
+  // half of that contract: theme.py `css_root` emits every internal --sd-*
+  // token a second time under its --hug-* twin with the SAME literal, so a
+  // themed deploy cannot tell the prefixes apart, and none of these seven
+  // tokens is defined by this repo's own :root block (styles.scss) — so
+  // un-themed they fall through to the compiled pastels exactly as the --sd-*
+  // spelling did. See the PREFIX DOCTRINE note in styles.scss.
+  // Consuming those tokens through var() — rather than reading
   // them in TypeScript the way login-ui's WebGL background must — means ZERO
   // colour maths in this repo (the 50-snap-theme.sh doctrine) and LIVE
   // updates for free: the CSS engine re-resolves var() the moment any
@@ -42,7 +48,7 @@
   //
   // Three tiers, outermost first:
   //
-  //   1. --sd-bg-gradient — the theme's DESIGNATED background wash. theme.py's
+  //   1. --hug-bg-gradient — the theme's DESIGNATED background wash. theme.py's
   //      palette_tokens() builds it from the operator's extended palette (for
   //      the flag presets: the flag's own stripes), already mixed toward the
   //      theme's bg-0 so it composes with the theme's text ramp. Every preset
@@ -53,7 +59,7 @@
   //      the wash is composed from the brand ramp itself: bright and soft
   //      variants first (the pastel register of the shipped default), the raw
   //      brand pair in the middle. Each stop falls back INDEPENDENTLY, the
-  //      same per-token contract the --hug-* block in styles.scss uses.
+  //      same per-token contract the :root block in styles.scss uses.
   //
   //   3. The compiled pastels (_tokens.scss) — an un-themed deploy serves a
   //      zero-byte snap-theme.css by design, every var() falls through, and
@@ -67,16 +73,16 @@
   // The first stop is repeated last, as the shipped gradient always did, so
   // the 400%-sized ping-pong sweep has no visible seam at either end.
   background: var(
-    --sd-bg-gradient,
+    --hug-bg-gradient,
     linear-gradient(
       -45deg,
-      var(--sd-primary-bright, t.$pastel-rose),
-      var(--sd-secondary-bright, t.$pastel-lavender),
-      var(--sd-primary-soft, t.$pastel-sky),
-      var(--sd-secondary-soft, t.$pastel-mint),
-      var(--sd-primary, t.$pastel-lemon),
-      var(--sd-secondary, t.$pastel-peach),
-      var(--sd-primary-bright, t.$pastel-rose)
+      var(--hug-primary-bright, t.$pastel-rose),
+      var(--hug-secondary-bright, t.$pastel-lavender),
+      var(--hug-primary-soft, t.$pastel-sky),
+      var(--hug-secondary-soft, t.$pastel-mint),
+      var(--hug-primary, t.$pastel-lemon),
+      var(--hug-secondary, t.$pastel-peach),
+      var(--hug-primary-bright, t.$pastel-rose)
     )
   );
   background-size: 400% 400%;

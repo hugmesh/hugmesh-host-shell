@@ -6,9 +6,17 @@ import { BackgroundComponent } from './background.component';
  * Theme -> background colour derivation (issue #19).
  *
  * The moving gradient must take its colours from the ACTIVE theme — the
- * runtime `--sd-*` custom properties that docker-entrypoint.d/50-snap-theme.sh
+ * runtime `--hug-*` custom properties that docker-entrypoint.d/50-snap-theme.sh
  * injects as snap-theme.css — and it must do so LIVE, with no reload and no
  * change-detection pass, because the derivation is pure CSS var() resolution.
+ *
+ * PREFIX: these drive `--hug-*`, which is what background.component.scss reads.
+ * theme.py `css_root` emits every internal `--sd-*` token a second time under
+ * its `--hug-*` twin with the same literal, so an injected theme always carries
+ * both and driving either prefix exercises the same wire; `--hug-*` is the one
+ * the sheet actually resolves. None of these seven is defined by this repo's
+ * own :root block, so un-themed they still fall through to the compiled pastels
+ * — which is what the "un-themed deploy" specs below pin.
  *
  * These specs drive the same mechanism the runtime uses: a custom property on
  * `document.documentElement` (`:root`) is exactly where the injected
@@ -24,13 +32,13 @@ describe('BackgroundComponent theme derivation', () => {
 
   /** Every token a spec below may set; cleared after each spec so nothing leaks. */
   const THEME_TOKENS = [
-    '--sd-bg-gradient',
-    '--sd-primary',
-    '--sd-primary-bright',
-    '--sd-primary-soft',
-    '--sd-secondary',
-    '--sd-secondary-bright',
-    '--sd-secondary-soft',
+    '--hug-bg-gradient',
+    '--hug-primary',
+    '--hug-primary-bright',
+    '--hug-primary-soft',
+    '--hug-secondary',
+    '--hug-secondary-bright',
+    '--hug-secondary-soft',
   ] as const;
 
   /** The compiled pastel fallbacks (src/styles/_tokens.scss), rgb-serialised. */
@@ -90,10 +98,10 @@ describe('BackgroundComponent theme derivation', () => {
     });
   });
 
-  describe("tier 1 — the theme's designated wash (--sd-bg-gradient)", () => {
+  describe("tier 1 — the theme's designated wash (--hug-bg-gradient)", () => {
     it('IS the background when the theme provides it', () => {
       setToken(
-        '--sd-bg-gradient',
+        '--hug-bg-gradient',
         'linear-gradient(135deg, rgb(1, 2, 3) 0%, rgb(4, 5, 6) 100%)',
       );
       const bg = backgroundImage();
@@ -105,9 +113,9 @@ describe('BackgroundComponent theme derivation', () => {
     });
 
     it('wins over the brand-ramp tokens when both are present', () => {
-      setToken('--sd-primary-bright', '#070809');
+      setToken('--hug-primary-bright', '#070809');
       setToken(
-        '--sd-bg-gradient',
+        '--hug-bg-gradient',
         'linear-gradient(135deg, rgb(1, 2, 3) 0%, rgb(4, 5, 6) 100%)',
       );
       const bg = backgroundImage();
@@ -120,12 +128,12 @@ describe('BackgroundComponent theme derivation', () => {
 
   describe('tier 2 — brand-ramp stops for a hand-typed theme with no wash token', () => {
     it('builds every stop from the theme brand ramp', () => {
-      setToken('--sd-primary-bright', '#010203');
-      setToken('--sd-secondary-bright', '#040506');
-      setToken('--sd-primary-soft', '#070809');
-      setToken('--sd-secondary-soft', '#0a0b0c');
-      setToken('--sd-primary', '#0d0e0f');
-      setToken('--sd-secondary', '#101112');
+      setToken('--hug-primary-bright', '#010203');
+      setToken('--hug-secondary-bright', '#040506');
+      setToken('--hug-primary-soft', '#070809');
+      setToken('--hug-secondary-soft', '#0a0b0c');
+      setToken('--hug-primary', '#0d0e0f');
+      setToken('--hug-secondary', '#101112');
 
       const bg = backgroundImage();
       for (const rgb of [
@@ -146,11 +154,11 @@ describe('BackgroundComponent theme derivation', () => {
     });
 
     it('falls back PER TOKEN: a partial theme keeps pastels for the stops it does not set', () => {
-      setToken('--sd-primary', '#0d0e0f');
+      setToken('--hug-primary', '#0d0e0f');
       const bg = backgroundImage();
       expect(bg).withContext('the themed stop').toContain('rgb(13, 14, 15)');
       expect(bg)
-        .withContext('the lemon slot is the one --sd-primary replaces')
+        .withContext('the lemon slot is the one --hug-primary replaces')
         .not.toContain(PASTELS.lemon);
       expect(bg).withContext('untouched stop stays pastel').toContain(PASTELS.rose);
       expect(bg).withContext('untouched stop stays pastel').toContain(PASTELS.sky);
@@ -161,7 +169,7 @@ describe('BackgroundComponent theme derivation', () => {
     it('recolours the moment a token changes — no reload, no change-detection pass', () => {
       const before = backgroundImage();
       setToken(
-        '--sd-bg-gradient',
+        '--hug-bg-gradient',
         'linear-gradient(135deg, rgb(1, 2, 3) 0%, rgb(4, 5, 6) 100%)',
       );
       // Deliberately NO fixture.detectChanges(): resolution is the CSS
@@ -170,7 +178,7 @@ describe('BackgroundComponent theme derivation', () => {
       expect(themed).not.toBe(before);
       expect(themed).toContain('rgb(1, 2, 3)');
 
-      document.documentElement.style.removeProperty('--sd-bg-gradient');
+      document.documentElement.style.removeProperty('--hug-bg-gradient');
       expect(backgroundImage())
         .withContext('un-theming restores the shipped wash just as live')
         .toContain(PASTELS.rose);
@@ -190,7 +198,7 @@ describe('BackgroundComponent theme derivation', () => {
 
     it('keeps them when a theme wash is active', () => {
       setToken(
-        '--sd-bg-gradient',
+        '--hug-bg-gradient',
         'linear-gradient(135deg, rgb(1, 2, 3) 0%, rgb(4, 5, 6) 100%)',
       );
       const style = getComputedStyle(host);
