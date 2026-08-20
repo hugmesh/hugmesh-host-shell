@@ -39,3 +39,51 @@
   border-radius: t.$radius-page;
   display: block;
 }
+
+// ANCHORED HELP BUBBLE — the one place the shell's revealed-help idiom is spelled.
+//
+// Every icon-only (or label-only) chrome control pairs itself with a `.field-help`
+// span that is ALWAYS in the accessibility tree via aria-describedby and is
+// REVEALED visually as a floating bubble on hover/focus-within. The span is
+// `position: absolute` inside an anchor that SHRINK-WRAPS to its control — a
+// 2.5rem icon button, or a nav-link barely wider than its 7rem min-width.
+//
+// THE TRAP this mixin exists to close: an absolutely positioned box with
+// `width: auto` is sized shrink-to-fit against its AVAILABLE width — the
+// containing block's width MINUS the inset offsets — not against `max-width`.
+// Inside a 40px anchor carrying `inset-inline-end: 3rem` the available width is
+// negative, so the box collapses to its MINIMUM content width (the widest single
+// word) and paints as a 32px-wide, 657px-tall column of one-word-per-line
+// vertical text. Adding or raising `max-width` does nothing: max-width CAPS a
+// width, it never GRANTS available width.
+//
+// So the width is stated outright — size to the CONTENT, then clamp — and the
+// bubble deliberately overflows its tiny anchor. `$max-width` is per-call because
+// the bubbles hang off different anchors and want different clamps; it must stay
+// a viewport-aware clamp (min(<rem>, <vw>)) so a long string cannot run off the
+// edge of a narrow screen.
+//
+// Callers add only their own anchoring (inset-*/top/z-index) and text alignment.
+@mixin help-bubble($max-width) {
+  position: absolute;
+  width: max-content;
+  max-width: $max-width;
+
+  // A bubble, not inline help: its own opaque surface (the animated background
+  // behind it cycles through pale gradients, so inherited transparency would make
+  // this unreadable), and out of the pointer path so it can never swallow a click
+  // aimed at the control it describes.
+  margin-top: 0;
+  padding: 0.4rem 0.6rem;
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
+  border-radius: 0.375rem;
+  color: var(--hug-text); // 15.9:1 AAA on the solid bubble — not the muted .field-help grey
+  pointer-events: none;
+
+  // Hidden VISUALLY only (visibility, never display:none) so it stays laid out,
+  // stays in the accessibility tree, and the reveal cannot change its size.
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity t.$transition-base;
+}

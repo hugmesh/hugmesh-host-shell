@@ -75,22 +75,16 @@ nav.navbar {
   // Trigger help: present for assistive tech (aria-describedby) at all times, and
   // REVEALED visually as a bubble when the account button is hovered/focused so the
   // top bar stays uncluttered — never hover-ONLY (always in the a11y tree).
+  // The SAME anchored-bubble idiom as the floating bg-toggle, so it uses the same
+  // mixin — including the explicit `width: max-content`. This anchor is the <li>,
+  // which in the expanded bar shrink-wraps to its `min-width: 7rem` trigger: with
+  // an auto width the bubble would be squeezed into ~7rem of available width and
+  // stack into a tall ribbon instead of wrapping at its own 18rem clamp.
   &__help {
-    position: absolute;
+    @include m.help-bubble(min(18rem, 70vw));
     inset-inline-end: 0;
     top: calc(100% + 0.25rem);
     z-index: t.$z-nav;
-    max-width: min(18rem, 70vw);
-    margin-top: 0;
-    padding: 0.4rem 0.6rem;
-    background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-    border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-    border-radius: 0.375rem;
-    color: var(--hug-text); // 15.9:1 AAA on the solid bubble
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity t.$transition-base;
   }
 
   &:hover &__help,

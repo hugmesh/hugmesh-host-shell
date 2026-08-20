@@ -1,4 +1,5 @@
 @use 'tokens' as t;
+@use 'mixins' as m;
 
 $primary:                    t.$neon;
 $secondary:                  t.$muted;
@@ -311,20 +312,14 @@ a {
 .bg-toggle__help {
   // Visually hidden until the control is hovered/focused (see reveal below), but
   // ALWAYS present for assistive tech via the button's aria-describedby.
-  position: absolute;
+  //
+  // The shared mixin owns the SIZING: the anchor above is a 2.5rem button that
+  // shrink-wraps, so without an explicit `width: max-content` this bubble is sized
+  // against an available width of (40px - 3rem) — i.e. none — and renders as a
+  // 32px-wide, 657px-tall column of vertical text. See _mixins.scss.
+  @include m.help-bubble(min(16rem, 60vw));
   inset-inline-end: 3rem;
-  max-width: min(16rem, 60vw);
-  margin-top: 0;
-  padding: 0.4rem 0.6rem;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-  border-radius: 0.375rem;
-  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   text-align: end;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity t.$transition-base;
 }
 
 .bg-toggle-control:hover .bg-toggle__help,
