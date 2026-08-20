@@ -3,6 +3,7 @@ import {
   FEDERATION_MANIFEST_URL,
   fetchDynamicRemotes,
   resolveFederationSource,
+  resolveRemotesMap,
   toRemotesMap,
 } from './federation-bootstrap';
 
@@ -221,6 +222,64 @@ describe('federation-bootstrap', () => {
       const fetchSpy = jasmine.createSpy('fetch').and.rejectWith(new Error('offline'));
       const source = await resolveFederationSource(fetchSpy as unknown as typeof fetch);
       expect(source).toBe(environment.federationManifest);
+    });
+  });
+
+  /**
+   * resolveRemotesMap resolves the manifest all the way to a CONCRETE map. The
+   * shell defers remotes now (federation/remote-loader.ts), so it must know each
+   * name -> entryUrl pair up front in order to park it — the old "hand
+   * initFederation a URL string and let it fetch" shortcut cannot express that.
+   */
+  describe('resolveRemotesMap — always a concrete { name: url } map', () => {
+    it('returns the union directly when the dynamic manifest succeeds (no second fetch)', async () => {
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
+
+      const map = await resolveRemotesMap(fetchSpy as unknown as typeof fetch);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.calls.mostRecent().args[0]).toBe(FEDERATION_MANIFEST_URL);
+      expect(map['admin']).toBe('/admin/remoteEntry.json');
+      // The static floor is still unioned underneath.
+      expect(Object.keys(map)).toEqual(
+        jasmine.arrayContaining(Object.keys(environment.federationStaticManifest)),
+      );
+    });
+
+    it('FETCHES the static manifest itself when the dynamic read fails (the 401 case)', async () => {
+      const staticManifest = { login: '/login/remoteEntry.json', admin: '/admin/remoteEntry.json' };
+      const fetchSpy = jasmine.createSpy('fetch').and.callFake(((url: string) =>
+        Promise.resolve(url === FEDERATION_MANIFEST_URL ? status(401) : okJson(staticManifest))
+      ) as unknown as typeof fetch);
+
+      const map = await resolveRemotesMap(fetchSpy as unknown as typeof fetch);
+
+      // Exactly the fetch initFederation used to perform for us — moved, not added.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy.calls.mostRecent().args[0]).toBe(environment.federationManifest);
+      expect(map).toEqual(staticManifest);
+    });
+
+    it('boots DARK (empty map) rather than throwing when BOTH manifests fail', async () => {
+      const fetchSpy = jasmine.createSpy('fetch').and.rejectWith(new Error('offline'));
+
+      await expectAsync(
+        resolveRemotesMap(fetchSpy as unknown as typeof fetch),
+      ).toBeResolvedTo({});
+    });
+
+    it('drops non-string rows so one bad entry never poisons the map', async () => {
+      const fetchSpy = jasmine.createSpy('fetch').and.callFake(((url: string) =>
+        Promise.resolve(
+          url === FEDERATION_MANIFEST_URL
+            ? status(401)
+            : okJson({ login: '/login/remoteEntry.json', broken: null, alsoBroken: '' }),
+        )
+      ) as unknown as typeof fetch);
+
+      await expectAsync(
+        resolveRemotesMap(fetchSpy as unknown as typeof fetch),
+      ).toBeResolvedTo({ login: '/login/remoteEntry.json' });
     });
   });
 });

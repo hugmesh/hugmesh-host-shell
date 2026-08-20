@@ -182,3 +182,43 @@ export async function resolveFederationSource(
   // Fallback: the bundled static asset path (dev json / file-replaced prod json).
   return environment.federationManifest;
 }
+
+/**
+ * Resolve the manifest all the way down to a CONCRETE `{ name: entryUrl }` map.
+ *
+ * {@link resolveFederationSource} may hand back the static manifest as a URL
+ * STRING, which used to be fine because `initFederation` would fetch it itself.
+ * Now that the shell DEFERS remotes (see federation/remote-loader.ts) it needs the
+ * names up front — it can only park `admin -> /admin/remoteEntry.json` for later if
+ * it knows that pair — so the string case is resolved HERE instead. This moves the
+ * manifest fetch, it does not add one: `initFederation` is handed remotes rather
+ * than a URL, so it no longer performs the fetch this function now performs.
+ *
+ * The static manifest is a build-time asset served from the shell's own origin, so
+ * it needs no credentials and is never the 401 case the dynamic endpoint is. On ANY
+ * failure this returns an EMPTY map, which boots the shell DARK (no remotes) —
+ * precisely the graceful-degrade behaviour main.ts's swallowed `.catch` already
+ * chose over hard-failing, and preferable to a white screen.
+ */
+export async function resolveRemotesMap(
+  fetchImpl: typeof fetch = typeof fetch !== 'undefined' ? fetch : (undefined as unknown as typeof fetch),
+): Promise<RemotesMap> {
+  const source = await resolveFederationSource(fetchImpl);
+  if (typeof source !== 'string') return source;
+  if (!fetchImpl) return {};
+  try {
+    const res = await fetchImpl(source, { headers: { Accept: 'application/json' } });
+    if (!res || !res.ok) return {};
+    const body = (await res.json()) as unknown;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return {};
+    const map: RemotesMap = {};
+    for (const [name, url] of Object.entries(body as Record<string, unknown>)) {
+      // The static manifest is the flat {name: url} shape; ignore any row that is
+      // not a usable string so one bad entry never poisons the whole map.
+      if (typeof url === 'string' && url.length > 0) map[name] = url;
+    }
+    return map;
+  } catch {
+    return {}; // network / parse failure -> boot dark rather than not at all
+  }
+}
