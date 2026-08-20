@@ -287,8 +287,10 @@
        the entry itself carries routerLinkActive highlight) — mirroring the
        section menu each remote's landing page carries, so a section stays
        reachable from anywhere inside the console without a round-trip through
-       the landing. A direct child of the wrapping navbar so it lays out as a
-       full-width second row UNDER the entries instead of stretching one <li>.
+       the landing. A direct child of the navbar (rather than stretching one
+       <li>) so it can be a full-width second row UNDER the entries — which the
+       stylesheet has to BUY, because .navbar-expand-lg pins flex-wrap:nowrap
+       from 992px up; see the SECOND-ROW CONTRACT in menu.component.scss.
        Plain links, NOT role=menuitem: it is statically expanded while the
        console is active (never a popup), so the menubar's roving-tabindex/
        arrow contract does not extend into it — Tab reaches the links natively. -->
