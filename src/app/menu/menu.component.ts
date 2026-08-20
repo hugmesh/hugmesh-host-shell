@@ -50,6 +50,31 @@ interface NavEntry {
    *  The role-gated CONSOLES use this instead: a moderation console a normal
    *  member can never open is noise in their menubar, not information. */
   visible?: () => boolean;
+  /** Short descriptive sub-line for the HOME-CARD rendering of this entry (the
+   *  bar itself renders labels only). Copy matches the /home launcher catalog
+   *  (home-services.service.ts CARD_CATALOG) so the two card surfaces read
+   *  alike. Absent for Home, which never renders as a card. */
+  description?: string;
+  /** The console's SECTIONS (admin/mod only). While the entry is the ACTIVE
+   *  route, these render as a SUBMENU nested under the bar (issue #19,
+   *  2026-08-19 comment) — mirroring the section menu the remote carries on its
+   *  own landing page, so a section stays reachable from anywhere inside the
+   *  console without a round-trip through the landing. */
+  sections?: readonly NavSection[];
+}
+
+/** One section of an admin/mod console, shown in the ACTIVE-console submenu.
+ *  Mirrors the section catalog the remote's own landing menu renders (see
+ *  ADMIN_SECTIONS / MOD_SECTIONS below for the exact sync contract). */
+interface NavSection {
+  label: string;
+  route: string;
+  testid: string;
+  /** Extra visibility tier ON TOP of the parent entry's `visible` gate (the
+   *  superadmin-only admin sections). Absent = every viewer of the active
+   *  console sees it. Mirrors the remote's own menu tiering, so the submenu
+   *  never offers a section the remote's landing would hide. */
+  show?: () => boolean;
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
@@ -75,6 +100,32 @@ interface ProfileMenuItem {
  *  federated remote whose child routes this host cannot enumerate. */
 function isLoginUrl(url: string): boolean {
   return url === '/login' || /^\/login[/?#]/.test(url);
+}
+
+/** True when `url` is INSIDE `route` — the route itself or any child/query/
+ *  fragment form ('/admin', '/admin/usage', '/admin?x'). Segment-aware so
+ *  '/mod' never claims '/mode-x'. String-based on the NavigationEnd url like
+ *  {@link isLoginUrl}, because the consoles are federated remotes whose child
+ *  routes this host cannot enumerate from route data. */
+function isUrlInside(url: string, route: string): boolean {
+  if (!url.startsWith(route)) return false;
+  const next = url.charAt(route.length);
+  return next === '' || next === '/' || next === '?' || next === '#';
+}
+
+/** True when `url` is the signed-in HOME — '/user' EXACTLY (plus query/fragment
+ *  forms), the member home roleHomeGuard lands every authenticated identity on.
+ *
+ *  Deliberately NOT '/user/...' children (notifications/profile/preferences are
+ *  destinations, not the home) and NOT the host's public '/home' page: that
+ *  marketing page already carries its own full services launcher grid
+ *  (HomeServicesComponent) mid-page, and its menubar chiefly serves the
+ *  anonymous majority (Home + Sign in), who have no service entries to turn
+ *  into cards in the first place. */
+function isHomeUrl(url: string): boolean {
+  if (!url.startsWith('/user')) return false;
+  const next = url.charAt('/user'.length);
+  return next === '' || next === '?' || next === '#';
 }
 
 @Component({
@@ -140,14 +191,88 @@ export class MenuComponent {
     () => this.announcements.visible().length > 0 || this.unreadCount() > 0,
   );
 
+  /** HOME-CARDS GATE (operator requirement, issue #19 comment 2026-08-19):
+   *  while the signed-in HOME ('/user' — where roleHomeGuard lands everyone) is
+   *  what the outlet shows, the menubar hides and the SAME visible entries
+   *  render as service CARDS instead (the template's @else branch) — on home
+   *  the services ARE the navigation, so a bar repeating them is noise. Signed
+   *  in only: an anonymous visitor has no service entries to render as cards
+   *  (serviceListed gates them all on loggedIn), and hiding their bar would
+   *  strand them without the Sign-in entry. */
+  readonly homeCardsActive = computed(
+    () => this.session.loggedIn() && isHomeUrl(this.currentUrl()),
+  );
+
   /** Render gate for the WHOLE menubar (the template's outermost @if).
-   *  Login-page chrome wins outright; then 'static' means always shown, and
-   *  'auto' shows the bar only while content is present and not dismissed. */
+   *  Login-page chrome wins outright; then the home page swaps the bar for the
+   *  service cards; then 'static' means always shown, and 'auto' shows the bar
+   *  only while content is present and not dismissed. */
   readonly barVisible = computed(() => {
     if (this.loginChromeHidden()) return false;
+    if (this.homeCardsActive()) return false;
     if (this.barMode.mode() === 'static') return true;
     return this.hasBarContent() && !this.barMode.dismissed();
   });
+
+  /** ADMIN console sections (issue #19: sections render as a SUBMENU while the
+   *  console is active). MIRRORS hugmesh-admin-ui AdminComponent.allMenu — the
+   *  section menu the remote's own landing page renders — labels and paths
+   *  verbatim, keep the two in sync. Tier mapping:
+   *   - `superadminOnly` items -> show: isSuperadmin (same predicate);
+   *   - `fleetOnly` ('My fleet', tier fleet_admin/admin/superadmin): NO gate —
+   *     this submenu only renders inside /admin, whose adminGuard viewers
+   *     (role 'admin') all satisfy the fleet tier already;
+   *   - the HIDDEN tier ('Workload console') is deliberately ABSENT: the remote
+   *     surfaces it only after a server-confirmed capability probe (404 = stays
+   *     dark), and this host must never reveal a dark feature from a static list.
+   *  PLUS the host's own /admin/docs mount (the admin-only API-docs remote — a
+   *  section of the admin surface from the host's perspective, same route the
+   *  profile dropdown's 'API docs' entry uses). */
+  private readonly adminSections: readonly NavSection[] = [
+    { label: 'Usage analytics', route: '/admin/usage', testid: 'subnav-admin-usage' },
+    { label: 'Namespace access', route: '/admin/namespaces', testid: 'subnav-admin-namespaces' },
+    { label: 'Delegation & access roles', route: '/admin/delegation', testid: 'subnav-admin-delegation' },
+    { label: 'Roles', route: '/admin/roles', testid: 'subnav-admin-roles' },
+    { label: 'Route access', route: '/admin/route-access', testid: 'subnav-admin-route-access' },
+    { label: 'Route definitions', route: '/admin/routes', testid: 'subnav-admin-routes' },
+    { label: 'ISO downloads', route: '/admin/isos', testid: 'subnav-admin-isos' },
+    { label: 'ArgoCD', route: '/admin/argocd', testid: 'subnav-admin-argocd' },
+    { label: 'Guided tasks', route: '/admin/tasks', testid: 'subnav-admin-tasks' },
+    { label: 'Backup', route: '/admin/backup', testid: 'subnav-admin-backup' },
+    { label: 'Recovery', route: '/admin/recovery', testid: 'subnav-admin-recovery' },
+    { label: 'Backups history', route: '/admin/backups', testid: 'subnav-admin-backups' },
+    { label: 'Cloud backups', route: '/admin/cloud-backups', testid: 'subnav-admin-cloud-backups' },
+    { label: 'Announcements', route: '/admin/announcements', testid: 'subnav-admin-announcements' },
+    { label: 'Themes', route: '/admin/themes', testid: 'subnav-admin-themes' },
+    { label: 'Test reports', route: '/admin/test-reports', testid: 'subnav-admin-test-reports' },
+    { label: 'Image generation', route: '/admin/image-gen', testid: 'subnav-admin-image-gen' },
+    { label: 'Forum admin', route: '/admin/forum', testid: 'subnav-admin-forum' },
+    { label: 'Appeals', route: '/admin/appeals', testid: 'subnav-admin-appeals' },
+    { label: 'Account appeals', route: '/admin/account-appeals', testid: 'subnav-admin-account-appeals' },
+    { label: 'Security (2FA)', route: '/admin/security', testid: 'subnav-admin-security' },
+    { label: 'Device licenses', route: '/admin/device-licenses', testid: 'subnav-admin-device-licenses', show: () => this.session.isSuperadmin() },
+    { label: 'Pending devices', route: '/admin/device-pending', testid: 'subnav-admin-device-pending', show: () => this.session.isSuperadmin() },
+    { label: 'Phone fleet', route: '/admin/phone-fleet', testid: 'subnav-admin-phone-fleet', show: () => this.session.isSuperadmin() },
+    { label: 'My fleet', route: '/admin/my-fleet', testid: 'subnav-admin-my-fleet' },
+    { label: 'Fleet entitlements', route: '/admin/fleet-entitlements', testid: 'subnav-admin-fleet-entitlements', show: () => this.session.isSuperadmin() },
+    { label: 'Node storage', route: '/admin/node-storage', testid: 'subnav-admin-node-storage' },
+    { label: 'Device radios', route: '/admin/device-radios', testid: 'subnav-admin-device-radios' },
+    { label: 'Domain capabilities', route: '/admin/domain-capabilities', testid: 'subnav-admin-domain-capabilities' },
+    { label: 'Desktop governance', route: '/admin/desktop', testid: 'subnav-admin-desktop' },
+    { label: 'Egress VPN', route: '/admin/egress-vpn', testid: 'subnav-admin-egress-vpn', show: () => this.session.isSuperadmin() },
+    { label: 'Domains', route: '/admin/superadmin/domains', testid: 'subnav-admin-domains', show: () => this.session.isSuperadmin() },
+    // Host mount, not an AdminComponent.allMenu row (see the doc above).
+    { label: 'API docs', route: '/admin/docs', testid: 'subnav-admin-docs' },
+  ];
+
+  /** MODERATION console sections. MIRRORS hugmesh-mod-ui MOD_ROUTES + the
+   *  labels ModHomeComponent's own landing cards render ('Moderation console',
+   *  'System findings') — keep in sync. Every /mod viewer (modGuard) sees both:
+   *  the remote's landing menu has no tiering. */
+  private readonly modSections: readonly NavSection[] = [
+    { label: 'Moderation console', route: '/mod/console', testid: 'subnav-mod-console' },
+    { label: 'System findings', route: '/mod/findings', testid: 'subnav-mod-findings' },
+  ];
 
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
@@ -163,12 +288,14 @@ export class MenuComponent {
     },
     {
       label: 'Mastodon', route: '/social/mastodon', testid: 'nav-mastodon', slug: 'mastodon',
+      description: 'The fediverse timeline',
       visible: () => this.serviceListed('mastodon'),
       enabled: () => this.capabilities.installed('mastodon') && this.session.fullyRegistered(),
       disabledReason: () => this.socialDisabledReason('mastodon'),
     },
     {
       label: 'Matrix', route: '/social/matrix', testid: 'nav-matrix', slug: 'matrix',
+      description: 'Secure chat',
       visible: () => this.serviceListed('matrix'),
       enabled: () => this.capabilities.installed('matrix') && this.session.fullyRegistered(),
       disabledReason: () => this.socialDisabledReason('matrix'),
@@ -181,6 +308,7 @@ export class MenuComponent {
     // authenticated-but-unregistered identity the route was written to admit.
     {
       label: 'Forum', route: '/social/forum', testid: 'nav-forum', slug: 'forum',
+      description: 'Discussion boards',
       visible: () => this.serviceListed('forum'),
       enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
       disabledReason: () => this.forumDisabledReason(),
@@ -199,15 +327,19 @@ export class MenuComponent {
     // dropdown uses, so the two can never disagree about who has access.
     {
       label: 'Admin', route: '/admin', testid: 'nav-admin',
+      description: 'Administration console',
       visible: () => this.session.isAdmin(),
       enabled: () => true,
       disabledReason: () => '',
+      sections: this.adminSections,
     },
     {
       label: 'Moderation', route: '/mod', testid: 'nav-mod',
+      description: 'Moderation console',
       visible: () => this.session.isMod(),
       enabled: () => true,
       disabledReason: () => '',
+      sections: this.modSections,
     },
   ];
 
@@ -215,6 +347,31 @@ export class MenuComponent {
    *  the role-gated consoles for the identities that hold their role. */
   visibleNavEntries(): readonly NavEntry[] {
     return this.navEntries.filter(e => (e.visible ? e.visible() : true));
+  }
+
+  /** The entries the HOME page renders as service CARDS — exactly the bar's
+   *  visible entries (visibleNavEntries is the single source of truth: the
+   *  serviceListed/loggedIn gating and the role-gated console visibility apply
+   *  unchanged) minus 'Home' itself, which is where the cards already are. */
+  serviceCardEntries(): readonly NavEntry[] {
+    return this.visibleNavEntries().filter((e) => e.route !== '/');
+  }
+
+  /** The console entry (admin/mod) whose route is ACTIVE, or null — drives the
+   *  sections SUBMENU (issue #19). Gated on the entry's own `visible` predicate
+   *  too, so a session that cannot see the console entry can never see its
+   *  sections either (same defense-in-depth stance as the entry itself; the
+   *  route guards remain the real boundary). */
+  readonly activeConsoleEntry = computed(() => {
+    const url = this.currentUrl();
+    return this.navEntries.find(
+      (e) => e.sections && (e.visible ? e.visible() : true) && isUrlInside(url, e.route),
+    ) ?? null;
+  });
+
+  /** The active console's sections this session may see (superadmin tiers). */
+  visibleSections(entry: NavEntry): readonly NavSection[] {
+    return (entry.sections ?? []).filter((s) => (s.show ? s.show() : true));
   }
 
   /**

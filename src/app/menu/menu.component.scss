@@ -188,6 +188,124 @@ nav.navbar {
   font-weight: 700;
 }
 
+// CONSOLE SECTIONS SUBMENU (issue #19): a full-width second row of the
+// wrapping navbar (the bar itself is flex-wrap: wrap), rendered only while an
+// admin/mod console is the active route. Denser than the primary entries —
+// the admin console has ~30 sections — so the .nav-link min-width floors are
+// zeroed here and the type steps down a notch.
+.nav-submenu {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0.5rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+
+  &__item {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .nav-link {
+    min-width: 0;
+    padding: 0.2rem 0.5rem;
+
+    @media (min-width: #{t.$bp-md}) {
+      min-width: 0;
+    }
+  }
+}
+
+// HOME SERVICE CARDS (issue #19): the bar's entries as launcher cards on the
+// signed-in home. Copies the /home services grid treatment
+// (home-services.component.scss, which itself copies the LinksComponent grid)
+// because that pattern is host-scoped SCSS — keep the three in sync.
+.home-services-nav {
+  .links-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 1rem;
+  }
+
+  .service-card {
+    @include m.card-surface;
+    margin: 1rem;
+    text-align: center;
+    min-height: 8rem;
+    min-width: 8rem;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    @media (min-width: #{t.$bp-sm}) {
+      margin: 2rem;
+      min-height: 12rem;
+      min-width: 12rem;
+    }
+  }
+
+  .service-card__link {
+    color: t.$light;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: color t.$transition-base, filter t.$transition-base;
+
+    &:hover,
+    &:focus-visible {
+      color: t.$neon;
+      filter: drop-shadow(0 0 6px rgba(t.$neon, 0.7));
+    }
+
+    // A disabled (absent / role-gated / unregistered) card: muted, not-allowed,
+    // and explicitly NOT a link — paired with the .field-help reason below it
+    // (defense-in-depth grey + EXPLAIN).
+    &--disabled {
+      color: rgba(t.$light, t.$opacity-muted);
+      cursor: not-allowed;
+      text-decoration: none;
+
+      &:hover,
+      &:focus-visible {
+        color: rgba(t.$light, t.$opacity-muted);
+        filter: none;
+      }
+    }
+  }
+
+  .service-card__label {
+    font-family: t.$font-fancy;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.25rem;
+  }
+
+  .service-card__desc {
+    font-size: 0.875rem;
+  }
+
+  @media (max-width: #{t.$bp-md}) {
+    .links-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      padding-bottom: 1rem;
+    }
+  }
+
+  @media (prefers-contrast: more) {
+    .service-card {
+      border: 2px solid t.$offwhite !important;
+    }
+  }
+}
+
 .nav-link {
   color: var(--sd-light, #{t.$light});
   min-width: 5rem;

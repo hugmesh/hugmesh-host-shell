@@ -280,5 +280,88 @@
       </div>
     }
   </div>
+
+  <!-- CONSOLE SECTIONS SUBMENU (issue #19, 2026-08-19 comment): while an
+       admin/mod console is the ACTIVE route, its sections render as a SUBMENU
+       nested under the console's entry in this bar (data-for names the entry;
+       the entry itself carries routerLinkActive highlight) — mirroring the
+       section menu each remote's landing page carries, so a section stays
+       reachable from anywhere inside the console without a round-trip through
+       the landing. A direct child of the wrapping navbar so it lays out as a
+       full-width second row UNDER the entries instead of stretching one <li>.
+       Plain links, NOT role=menuitem: it is statically expanded while the
+       console is active (never a popup), so the menubar's roving-tabindex/
+       arrow contract does not extend into it — Tab reaches the links natively. -->
+  @if (activeConsoleEntry(); as consoleEntry) {
+    <ul
+      class="nav-submenu"
+      data-testid="nav-submenu"
+      [attr.data-for]="consoleEntry.testid"
+      [attr.aria-label]="consoleEntry.label + ' sections'"
+    >
+      @for (section of visibleSections(consoleEntry); track section.route) {
+        <li class="nav-submenu__item">
+          <a
+            class="nav-link nav-submenu__link"
+            [routerLink]="section.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            ariaCurrentWhenActive="page"
+            [attr.data-testid]="section.testid"
+          >{{ section.label }}</a>
+        </li>
+      }
+    </ul>
+  }
+</nav>
+} @else if (homeCardsActive()) {
+<!-- HOME SERVICE CARDS (operator requirement, issue #19 comment 2026-08-19):
+     on the signed-in home the menubar's service items render as service CARDS
+     instead of a bar — the cards ARE the navigation there. Same entries, same
+     gating: serviceCardEntries() is visibleNavEntries() minus 'Home', so the
+     serviceListed()/loggedIn() listing and the role-gated console visibility
+     are shared with the bar (single source of truth), and a disabled entry
+     keeps the bar's grey + EXPLAIN treatment. Markup/styling reuse the
+     home-services launcher card pattern (home-services.component.html). -->
+<nav
+  class="home-services-nav"
+  aria-label="Services"
+  data-testid="home-services-nav"
+>
+  <div class="links-grid" role="list">
+    @for (entry of serviceCardEntries(); track entry.route) {
+      <div class="link-item service-card" role="listitem">
+        @if (entry.enabled()) {
+          <a
+            class="service-card__link"
+            [routerLink]="entry.route"
+            [attr.data-testid]="'home-card-' + entry.testid"
+          >
+            <span class="service-card__label">{{ entry.label }}</span>
+            @if (entry.description) {
+              <span class="service-card__desc">{{ entry.description }}</span>
+            }
+          </a>
+        } @else {
+          <span
+            class="service-card__link service-card__link--disabled"
+            aria-disabled="true"
+            [attr.data-testid]="'home-card-' + entry.testid"
+            [attr.aria-describedby]="entry.testid + '-card-help'"
+          >
+            <span class="service-card__label">{{ entry.label }}</span>
+            @if (entry.description) {
+              <span class="service-card__desc">{{ entry.description }}</span>
+            }
+          </span>
+          <span
+            class="field-help"
+            [id]="entry.testid + '-card-help'"
+            [attr.data-testid]="'home-card-' + entry.testid + '-help'"
+          >{{ entry.disabledReason() }}</span>
+        }
+      </div>
+    }
+  </div>
 </nav>
 }
