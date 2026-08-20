@@ -84,8 +84,15 @@ a {
   --hug-bg-1:        var(--sd-bg-1, #12121e); /* cards, panels */
   --hug-bg-2:        var(--sd-bg-2, #1a1a2e); /* scrollbar trough */
   --hug-border:      var(--sd-border, #1e1e32);
-  --hug-text:        var(--sd-text, #e8e8f0); /* 15.9:1 AAA */
-  --hug-text-muted:  var(--sd-text-muted, #a8acc4); /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
+  /* The ratios below are measured against an OPAQUE #0a0a12. That is the value
+   * to check a palette edit against, but it is NOT what these tokens are painted
+   * on: every surface in this shell is a translucent scrim over the theme's
+   * background gradient, so the delivered ratio is always lower — at the old
+   * 0.62 scrim, --hug-text-muted arrived at 2.5:1, not 8.77:1. t.$scrim-alpha is
+   * what keeps the delivered value at AA; src/app/scrim-contrast.spec.ts checks
+   * the composite rather than trusting these numbers. */
+  --hug-text:        var(--sd-text, #e8e8f0); /* 15.9:1 AAA on opaque #0a0a12 */
+  --hug-text-muted:  var(--sd-text-muted, #a8acc4); /*  8.77:1 AAA on opaque #0a0a12 — replaces #7070a0 (3.88:1) */
   --hug-accent:      var(--sd-accent, #7c4dff); /* backgrounds/borders only — 3.22:1 as text */
   --hug-accent-soft: var(--sd-accent-soft, #b388ff); /*  7.38:1 AAA — use this for accent text */
   --hug-success:     var(--sd-success, #4caf50);
@@ -149,7 +156,7 @@ router-outlet + * {
   display: block;
   position: relative;
   z-index: t.$z-content;
-  background: rgba(t.$black, 0.82);
+  background: rgba(t.$black, t.$scrim-alpha);
   border: 1px solid rgba(t.$offwhite, t.$opacity-border);
   border-radius: t.$radius-page;
   // Responsive: hugs the viewport on a phone, never sprawls on a wide monitor, and
@@ -162,9 +169,18 @@ router-outlet + * {
 // Frosted where supported — keeps the animation legible THROUGH the pane instead of
 // hiding it. Behind @supports because backdrop-filter without it degrades to a flat
 // wash on browsers that ignore the property.
+//
+// This branch deliberately sets ONLY the filter. It used to also drop the
+// background to rgba($black, 0.62), which made the frost the enemy of the text:
+// every browser that supports backdrop-filter (i.e. all of them) took the
+// override, so 0.82 above was dead code and 0.62 was what actually shipped. On
+// the pastel gradient that put --hug-text-muted at 2.5:1 and the $neon wordmark
+// at 4.1:1 — measured on the live logged-out shell, where it read as "the page
+// is blank / navigation is broken" because the login card's own copy had all but
+// vanished. Blur is decoration and may vary per browser; alpha is the contrast
+// contract and must not.
 @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
   router-outlet + * {
-    background: rgba(t.$black, 0.62);
     backdrop-filter: blur(10px) saturate(120%);
     -webkit-backdrop-filter: blur(10px) saturate(120%);
   }
@@ -291,14 +307,85 @@ a {
   color: var(--hug-text-muted);
 }
 
+// ─── THE CHROME HELP-BUBBLE IDIOM ────────────────────────────────────────────
+// `.field-help` above is BLOCK help: it stacks under the control it explains and
+// is meant to be read without asking (disabled-entry reasons, dropdown item
+// descriptions). Icon-only controls in the CHROME need the opposite shape — the
+// text must be there for assistive tech at all times, but must not be PAINTED
+// at rest, because the chrome is a horizontal run and a sentence of body text
+// between two icons eats the space the navigation entries need.
+//
+// That second shape used to have no name. Every consumer re-typed the same ~12
+// declarations, and the ones that forgot got no reveal at all: `.reload-btn__help`
+// and `.menubar-dismiss__help` shipped with ZERO rules and leaked into the menu
+// bar as permanent inline text ("Reload the current view without losing your
+// session." squatting between the reload icon and Sign in), while
+// `.bg-toggle__help` got the reveal but not a width and unfurled as a 32px-wide,
+// 657px-tall ribbon of wrapped characters down the right edge. A bug you can
+// only avoid by remembering to re-type a block is a bug that will recur, so the
+// shape is a class now:
+//
+//     <div class="help-anchor">            <- owns hover/focus + containing block
+//       <button aria-describedby="x-help"> <- the icon
+//       <span id="x-help" class="field-help help-bubble">
+//
+// Consumers style their OFFSET (which edge it flies out from) and nothing else.
+//
+// `visibility: hidden` — never `display: none` — is load-bearing: a node that is
+// DIRECTLY referenced by aria-describedby is still used to compute the
+// description even while hidden (accname §4.1 step 2B), so the text survives for
+// screen readers while leaving the layout entirely.
+//
+// Declared BEFORE its consumers on purpose: `.help-anchor` and a consumer's own
+// class have equal specificity, so anchors that need a different `position`
+// (the fixed floating controls below) must be able to win on source order.
+.help-anchor {
+  position: relative;
+}
+
+.help-bubble {
+  position: absolute;
+  z-index: t.$z-nav;
+  // Size to the SENTENCE, then wrap at the cap. Without this an absolutely
+  // positioned bubble shrink-to-fits against whatever sliver of its containing
+  // block is left over — which for a 2.5rem icon button is one character wide.
+  width: max-content;
+  max-width: min(18rem, 70vw);
+  margin-top: 0;
+  padding: 0.4rem 0.6rem;
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
+  border-radius: 0.375rem;
+  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity t.$transition-base;
+}
+
+.help-anchor:hover > .help-bubble,
+.help-anchor:focus-within > .help-bubble {
+  opacity: 1;
+  visibility: visible;
+}
+
+// prefers-contrast / forced colors: keep every bubble readable on a solid backdrop.
+@media (prefers-contrast: more) {
+  .help-bubble {
+    background: t.$black;
+    border-color: t.$offwhite;
+    color: t.$offwhite;
+  }
+}
+
 // NOTE: the shell's chrome CONTROLS (background-animation toggle, menubar-mode
 // toggle, notification bell, user menu) used to be styled from here as floating
 // `position: fixed` corner furniture — the opposite end of the page from the
 // title. They now live inside the header banner and carry their own
-// component-scoped stylesheet (app/header/header-controls.component.scss), so
-// the geometry sits next to the markup it belongs to instead of in the global
-// sheet. Nothing outside that component uses .bg-toggle / .bg-toggle__help /
-// .bg-toggle-control / .menubar-mode-control any more.
+// component-scoped stylesheet (app/header/header-controls.component.scss), which
+// consumes the `.help-anchor` / `.help-bubble` idiom above exactly like the
+// menubar's remaining controls do. Nothing outside that component uses
+// .bg-toggle / .bg-toggle__help / .bg-toggle-control / .menubar-mode-control.
 
 @media (prefers-reduced-motion: reduce) {
   *,

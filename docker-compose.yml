@@ -94,7 +94,7 @@ services:
   # Dockerfile; nginx serves the bundle on port 8080 internally.
   # Not directly exposed — the id-gateway is the public entry point.
   frontend:
-    image: hugmesh-systems/hugmesh-systems-frontend:dev
+    image: hugmesh-systems/hugmesh-host-shell:dev
     build:
       context: .
     expose:

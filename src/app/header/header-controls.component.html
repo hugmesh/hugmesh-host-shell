@@ -7,7 +7,7 @@
      us the backdrop instance — a pause button with nothing to pause is worse
      than no button. -->
 @if (background(); as bg) {
-  <div class="header-controls__item bg-toggle-control">
+  <div class="header-controls__item help-anchor bg-toggle-control">
     <button
       class="bg-toggle"
       type="button"
@@ -27,13 +27,13 @@
         </svg>
       }
     </button>
-    <!-- VISIBLE help text (palette-honoring .field-help, scalable rem text) that
-         BOTH sighted and screen-reader users get: aria-describedby links it to the
-         icon-only button so it is announced WITH the control, and aria-live reflects
-         the current paused/playing state when it changes — never tooltip/hover-only. -->
+    <!-- Help on the shared .help-anchor/.help-bubble contract (styles.scss):
+         ALWAYS in the a11y tree via aria-describedby, revealed as a bubble on
+         hover/focus rather than painted into the banner, and aria-live so the
+         paused/playing change is announced. Never tooltip/hover-ONLY. -->
     <span
       id="bg-toggle-help"
-      class="field-help bg-toggle__help"
+      class="field-help help-bubble bg-toggle__help"
       data-testid="bg-toggle-help"
       aria-live="polite"
     >{{ bg.paused()
@@ -50,7 +50,7 @@
      Signed-in only: the anonymous login screen has no bar content for auto mode
      to wait for. -->
 @if (session.loggedIn()) {
-  <div class="header-controls__item menubar-mode-control">
+  <div class="header-controls__item help-anchor menubar-mode-control">
     <button
       class="bg-toggle menubar-mode-toggle"
       type="button"
@@ -69,7 +69,7 @@
          state change via aria-live. -->
     <span
       id="menubar-mode-help"
-      class="field-help bg-toggle__help"
+      class="field-help help-bubble bg-toggle__help"
       data-testid="menubar-mode-help"
       aria-live="polite"
     >{{ menuBarMode.mode() === 'auto'
@@ -119,7 +119,7 @@
      conditional role consoles, Sign out). -->
 @if (session.loggedIn()) {
   <div
-    class="header-controls__item profile-menu"
+    class="header-controls__item help-anchor profile-menu"
     [class.profile-menu--open]="profileOpen()"
   >
     <button
@@ -143,7 +143,7 @@
          unlabelled as to PURPOSE. -->
     <span
       id="profile-trigger-help"
-      class="field-help profile-menu__help"
+      class="field-help help-bubble profile-menu__help"
       data-testid="profile-trigger-help"
     >Open your account menu: profile, role consoles, and sign out.</span>
 

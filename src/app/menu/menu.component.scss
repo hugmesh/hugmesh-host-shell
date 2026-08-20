@@ -10,6 +10,23 @@ nav.navbar {
   margin: 0.25rem auto;
   padding-block: 0.25rem;
   width: fit-content;
+
+  // SECOND-ROW CONTRACT — load-bearing, do not drop.
+  //
+  // Bootstrap's plain `.navbar` is flex-wrap: wrap, but `.navbar-expand-lg`
+  // pins `flex-wrap: nowrap` from 992px up. A flex line that cannot wrap has no
+  // second row, so a child asking for one (today: the console sections
+  // submenu) does not get a row — it is squeezed onto the SAME line and every
+  // sibling shrinks to make space. Measured on the deployed build at 1600px:
+  // the submenu rendered at x=870 BESIDE the 672px entry list; at 992px it was
+  // 121px wide and 1212px tall, i.e. ~30 admin links stacked into a sliver.
+  // That is the operator's "squishes everything in the screen".
+  //
+  // Re-enabling wrap here is the MECHANISM: it costs nothing when there is only
+  // one row (the toggler is display:none at lg and the collapse is the only
+  // other child), and it is what makes `flex-basis: 100%` on any row child
+  // actually mean "a row of my own" — at every breakpoint, not just below lg.
+  flex-wrap: wrap;
 }
 
 .account-nav {
@@ -21,12 +38,25 @@ nav.navbar {
 // Icon-only chrome controls (reload + the auto-mode dismiss). ONE rule for both
 // so they read as a single set rather than unrelated affordances. The
 // notification bell used to share these rules; it moved to the header banner
-// with its markup (header-controls.component.scss) rather than being styled
-// from here across a component boundary.
+// WITH its markup (header-controls.component.scss) — styling it from here would
+// have meant a component reaching across a boundary to skin someone else's DOM.
 .reload-nav-item,
 .dismiss-nav-item {
   display: flex;
   align-items: center;
+}
+
+// Reload + dismiss help: OFFSET ONLY, on the shared `.help-bubble` contract.
+// These two anchors are ~2.5rem wide and sit mid-bar, so the bubble drops
+// straight DOWN and is centred on the glyph rather than flying to an edge.
+// Before this rule existed at all, both spans fell through to plain
+// `.field-help` and rendered as permanent inline sentences inside the bar.
+.reload-btn__help,
+.menubar-dismiss__help {
+  top: calc(100% + 0.25rem);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  text-align: center;
 }
 
 .reload-btn,
@@ -73,12 +103,21 @@ nav.navbar {
   font-weight: 700;
 }
 
-// CONSOLE SECTIONS SUBMENU (issue #19): a full-width second row of the
-// wrapping navbar (the bar itself is flex-wrap: wrap), rendered only while an
-// admin/mod console is the active route. Denser than the primary entries —
-// the admin console has ~30 sections — so the .nav-link min-width floors are
-// zeroed here and the type steps down a notch.
+// CONSOLE SECTIONS SUBMENU (issue #19): a full-width second row of the navbar,
+// rendered only while an admin/mod console is the active route. Denser than the
+// primary entries — the admin console has ~30 sections — so the .nav-link
+// min-width floors are zeroed here and the type steps down a notch.
+//
+// CLAIMING THE ROW takes BOTH halves and neither works alone:
+//   * nav.navbar must be flex-wrap: wrap (see the SECOND-ROW CONTRACT above —
+//     .navbar-expand-lg turns wrap OFF at >=992px);
+//   * this element must be UNSHRINKABLE at 100%. `width: 100%` alone is only a
+//     flex BASE size, and the default `flex-shrink: 1` hands it straight back,
+//     so the row silently collapses onto the line above instead of wrapping
+//     below it. `flex: 0 0 100%` cannot fit beside a sibling, so it wraps.
+// `width: 100%` is kept as the non-flex fallback (and for the cross axis).
 .nav-submenu {
+  flex: 0 0 100%;
   width: 100%;
   display: flex;
   flex-wrap: wrap;

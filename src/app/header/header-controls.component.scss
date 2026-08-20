@@ -5,13 +5,20 @@
 // One row of icon-sized controls pinned to the header's inline END. Everything
 // in here used to be styled from two other stylesheets (styles.scss for the two
 // floating toggles, menu.component.scss for the bell + profile menu); the rules
-// moved WITH the markup so there is a single place to change how shell chrome
-// looks, and so a control cannot be left visually orphaned when its markup moves.
+// moved WITH the markup, so there is one place to change how shell chrome looks
+// and no component skins another component's DOM across a boundary.
+//
+// The help bubbles are NOT re-implemented here: each control is a `.help-anchor`
+// and each help span a `.help-bubble` (styles.scss), so this file declares only
+// WHICH EDGE a bubble flies out from. That shared idiom exists precisely because
+// hand-copying the ~12 bubble declarations is how `.bg-toggle__help` ended up
+// revealed-but-widthless (a 32px x 657px ribbon of vertical text on the
+// deployed page) and `.reload-btn__help` ended up never revealed at all.
 :host {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   gap: 0.25rem;
   // Normal type scale for the account name; the header's h1 sets a display face
   // that must not leak into the controls.
@@ -19,20 +26,15 @@
   font-size: 1rem;
 }
 
-// Each control is its own positioning context so its help bubble / dropdown
-// anchors to THE BUTTON, not to the header box. This is why the bubbles are
-// sized correctly here: pinned to the viewport corner with only an
-// `inset-inline-end`, a shrink-to-fit absolute box had no width to resolve
-// against and collapsed into a tall thin column.
 .header-controls__item {
-  position: relative;
   display: flex;
   align-items: center;
 }
 
 // ── Icon toggles (background animation + menubar mode) ───────────────────────
-// Kept as .bg-toggle so the two toggles stay one visual set; the geometry is
-// unchanged from the floating version, only the anchoring is different.
+// Kept as .bg-toggle so the two toggles stay one visual set. Slightly tighter
+// than the old floating version (2.25rem vs 2.5rem) because they now share a
+// 57px-tall banner with the wordmark instead of an empty page corner.
 .bg-toggle {
   position: static;
   flex: 0 0 auto;
@@ -62,37 +64,15 @@
   }
 }
 
-// The toggles' help bubbles. ALWAYS in the accessibility tree (announced via
-// aria-describedby, never hover-only) and revealed visually under the button on
-// hover/focus-within, so sighted users get the same guidance without the header
-// being permanently crowded. Anchored BELOW the control (the profile menu's
-// idiom) rather than beside it: at the header's end edge there is no room to
-// the right, and the old `inset-inline-end: 3rem` gave the bubble no resolvable
-// width at all.
+// OFFSET ONLY — sizing, skin, hiding and revealing come from `.help-bubble`.
+// The banner's end edge has nothing to its right to fly out into, so the bubble
+// drops straight DOWN from the button and is end-aligned, keeping its ragged
+// edge away from the viewport edge. (Beside the button, which is what the
+// bottom-right floating version did, is not available up here.)
 .bg-toggle__help {
-  position: absolute;
   top: calc(100% + 0.35rem);
   inset-inline-end: 0;
-  z-index: t.$z-nav;
-  width: max-content;
-  max-width: min(18rem, 70vw);
-  margin-top: 0;
-  padding: 0.4rem 0.6rem;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-  border-radius: 0.375rem;
-  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   text-align: start;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity t.$transition-base;
-}
-
-.header-controls__item:hover .bg-toggle__help,
-.header-controls__item:focus-within .bg-toggle__help {
-  opacity: 1;
-  visibility: visible;
 }
 
 // ── Notification bell ────────────────────────────────────────────────────────
@@ -169,8 +149,9 @@
     margin: 0;
     padding: 0.5rem;
     list-style: none;
-    // The dropdown is taller than the banner it hangs from; cap it against the
-    // viewport so a superadmin's full console list stays reachable on a laptop.
+    // The dropdown is taller than the banner it hangs from, so cap it against
+    // the viewport: a superadmin's full console list must stay reachable on a
+    // laptop rather than running off the bottom of the screen.
     max-height: calc(100vh - 6rem);
     overflow-y: auto;
     text-align: start;
@@ -179,11 +160,11 @@
   &__item {
     background: none;
     border: 0;
-    // $light (#bbbbbb) fails WCAG AA here. The menubar sets `background: none`, so
-    // these labels are painted over the translucent bar ON TOP OF the animated pastel
-    // gradient — the effective backdrop measures around rgb(79,108,79)-rgb(108,100,73),
-    // not the dark page colour. Sampled from real screenshots: $light lands at
-    // 3.05-3.11:1 (needs 4.5), $offwhite at 4.77-4.87:1.
+    // $light (#bbbbbb) fails WCAG AA here: these labels are painted over a
+    // translucent surface ON TOP OF the animated pastel gradient — the effective
+    // backdrop measures around rgb(79,108,79)-rgb(108,100,73), not the dark page
+    // colour. Sampled from real screenshots: $light lands at 3.05-3.11:1 (needs
+    // 4.5), $offwhite at 4.77-4.87:1.
     color: var(--sd-text, #{t.$offwhite});
     display: block;
     font-size: 1rem;
@@ -206,55 +187,26 @@
     margin-top: 0;
   }
 
-  // Trigger help: present for assistive tech (aria-describedby) at all times, and
-  // REVEALED visually as a bubble when the account button is hovered/focused so the
-  // top bar stays uncluttered — never hover-ONLY (always in the a11y tree).
+  // Trigger help: OFFSET ONLY, on the shared `.help-bubble` contract.
   &__help {
-    position: absolute;
     inset-inline-end: 0;
     top: calc(100% + 0.25rem);
-    z-index: t.$z-nav;
-    width: max-content;
-    max-width: min(18rem, 70vw);
-    margin-top: 0;
-    padding: 0.4rem 0.6rem;
-    background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-    border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-    border-radius: 0.375rem;
-    color: var(--hug-text); // 15.9:1 AAA on the solid bubble
     text-align: start;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity t.$transition-base;
-  }
-
-  &:hover &__help,
-  &:focus-within &__help {
-    opacity: 1;
-    visibility: visible;
   }
 
   // While the dropdown is open it occupies the same anchor point as the trigger
-  // help bubble, so suppress the bubble (the open menu's per-item help takes over).
+  // help bubble, so suppress the bubble (the open menu's per-item help takes
+  // over). Deliberately more specific than the shared `.help-anchor:focus-within`
+  // reveal — an open menu keeps the trigger inside :focus-within, so this has to
+  // out-weigh it rather than merely follow it.
   &--open &__help {
     opacity: 0;
     visibility: hidden;
   }
 }
 
-// prefers-contrast / forced colors: keep every bubble readable on a solid backdrop.
-@media (prefers-contrast: more) {
-  .bg-toggle__help,
-  .profile-menu__help {
-    background: t.$black;
-    border-color: t.$offwhite;
-    color: t.$offwhite;
-  }
-}
-
-// COARSE POINTERS: the icon controls are the shell's smallest targets and they
-// now sit in a tight row, so give them the 44px WCAG 2.5.5 floor on touch.
+// COARSE POINTERS: these are the shell's smallest targets and they now sit in a
+// tight row, so give them the 44px WCAG 2.5.5 floor on touch.
 @media (pointer: coarse) {
   .bg-toggle {
     width: 2.75rem;
