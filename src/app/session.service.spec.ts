@@ -200,15 +200,63 @@ describe('SessionService', () => {
     expect(service.loggedIn()).toBeFalse();
   });
 
-  it('re-HYDRATES from /bff/session on the snap-session-change broadcast (authoritative re-read)', async () => {
+  it('re-HYDRATES from /bff/session on the CANONICAL hug-session-change broadcast (authoritative re-read)', async () => {
     expect(service.isAdmin()).toBeFalse();
     // A remote (or AccountStatusService) wrote the mirror + broadcast; the host
     // does an authoritative re-read of /bff/session rather than trusting the mirror.
+    // 'hug-session-change' is the channel EVERY federated remote dispatches on
+    // (login-ui/admin-ui/mod-ui/matrix-ui/mastodon-ui/...): the host listening on
+    // the pre-rebrand 'snap-session-change' name was deaf to all of them.
     fetchSpy.and.resolveTo(okJson({ id: 'google:alice@gmail.com', roles: ['admin'], registrationComplete: true }));
-    window.dispatchEvent(new Event('snap-session-change'));
+    window.dispatchEvent(new Event('hug-session-change'));
     await flush();
     expect(fetchSpy).toHaveBeenCalledWith(SESSION_ENDPOINT, jasmine.objectContaining({ credentials: 'include' }));
     expect(service.isAdmin()).withContext('host re-hydrates authoritatively on broadcast').toBeTrue();
+  });
+
+  describe('sign-out propagation to mounted remotes (the "stale logged-in state after logout" fix)', () => {
+    // Every federated remote's SessionService listens on 'hug-session-change' and
+    // re-reads the (now removed) hug.session mirror. Same-document `storage`
+    // events do NOT fire in the tab that wrote, so this broadcast is the ONLY
+    // seam through which a mounted remote learns the session ended. The host used
+    // to dispatch the pre-rebrand 'snap-session-change' instead — no remote heard
+    // it, and their in-memory session signals kept rendering the signed-out
+    // user's identity until a full reload (operator report 2026-08-19).
+    it('clear() dispatches the CANONICAL hug-session-change event the remotes listen on', async () => {
+      service.set(makeSession());
+      const heard = jasmine.createSpy('remote-listener');
+      window.addEventListener('hug-session-change', heard);
+      try {
+        heard.calls.reset(); // set() above broadcasts too — count only clear()'s.
+        await service.clear();
+        expect(heard).withContext('remotes must hear the sign-out').toHaveBeenCalled();
+      } finally {
+        window.removeEventListener('hug-session-change', heard);
+      }
+    });
+
+    it('clear() ALSO dispatches the legacy snap-session-change event (mixed-version remotes)', async () => {
+      service.set(makeSession());
+      const heardLegacy = jasmine.createSpy('legacy-remote-listener');
+      window.addEventListener('snap-session-change', heardLegacy);
+      try {
+        heardLegacy.calls.reset();
+        await service.clear();
+        expect(heardLegacy)
+          .withContext('a not-yet-redeployed remote still hears the sign-out')
+          .toHaveBeenCalled();
+      } finally {
+        window.removeEventListener('snap-session-change', heardLegacy);
+      }
+    });
+
+    it('the host does NOT listen on the legacy channel (its own dual broadcast must not double-hydrate)', async () => {
+      fetchSpy.calls.reset();
+      fetchSpy.and.resolveTo(status(401));
+      window.dispatchEvent(new Event('snap-session-change'));
+      await flush();
+      expect(fetchSpy).withContext('legacy event triggers no host re-hydrate').not.toHaveBeenCalled();
+    });
   });
 
   describe('hydrate() — GET /bff/session, the mid-session freshness probe', () => {

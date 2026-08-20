@@ -68,7 +68,28 @@ export const SESSION_OUT_ENDPOINT = '/bff/sessionOut';
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   private readonly key = 'hug.session';
-  private readonly channel = 'snap-session-change';
+  /** The CANONICAL same-document session-change seam: 'hug-session-change' — the
+   *  name every federated remote's SessionService listens on (login-ui, admin-ui,
+   *  mod-ui, matrix-ui, mastodon-ui, forum-ui, wiki-ui, tube-ui, owncast-ui,
+   *  user-mesh-ui all declare this exact string), and the name this repo's own
+   *  ViewReloadService / NotificationToastService docs already cite as "the seam
+   *  SessionService uses".
+   *
+   *  The host USED to broadcast AND listen on the pre-rebrand
+   *  'snap-session-change' name, which NO remote (except hugmesh-user-ui, carrying
+   *  the same stale string) ever listens on. Same-document `storage` events do NOT
+   *  fire in the tab that wrote, so the broadcast is the ONLY way a mounted
+   *  remote learns the session changed — and Sign out's broadcast therefore never
+   *  reached 10 of the 11 remotes: their in-memory session signals kept rendering
+   *  the signed-out user's identity and role surfaces until a full page reload
+   *  (operator report 2026-08-19, "need to clear cache every time after log out"). */
+  private readonly channel = 'hug-session-change';
+  /** The legacy pre-rebrand channel name. Still DISPATCHED (never listened on)
+   *  so a not-yet-redeployed remote that only knows the old name — hugmesh-user-ui
+   *  before its matching rename — still hears sign-in/sign-out during a
+   *  mixed-version rollout. Remove once every deployed remote listens on the
+   *  canonical channel. */
+  private readonly legacyChannel = 'snap-session-change';
   readonly session = signal<SnapSession | null>(this.load());
   readonly loggedIn = computed(() => this.session() !== null);
   readonly isAdmin = computed(() => (this.session()?.roles ?? []).includes('admin'));
@@ -293,6 +314,14 @@ export class SessionService {
     this.session.set(null);
     this.broadcast();
   }
-  /** Notify the other in-page SessionService instances (host + remotes) to re-read. */
-  private broadcast(): void { if (typeof window !== 'undefined') window.dispatchEvent(new Event(this.channel)); }
+  /** Notify the other in-page SessionService instances (host + remotes) to
+   *  re-read. Dispatched on the canonical channel every remote listens on, AND on
+   *  the legacy pre-rebrand name so a not-yet-redeployed remote still hears it
+   *  (see {@link legacyChannel}). The host itself listens ONLY on the canonical
+   *  channel, so its own broadcast triggers exactly one authoritative re-hydrate. */
+  private broadcast(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event(this.channel));
+    window.dispatchEvent(new Event(this.legacyChannel));
+  }
 }
