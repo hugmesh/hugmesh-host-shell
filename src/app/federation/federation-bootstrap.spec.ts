@@ -85,7 +85,7 @@ describe('federation-bootstrap', () => {
       const map = toRemotesMap({
         remotes: [
           { slug: 'admin', remoteEntryUrl: 'http://admin:8080/remoteEntry.json' },
-          { slug: 'matrix', remoteEntryUrl: 'http://snapdragon-matrix-ui:8080/remoteEntry.json' },
+          { slug: 'matrix', remoteEntryUrl: 'http://hugmesh-matrix-ui:8080/remoteEntry.json' },
           { slug: 'login', remoteEntryUrl: '/login/remoteEntry.json' },
           { slug: 'same-origin', remoteEntryUrl: `${window.location.origin}/so/remoteEntry.json` },
           { slug: 'garbage', remoteEntryUrl: 'http://[not-a-url' },

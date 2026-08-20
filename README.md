@@ -447,7 +447,7 @@ cross-cutting surface:
   (`federation.manifest.json`) points each remote at a `localhost:420x` port;
   run the remotes you need alongside the host.
 - **Full stack:** `docker compose up -d` brings up the
-  **snapdragon-id-gateway** (Spring Cloud Gateway 5 — Casdoor-JWT OAuth2
+  **hugmesh-id-gateway** (Spring Cloud Gateway 5 — Casdoor-JWT OAuth2
   resource server with the `bff_` → custody-JWT pre-security swap and the
   `gateway_route_access` route gate) in front of this frontend, plus **Casdoor**
   (issuer) and the gateway's backing store for its revocation / URL-registry /
@@ -562,7 +562,7 @@ today.
 - ✅ **OWASP pen-test in CI (shipped).** `.gitlab-ci.yml` runs `pentest:sca` and
   `pentest:dast` jobs (`allow_failure: true`, on default-branch pushes and MRs)
   that `extend:` the centralized hidden `.pentest-sca` / `.pentest-dast-baseline`
-  jobs included from `hugmesh/snapdragon-generator`
+  jobs included from `hugmesh/hugmesh-generator`
   `/tests/pentest/ci/pentest-stage.gitlab-ci.yml`.
 - 🔭 **Binhost fleet auto-update.** Gentoo binhost-driven fleet distribution is
   still platform roadmap.

@@ -77,7 +77,7 @@ export const FEDERATION_MANIFEST_URL =
  * through the same front door as the shell) or an absolute URL on the page's own
  * origin. The `federation_modules` seed stores CLUSTER-shaped absolute URLs for
  * the remote-shell rows (`http://admin:8080/remoteEntry.json`,
- * `http://snapdragon-matrix-ui:8080/...`) — in-mesh service addresses that no
+ * `http://hugmesh-matrix-ui:8080/...`) — in-mesh service addresses that no
  * browser can resolve. Before this guard, a successful authenticated manifest
  * read let those rows OVERRIDE the static floor's working relative URLs, so
  * `loadRemoteModule('admin')` dialed a nonexistent host and the admin view

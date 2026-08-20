@@ -98,7 +98,7 @@ these counts grow as new scenarios land — e.g. the account-status
 appeal-gate and role-matrix waves — so re-run the commands above rather than
 trusting these numbers indefinitely). This `--dry-run` command
 is a candidate follow-up CI step (a `e2e:host:dry-run` job with no
-`snapdragon-x86` runner / docker / Chrome dependency) but was not wired into
+`hugmesh-x86` runner / docker / Chrome dependency) but was not wired into
 `.gitlab-ci.yml` in this pass — CI changes beyond the tag rename are left to
 the migration follow-up below so this workstream stays a scoped tag-vocabulary
 fix, not a CI redesign.
