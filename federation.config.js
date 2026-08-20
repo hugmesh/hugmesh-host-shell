@@ -1,5 +1,5 @@
 // HOST shell config. This repo is the native-federation HOST (the fe-gateway /**
-// catch-all, hugmesh-systems-web). It exposes NOTHING — it only CONSUMES the
+// catch-all, hugmesh-host-shell). It exposes NOTHING — it only CONSUMES the
 // login/matrix/mastodon/admin remotes at runtime via loadRemoteModule, resolving
 // each remoteEntry.json from src/assets/federation.manifest.json.
 //
