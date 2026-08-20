@@ -10,18 +10,26 @@ import {
   signal,
 } from '@angular/core';
 import { DOCUMENT, NgComponentOutlet } from '@angular/common';
-import { loadRemoteModule } from '@angular-architects/native-federation';
+import { federationLoader } from '../federation/remote-loader';
 
 import { ProfileModalService } from './profile-modal.service';
 
 /** Resolve the user remote's standalone ProfileComponent (exposed module
  *  './profile'). Indirected through a holder so unit tests can stub the loader —
- *  the native-federation ESM namespace export is read-only and can't be spied. */
+ *  the native-federation ESM namespace export is read-only and can't be spied.
+ *
+ *  Goes through the shared {@link federationLoader} rather than calling
+ *  `loadRemoteModule` directly: the 'user' remote is DEFERRED at boot like every
+ *  other gated remote, so it must be initialized from its remoteEntry URL on
+ *  first use. Calling the two-arg overload here would throw "Remote 'user' is not
+ *  initialized" for any user who opens the profile modal before /user has been
+ *  routed to — which is the normal case, since the modal is reachable from the
+ *  header on every page. */
 export const profileRemoteLoader = {
   load: (): Promise<Type<unknown>> =>
-    loadRemoteModule('user', './profile').then(
-      (m) => (m as { ProfileComponent: Type<unknown> }).ProfileComponent,
-    ),
+    federationLoader
+      .load('user', './profile')
+      .then((m) => (m as { ProfileComponent: Type<unknown> }).ProfileComponent),
 };
 
 /**

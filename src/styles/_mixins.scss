@@ -17,7 +17,13 @@
 }
 
 @mixin glass-float {
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.62);
+  // The header / footer / menu / profile-modal chrome floats DIRECTLY over
+  // <app-background> — nothing darker sits between it and the theme's gradient —
+  // so it carries the same legibility contract as the routed backpane and reads
+  // the same floor. At the old literal 0.62 the $neon wordmark measured 3.98:1
+  // on the live shell's header, under WCAG AA. See t.$scrim-alpha for the
+  // derivation. Interpolated because the alpha rides inside an rgba(var(...)).
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), #{t.$scrim-alpha});
   backdrop-filter: blur(16px) saturate(1.5);
   -webkit-backdrop-filter: blur(16px) saturate(1.5);
   border-radius: t.$radius-lg;

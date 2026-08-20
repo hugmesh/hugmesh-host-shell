@@ -37,6 +37,31 @@ $opacity-ghost:  0.05;
 $opacity-border: 0.18;
 $opacity-muted:  0.35;
 
+// ── Scrim opacity floor (WCAG AA) ────────────────────────────────────────────
+// The alpha of every translucent surface that sits DIRECTLY on <app-background>:
+// the `router-outlet + *` backpane (styles.scss) and the `glass-float` chrome
+// (styles/_mixins.scss). Both must go through this token, never a literal.
+//
+// Why it is a contract and not a taste knob: the gradient behind them is
+// THEME-SUPPLIED (--sd-bg-gradient, see background.component.scss), so its
+// luminance is unbounded — the compiled fallbacks are already near-white pastels
+// and a preset may go brighter. The scrim's alpha is the ONLY thing standing
+// between the palette and that backdrop. The contrast ratios quoted beside the
+// --hug-* tokens in styles.scss are measured against an opaque #0a0a12 and are
+// false by ~3x once the backdrop shows through.
+//
+// Solving  contrast(a·$black + (1-a)·#ffffff, --hug-text-muted #a8acc4) >= 4.5
+// gives a >= 0.7725 ($charcoal, which glass-float uses, needs 0.7953). 0.82
+// rounds up for headroom and yields, against a pure-white backdrop:
+//   backpane ($black)      text 9.85:1   muted 5.38:1   neon 8.60:1
+//   glass-float ($charcoal) text 9.03:1   muted 4.93:1   neon 7.88:1
+//
+// Do NOT lower this to buy a stronger frost. Blur is decoration; alpha is the
+// contrast contract — an @supports branch that traded 0.82 away for 0.62 is
+// exactly the regression that made the logged-out shell unreadable, and it is
+// what src/app/scrim-contrast.spec.ts now guards.
+$scrim-alpha: 0.82;
+
 // MUST be negative, not 0 — "behind the app" is what this token has always
 // claimed to mean, and at 0 it does not deliver it.
 //

@@ -1,5 +1,5 @@
 import { CanActivateFn, Route, Routes } from '@angular/router';
-import { loadRemoteModule } from '@angular-architects/native-federation';
+import { federationLoader } from './federation/remote-loader';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
 import { forumGuard } from './guards/forum.guard';
@@ -121,13 +121,17 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES', canActivate: [registeredGuard] },
 ];
 
-/** Resolve a remote's exported routes constant via native-federation. Indirected
- *  through a holder so unit tests can stub the loader (the ESM namespace export
- *  itself is read-only and cannot be spied directly). */
-export const federationLoader = {
-  load: (remoteName: string, exposed: string): Promise<Record<string, unknown>> =>
-    loadRemoteModule(remoteName, exposed) as Promise<Record<string, unknown>>,
-};
+/** Resolve a remote's exported routes constant via native-federation.
+ *
+ *  Re-exported from federation/remote-loader.ts — the SAME holder object, so
+ *  existing `spyOn(federationLoader, 'load')` call sites keep working — because
+ *  the loader is no longer a detail of the route table. It now owns the
+ *  DEFERRED-remote registry: a remote that was not initialized at boot is
+ *  initialized from its remoteEntry URL on first load, which is what keeps the
+ *  gated remotes from being fetched before a guard has admitted anyone. Route
+ *  loadChildren and the profile modal share this one seam so neither can drift
+ *  back onto the eager path alone. */
+export { federationLoader };
 
 function remoteRoute(spec: RemoteRouteSpec): Route {
   return {

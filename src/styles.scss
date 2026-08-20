@@ -84,8 +84,15 @@ a {
   --hug-bg-1:        var(--sd-bg-1, #12121e); /* cards, panels */
   --hug-bg-2:        var(--sd-bg-2, #1a1a2e); /* scrollbar trough */
   --hug-border:      var(--sd-border, #1e1e32);
-  --hug-text:        var(--sd-text, #e8e8f0); /* 15.9:1 AAA */
-  --hug-text-muted:  var(--sd-text-muted, #a8acc4); /*  8.77:1 AAA — replaces #7070a0 (3.88:1) */
+  /* The ratios below are measured against an OPAQUE #0a0a12. That is the value
+   * to check a palette edit against, but it is NOT what these tokens are painted
+   * on: every surface in this shell is a translucent scrim over the theme's
+   * background gradient, so the delivered ratio is always lower — at the old
+   * 0.62 scrim, --hug-text-muted arrived at 2.5:1, not 8.77:1. t.$scrim-alpha is
+   * what keeps the delivered value at AA; src/app/scrim-contrast.spec.ts checks
+   * the composite rather than trusting these numbers. */
+  --hug-text:        var(--sd-text, #e8e8f0); /* 15.9:1 AAA on opaque #0a0a12 */
+  --hug-text-muted:  var(--sd-text-muted, #a8acc4); /*  8.77:1 AAA on opaque #0a0a12 — replaces #7070a0 (3.88:1) */
   --hug-accent:      var(--sd-accent, #7c4dff); /* backgrounds/borders only — 3.22:1 as text */
   --hug-accent-soft: var(--sd-accent-soft, #b388ff); /*  7.38:1 AAA — use this for accent text */
   --hug-success:     var(--sd-success, #4caf50);
@@ -149,7 +156,7 @@ router-outlet + * {
   display: block;
   position: relative;
   z-index: t.$z-content;
-  background: rgba(t.$black, 0.82);
+  background: rgba(t.$black, t.$scrim-alpha);
   border: 1px solid rgba(t.$offwhite, t.$opacity-border);
   border-radius: t.$radius-page;
   // Responsive: hugs the viewport on a phone, never sprawls on a wide monitor, and
@@ -162,9 +169,18 @@ router-outlet + * {
 // Frosted where supported — keeps the animation legible THROUGH the pane instead of
 // hiding it. Behind @supports because backdrop-filter without it degrades to a flat
 // wash on browsers that ignore the property.
+//
+// This branch deliberately sets ONLY the filter. It used to also drop the
+// background to rgba($black, 0.62), which made the frost the enemy of the text:
+// every browser that supports backdrop-filter (i.e. all of them) took the
+// override, so 0.82 above was dead code and 0.62 was what actually shipped. On
+// the pastel gradient that put --hug-text-muted at 2.5:1 and the $neon wordmark
+// at 4.1:1 — measured on the live logged-out shell, where it read as "the page
+// is blank / navigation is broken" because the login card's own copy had all but
+// vanished. Blur is decoration and may vary per browser; alpha is the contrast
+// contract and must not.
 @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
   router-outlet + * {
-    background: rgba(t.$black, 0.62);
     backdrop-filter: blur(10px) saturate(120%);
     -webkit-backdrop-filter: blur(10px) saturate(120%);
   }
