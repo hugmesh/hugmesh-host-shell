@@ -282,6 +282,77 @@ describe('MenuComponent — universal nav menubar', () => {
     });
   });
 
+  // ── THE SIGN-IN ENTRY IS SESSION-GATED ───────────────────────────────
+  // menu.component.html wraps [data-testid="nav-login"] in `@if
+  // (!session.loggedIn())`. This block is that `@if`'s guard, at the scope that
+  // owns it: MenuComponent is the ONLY component on main whose template can
+  // render the entry, so this is the only place a unit-scope assertion about it
+  // can fail.
+  //
+  // It is restored deliberately. The assertion used to live in the AUTHENTICATED
+  // case of the account suite; when that suite was re-pointed from MenuComponent
+  // to HeaderControlsComponent (PR #37), the line came along but landed in the
+  // ANONYMOUS case of a component that renders no nav-login in ANY session state
+  // — so it went true-by-construction and stopped guarding anything. Deleting the
+  // guard from menu.component.html left all 605 specs green.
+  //
+  // The lesson is baked into the shape below: every negative assertion here is
+  // preceded, IN THE SAME FIXTURE, by the positive one that proves the selector
+  // still resolves. A test that only ever asserts absence cannot tell "correctly
+  // hidden" from "renamed, moved away, or never renderable here".
+  describe('the anonymous Sign-in entry is gated on the session', () => {
+    const signIn = () => el.querySelector('[data-testid="nav-login"]');
+
+    function goAnonymous(): void {
+      stub.loggedIn.set(false);
+      stub.session.set(null);
+      fixture.detectChanges();
+    }
+
+    function goAuthenticated(): void {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'alice' });
+      fixture.detectChanges();
+    }
+
+    it('an anonymous visitor is offered Sign in — signing in takes it away', () => {
+      goAnonymous();
+      // POSITIVE CONTROL, and not decoration: it proves this fixture CAN render
+      // the entry, which is exactly what makes the assertion after it real.
+      expect(signIn())
+        .withContext('an anonymous visitor must be offered a way in')
+        .toBeTruthy();
+
+      goAuthenticated();
+      expect(signIn())
+        .withContext(
+          'a signed-in user must NOT be offered "Sign in" — menu.component.html ' +
+            'gates it on @if (!session.loggedIn())',
+        )
+        .toBeNull();
+    });
+
+    it('signing out brings the Sign-in entry back — the gate reads the signal live', () => {
+      goAuthenticated();
+      expect(signIn()).withContext('gone while signed in').toBeNull();
+
+      goAnonymous();
+      // Pins REACTIVITY, not just the boolean: a gate that snapshots the session
+      // once (a plain field, a constructor read) passes the test above and fails
+      // this one, stranding a signed-out visitor with no way back in.
+      expect(signIn())
+        .withContext('signing out must restore the entry with no navigation')
+        .toBeTruthy();
+    });
+
+    it('exactly ONE Sign-in entry renders — never a second copy', () => {
+      goAnonymous();
+      expect(el.querySelectorAll('[data-testid="nav-login"]').length)
+        .withContext('one way in, not two')
+        .toBe(1);
+    });
+  });
+
   describe('mobile navbar toggler', () => {
     it('has an aria-label for the responsive collapse control', () => {
       const toggler = el.querySelector('.navbar-toggler');

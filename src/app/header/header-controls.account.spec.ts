@@ -19,8 +19,26 @@ import { BellNotificationsService } from '../bell/bell-notifications.service';
  * rewritten: the move must not quietly cost a role gate.
  *
  * The anonymous "Sign in" ENTRY did NOT move — it is a navigation destination,
- * not an account control, and stays in the menubar (menu.component.spec.ts's
- * login-page chrome gate suite still owns it).
+ * not an account control, and stays in the menubar.
+ *
+ * ⚠ NOTHING IN THIS FILE GUARDS THE SIGN-IN SESSION GATE, and nothing here can.
+ * HeaderControlsComponent's template contains no nav-login in any branch, so
+ * every `has('nav-login')` assertion below is true BY CONSTRUCTION: it passes
+ * whatever the session does and whatever menu.component.html does. That is not a
+ * quibble — the account suite carried the real assertion
+ * (`expect(has('nav-login')).toBeFalse()` in its AUTHENTICATED case) across from
+ * MenuComponent in PR #37 and dropped it into the ANONYMOUS case here, where it
+ * cannot fail. Removing `@if (!session.loggedIn())` from menu.component.html then
+ * offered a signed-in user "Sign in" with all 605 specs still green, because grep
+ * found the assertion and it looked covered.
+ *
+ * The session gate is guarded where the element actually renders:
+ *   - menu.component.spec.ts  → 'the anonymous Sign-in entry is gated on the
+ *     session' (component scope: MenuComponent's own `@if`), and
+ *   - header-controls.placement.spec.ts → 'the Sign-in entry is offered to
+ *     anonymous visitors only' (whole-shell scope, so it stays aimed at the
+ *     invariant even if the markup is re-homed again).
+ * Do not "restore" a nav-login assertion here instead. That is how it was lost.
  */
 
 /** Drives the session-aware account region. Backed by signals so the component's
@@ -86,9 +104,15 @@ describe('HeaderControlsComponent — user menu (role-aware)', () => {
     fixture.detectChanges();
     expect(has('profile-trigger')).toBeFalse();
     expect(el.querySelector('.bell-btn')).withContext('no bell either').toBeNull();
-    // The anonymous Sign-in ENTRY is the menubar's, not this component's — it is a
-    // navigation destination, not an account control.
-    expect(has('nav-login')).toBeFalse();
+    // KEPT AS A NO-DUPLICATION GUARD, NOT AS THE SESSION GATE. It is worth having:
+    // the operator's second report on this move was "you left the buttons below so
+    // they're duplicated", and a copy of the Sign-in entry sprouting in the header
+    // would turn this red. But it says only "this component never renders one" —
+    // it is silent on WHO does and on WHEN, so it cannot stand in for the gate in
+    // menu.component.html. See the ⚠ note at the top of this file.
+    expect(has('nav-login'))
+      .withContext('Sign in is navigation, not an account control: no copy in the header')
+      .toBeFalse();
   });
 
   it('authenticated: shows the profile trigger labelled with the user', () => {
@@ -97,6 +121,13 @@ describe('HeaderControlsComponent — user menu (role-aware)', () => {
     fixture.detectChanges();
     expect(has('profile-trigger')).toBeTrue();
     expect(el.querySelector('[data-testid="nav-user"]')?.textContent?.trim()).toBe('alice');
+    // Same no-duplication guard as the anonymous case, in the state where a
+    // duplicate would be the actual defect. Still NOT the session gate — this
+    // component cannot render nav-login at all. The gate lives in
+    // menu.component.spec.ts and header-controls.placement.spec.ts.
+    expect(has('nav-login'))
+      .withContext('no copy of the Sign-in entry sprouted in the header')
+      .toBeFalse();
   });
 
   it('the profile trigger is a closed aria-haspopup=menu button until clicked', () => {
