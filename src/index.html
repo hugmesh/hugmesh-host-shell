@@ -44,7 +44,7 @@
     <link rel="apple-touch-icon" href="favicon.ico" />
     <title>HugMesh</title>
     <!-- Runtime shell THEME, written at container start by
-         docker-entrypoint.d/50-snap-theme.sh from SNAP_THEME_CSS (same mechanism
+         docker-entrypoint.d/50-hug-theme.sh from SNAP_THEME_CSS (same mechanism
          as hugmesh-login-ui). It carries ALREADY-DERIVED "double-s-d" token text
          under a doubled ":root:root" selector, which out-specifies the compiled
          :root/var() fallbacks in the Angular-injected stylesheet regardless of
@@ -57,7 +57,7 @@
          style-src already includes 'self' and this is a same-origin sheet.
          NOTE: keep literal tag tokens out of this comment — the Angular index
          writer injects es-module-shims config after the first such token. -->
-    <link rel="stylesheet" href="snap-theme.css" />
+    <link rel="stylesheet" href="hug-theme.css" />
   </head>
   <body>
     <main app-root></main>
