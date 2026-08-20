@@ -14,6 +14,7 @@ import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 import { BellNotificationsService } from '../bell/bell-notifications.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
+import { MenuBarModeService } from '../menu/menu-bar-mode.service';
 
 /**
  * SHELL CHROME PLACEMENT (operator requirement, issue #19 comment 2026-08-19:
@@ -308,5 +309,92 @@ describe('Shell chrome placement — the named controls live in the header, once
     expect(h.querySelector('[data-testid="bg-toggle"]'))
       .withContext('the animation toggle is not session-gated')
       .toBeTruthy();
+  });
+
+  // ── THE SIGN-IN ENTRY: THE CHROME THAT DELIBERATELY DID *NOT* MOVE ─────────
+  // The four controls above moved into the header. "Sign in" did not — it is a
+  // navigation destination, so it stayed in the menubar behind
+  // menu.component.html's `@if (!session.loggedIn())`.
+  //
+  // WHY THIS INVARIANT IS PINNED AT SHELL SCOPE AND NOT ONLY ON MenuComponent:
+  // its component-scope guard has already been lost once. PR #37 re-pointed the
+  // account suite from MenuComponent to HeaderControlsComponent and carried
+  // `expect(has('nav-login')).toBeFalse()` across with it — into a component that
+  // renders no nav-login in ANY session state, so it became true by construction
+  // and could no longer fail. Removing the gate from menu.component.html left the
+  // whole 605-spec suite green.
+  //
+  // A component-scoped assertion is only as good as its aim, and re-homing the
+  // markup silently re-aims it. These name NO component: they ask what the WHOLE
+  // shell offers the visitor. Move the entry into the header, into the footer, or
+  // into a new component tomorrow and they still guard the same real thing — the
+  // question "is a signed-in user being offered a way to sign in?" has one answer
+  // per rendered page, not one per component.
+  //
+  // Each is also self-validating: the absence half is always preceded, in the same
+  // fixture, by the presence half. A negative assertion whose selector matches
+  // nothing anywhere is indistinguishable from a passing one.
+  describe('the Sign-in entry is offered to anonymous visitors only', () => {
+    const SIGN_IN = '[data-testid="nav-login"]';
+    const signInNodes = () => el.querySelectorAll(SIGN_IN);
+
+    beforeEach(() => {
+      // The bar's own render gate must not decide this. Pin 'static' so the
+      // menubar is on screen either way, and set the signal rather than
+      // setMode() so the spec leaves no localStorage behind for its neighbours.
+      TestBed.inject(MenuBarModeService).mode.set('static');
+      fixture.detectChanges();
+    });
+
+    function goAnonymous(): void {
+      session.loggedIn.set(false);
+      session.session.set(null);
+      fixture.detectChanges();
+    }
+
+    function goAuthenticated(): void {
+      session.loggedIn.set(true);
+      session.session.set({ label: 'alice' });
+      fixture.detectChanges();
+    }
+
+    it('anonymous: the shell offers Sign in exactly once, and it is in the menubar', () => {
+      goAnonymous();
+      expect(signInNodes().length)
+        .withContext('an anonymous visitor gets one way in — not zero, not two')
+        .toBe(1);
+      expect(el.querySelector('#menu')?.querySelector(SIGN_IN) ?? null)
+        .withContext('Sign in is navigation, so it stayed in the menubar')
+        .toBeTruthy();
+      expect(header().querySelector(SIGN_IN))
+        .withContext('Sign in was NOT one of the controls that moved to the header')
+        .toBeNull();
+    });
+
+    it('signed in: the shell offers Sign in NOWHERE — this is the guard PR #37 lost', () => {
+      goAnonymous();
+      // Positive control first: proves the selector resolves in this fixture, so
+      // the assertion below cannot pass merely by matching nothing.
+      expect(signInNodes().length).withContext('renderable while anonymous').toBe(1);
+
+      goAuthenticated();
+      expect(signInNodes().length)
+        .withContext(
+          'a signed-in user must not be offered "Sign in" anywhere in the shell — ' +
+            'not the menubar, not the header, not anywhere else',
+        )
+        .toBe(0);
+    });
+
+    it('the offer follows the session both ways, with no navigation', () => {
+      goAuthenticated();
+      expect(signInNodes().length).withContext('withheld while signed in').toBe(0);
+      goAnonymous();
+      expect(signInNodes().length)
+        .withContext('signing out must restore the way back in')
+        .toBe(1);
+      goAuthenticated();
+      expect(signInNodes().length).withContext('and withhold it again').toBe(0);
+    });
   });
 });
