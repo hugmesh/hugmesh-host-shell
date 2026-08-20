@@ -106,6 +106,52 @@
   animation-play-state: paused;
 }
 
+// ── THEME-DECLARED EFFECT LAYER (--sd-bg-effect, issue #19) ─────────────────
+// Mount point for a Vanta/three.js effect the ACTIVE THEME declares
+// (--sd-bg-effect: vanta-fog | vanta-waves | vanta-net | vanta-globe) — the
+// same cross-repo contract login-ui consumes (login-ui PR #6); the component
+// mirrors its parsing and lifecycle. Empty and invisible unless an effect is
+// actually running: Vanta appends its own <canvas> here. The wash above stays
+// painted underneath as the fallback every failure path (no WebGL, failed
+// chunk, lost GL context, reduced motion) degrades back to.
+.bg-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// While a Vanta effect is rendering, its canvas covers the wash edge to edge —
+// keeping the CSS sweep + shimmer running underneath would be invisible motion
+// bought with real paint time, so both are stilled for the duration. They
+// resume automatically when the effect is torn down (theme switch, pause,
+// context loss), because the classes below ride the component's signals.
+:host.has-effect {
+  animation-play-state: paused;
+}
+
+:host.has-effect::before {
+  display: none;
+}
+
+// `--sd-bg-effect: none` — "no animated effect". Unlike login-ui (whose static
+// layer is already still, so `none` renders as its gradient), this shell's
+// wash IS an animation, so `none` renders it at rest: same themed colours,
+// zero motion, mirroring what prefers-reduced-motion already does below.
+:host.is-flat {
+  animation: none;
+  background-position: 50% 50%;
+}
+
+:host.is-flat::before {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :host {
     animation: none;
