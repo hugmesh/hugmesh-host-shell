@@ -182,3 +182,99 @@ export async function resolveFederationSource(
   // Fallback: the bundled static asset path (dev json / file-replaced prod json).
   return environment.federationManifest;
 }
+
+/**
+ * The remotes an ANONYMOUS browser is actually allowed to fetch.
+ *
+ * Everything else in the manifest sits behind the gateway's auth gate and answers
+ * 401 until a session exists. `login` is the only remote the shell must resolve
+ * before anyone has signed in — it IS the sign-in surface.
+ *
+ * The authority for this list is app.routes.ts: a remote is anonymous-reachable
+ * exactly when its route carries NO `canActivate` guard. That file cannot be
+ * imported here (it pulls the Angular DI graph into the pre-bootstrap entry
+ * chunk), so the two are kept in agreement by a test instead of by hope — see
+ * federation-bootstrap.spec.ts, "agrees with the unguarded routes in
+ * REMOTE_ROUTES".
+ */
+export const PUBLIC_REMOTES: readonly string[] = ['login'];
+
+/** What the boot hands to `initFederation`, plus everything it knows about. */
+export interface FederationBootPlan {
+  /** Remotes to REGISTER EAGERLY — the only remoteEntry.json URLs fetched at boot. */
+  readonly eager: RemotesMap;
+  /** EVERY remote the manifest resolved, eager and deferred alike. Recorded in the
+   *  remote registry so a deferred remote can still be registered on demand. */
+  readonly all: RemotesMap;
+}
+
+/**
+ * True when this browser plausibly carries a session, judged WITHOUT a network
+ * round trip (this runs pre-DI, before `bootstrapApplication`, and must not add
+ * latency to the critical path).
+ *
+ * Reads the same `hug.session` localStorage mirror SessionService treats as its
+ * synchronous seed. Both mispredictions are SAFE, which is the property that lets
+ * a cheap heuristic decide this at all:
+ *   - mirror present but the cookie is dead -> we eagerly fetch, everything 401s,
+ *     nothing registers. Identical to today, and the guards bounce the user to
+ *     /login anyway.
+ *   - mirror absent but the cookie is alive -> we defer, and {@link loadRemote}
+ *     registers each remote on first use with that cookie. Correct, merely lazy.
+ */
+export function hasSessionHint(storage?: Pick<Storage, 'getItem'>): boolean {
+  const store = storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
+  if (!store) return false;
+  try {
+    const raw = store.getItem('hug.session');
+    return typeof raw === 'string' && raw.length > 0 && raw !== 'null';
+  } catch {
+    return false; // storage disabled/partitioned -> treat as anonymous, defer
+  }
+}
+
+/** Narrow `all` to the entries named in `names` (missing names are skipped). */
+function pick(all: RemotesMap, names: readonly string[]): RemotesMap {
+  const out: RemotesMap = {};
+  for (const name of names) {
+    const url = all[name];
+    if (typeof url === 'string' && url.length > 0) out[name] = url;
+  }
+  return out;
+}
+
+/**
+ * Decide what the boot should actually FETCH.
+ *
+ * THE DEFECT. `initFederation` eagerly fetches every remoteEntry.json it is
+ * given, so handing it the whole manifest while logged out fired thirteen
+ * requests that could only ever 401 (measured on the deployed shell 2026-08-20:
+ * `/api/federation/manifest` + admin, matrix, user, mod, mastodon, tube, wiki,
+ * api-docs, forum, owncast, character-studio, character-forge). Worse, the
+ * fallback made it unconditional: on the anonymous 401 `resolveFederationSource`
+ * returns the static manifest URL STRING, and initFederation then fetches that
+ * asset and eagerly dials every gated remote in it — so the storm happened
+ * *because* the manifest read had already been refused.
+ *
+ * THE PLAN. Anonymous boots register ONLY {@link PUBLIC_REMOTES}; a boot that
+ * looks authenticated keeps today's behaviour exactly and registers everything.
+ * Either way `all` carries the complete map into the remote registry, so a
+ * deferred remote is never LOST — only left unfetched until something needs it
+ * ({@link loadRemote}). Deferring is safe precisely because that on-demand path
+ * exists; without it this would trade a console storm for dead routes.
+ *
+ * The string fallback is resolved to the SAME manifest's build-time OBJECT
+ * (`environment.federationStaticManifest` is an import of the very file
+ * `environment.federationManifest` names), so the plan is always a map and the
+ * gating cannot be bypassed by handing initFederation a URL. It also drops one
+ * network fetch from the anonymous critical path.
+ */
+export async function planFederationBoot(
+  fetchImpl?: typeof fetch,
+  sessionHint: boolean = hasSessionHint(),
+): Promise<FederationBootPlan> {
+  const source = await resolveFederationSource(fetchImpl);
+  const all: RemotesMap =
+    typeof source === 'string' ? { ...environment.federationStaticManifest } : source;
+  return { eager: sessionHint ? all : pick(all, PUBLIC_REMOTES), all };
+}

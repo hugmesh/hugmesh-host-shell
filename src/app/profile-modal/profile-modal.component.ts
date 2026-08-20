@@ -10,16 +10,23 @@ import {
   signal,
 } from '@angular/core';
 import { DOCUMENT, NgComponentOutlet } from '@angular/common';
-import { loadRemoteModule } from '@angular-architects/native-federation';
+import { loadRemote } from '../federation/remote-registry';
 
 import { ProfileModalService } from './profile-modal.service';
 
 /** Resolve the user remote's standalone ProfileComponent (exposed module
  *  './profile'). Indirected through a holder so unit tests can stub the loader —
- *  the native-federation ESM namespace export is read-only and can't be spied. */
+ *  the native-federation ESM namespace export is read-only and can't be spied.
+ *
+ *  Uses {@link loadRemote} rather than the bare `loadRemoteModule('user', …)` for
+ *  the same reason app.routes.ts does: the name-only form cannot recover a remote
+ *  that was not registered at boot, and `user` is gated, so on an anonymous boot it
+ *  never is. This modal is the surface that made that reachable WITHOUT a reload —
+ *  it opens from the profile menu, which a tab renders as soon as SessionService's
+ *  `storage` listener adopts a sibling tab's sign-in. */
 export const profileRemoteLoader = {
   load: (): Promise<Type<unknown>> =>
-    loadRemoteModule('user', './profile').then(
+    loadRemote('user', './profile').then(
       (m) => (m as { ProfileComponent: Type<unknown> }).ProfileComponent,
     ),
 };

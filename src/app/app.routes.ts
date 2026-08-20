@@ -1,5 +1,5 @@
 import { CanActivateFn, Route, Routes } from '@angular/router';
-import { loadRemoteModule } from '@angular-architects/native-federation';
+import { loadRemote } from './federation/remote-registry';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
 import { forumGuard } from './guards/forum.guard';
@@ -123,10 +123,17 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
 
 /** Resolve a remote's exported routes constant via native-federation. Indirected
  *  through a holder so unit tests can stub the loader (the ESM namespace export
- *  itself is read-only and cannot be spied directly). */
+ *  itself is read-only and cannot be spied directly).
+ *
+ *  Goes through {@link loadRemote}, NOT the bare `loadRemoteModule(name, exposed)`:
+ *  that name-only form resolves against the BOOT-TIME registry and has no retry, so
+ *  any remote whose remoteEntry.json was unavailable at boot — every gated one, on
+ *  an anonymous boot — throws "unknown remote" for the life of the document.
+ *  loadRemote() passes the remembered remoteEntry URL so the remote is registered
+ *  on demand instead. */
 export const federationLoader = {
   load: (remoteName: string, exposed: string): Promise<Record<string, unknown>> =>
-    loadRemoteModule(remoteName, exposed) as Promise<Record<string, unknown>>,
+    loadRemote(remoteName, exposed),
 };
 
 function remoteRoute(spec: RemoteRouteSpec): Route {

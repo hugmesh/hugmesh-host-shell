@@ -1,10 +1,14 @@
 import { environment } from '../../environments/environment';
 import {
   FEDERATION_MANIFEST_URL,
+  PUBLIC_REMOTES,
   fetchDynamicRemotes,
+  hasSessionHint,
+  planFederationBoot,
   resolveFederationSource,
   toRemotesMap,
 } from './federation-bootstrap';
+import { REMOTE_ROUTES } from '../app.routes';
 
 /**
  * DYNAMIC-FIRST + STATIC-FALLBACK manifest bootstrap.
@@ -221,6 +225,128 @@ describe('federation-bootstrap', () => {
       const fetchSpy = jasmine.createSpy('fetch').and.rejectWith(new Error('offline'));
       const source = await resolveFederationSource(fetchSpy as unknown as typeof fetch);
       expect(source).toBe(environment.federationManifest);
+    });
+  });
+
+  /**
+   * THE 401 STORM.
+   *
+   * Measured on the deployed shell 2026-08-20, logged out, one page load:
+   * `/api/federation/manifest` 401, then admin, matrix, user, mod, mastodon, tube,
+   * wiki, api-docs, forum, owncast, character-studio and character-forge
+   * remoteEntry.json ALL 401 — thirteen refusals before the login form painted.
+   * `initFederation` FETCHES every remoteEntry it is handed, so the shell was
+   * asking for remotes the gateway could only refuse until someone signed in.
+   *
+   * These pin the gate. The companion guarantee — that a DEFERRED remote is still
+   * reachable afterwards — lives in remote-registry.spec.ts; the two together are
+   * the whole fix, and deferring without the second half would be a regression.
+   */
+  describe('planFederationBoot — do not dial gated remotes before login', () => {
+    const floor = environment.federationStaticManifest;
+    const gated = ['admin', 'mod', 'user', 'matrix', 'mastodon', 'apidocs'] as const;
+
+    it('ANONYMOUS: hands initFederation the PUBLIC remotes ONLY', async () => {
+      // The regression test for the storm. Every name in `eager` is a
+      // remoteEntry.json this boot will fetch, so the gated ones must be absent.
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(status(401));
+
+      const plan = await planFederationBoot(fetchSpy as unknown as typeof fetch, false);
+
+      expect(Object.keys(plan.eager).sort()).toEqual([...PUBLIC_REMOTES].sort());
+      for (const name of gated) {
+        expect(plan.eager[name])
+          .withContext(`gated remote '${name}' must NOT be fetched while logged out`)
+          .toBeUndefined();
+      }
+    });
+
+    it('ANONYMOUS: still REMEMBERS every gated remote, so none is lost', async () => {
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(status(401));
+
+      const plan = await planFederationBoot(fetchSpy as unknown as typeof fetch, false);
+
+      for (const name of gated) {
+        expect(plan.all[name])
+          .withContext(`'${name}' must survive into the registry for on-demand load`)
+          .toBe(floor[name]);
+      }
+    });
+
+    it('AUTHENTICATED: registers everything eagerly, exactly as before', async () => {
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(manifestBody()));
+
+      const plan = await planFederationBoot(fetchSpy as unknown as typeof fetch, true);
+
+      expect(plan.eager).toEqual(plan.all);
+      expect(plan.eager['admin']).toBeDefined();
+    });
+
+    it('the anonymous FALLBACK is a MAP, never the manifest URL string', async () => {
+      // The subtle half of the bug: on the anonymous 401 resolveFederationSource
+      // returns the static manifest PATH, and initFederation then fetches that
+      // asset and eagerly dials every gated remote listed in it. Handing it a URL
+      // string would route straight around the gate, so the plan must resolve the
+      // fallback to the same manifest's build-time object.
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(status(401));
+
+      const plan = await planFederationBoot(fetchSpy as unknown as typeof fetch, false);
+
+      expect(typeof plan.eager).toBe('object');
+      expect(typeof plan.all).toBe('object');
+      expect(plan.all).toEqual({ ...floor });
+    });
+
+    it('a dynamic-only slug is remembered too, and still deferred while anonymous', async () => {
+      const overlay = {
+        generatedAt: '2026-06-13T00:00:00Z',
+        remotes: [{ slug: 'wiki', remoteEntryUrl: '/wiki/remoteEntry.json' }],
+      };
+      const fetchSpy = jasmine.createSpy('fetch').and.resolveTo(okJson(overlay));
+
+      const plan = await planFederationBoot(fetchSpy as unknown as typeof fetch, false);
+
+      expect(plan.all['wiki']).toBe('/wiki/remoteEntry.json');
+      expect(plan.eager['wiki']).toBeUndefined();
+    });
+
+    it('PUBLIC_REMOTES agrees with the UNGUARDED routes in REMOTE_ROUTES', () => {
+      // PUBLIC_REMOTES cannot import app.routes.ts (that would drag the Angular DI
+      // graph into the pre-bootstrap entry chunk), so the invariant is asserted
+      // here instead: a remote is anonymous-reachable exactly when its route has
+      // no canActivate guard. Adding an unguarded remote without listing it — or
+      // guarding one that is still listed — fails right here.
+      const unguarded = REMOTE_ROUTES.filter((r) => !r.canActivate?.length).map(
+        (r) => r.remoteName,
+      );
+      expect([...PUBLIC_REMOTES].sort()).toEqual(unguarded.sort());
+    });
+  });
+
+  describe('hasSessionHint — the pre-DI "might we be signed in?" read', () => {
+    it('false with no session mirror at all (a first-time anonymous visitor)', () => {
+      expect(hasSessionHint({ getItem: () => null })).toBeFalse();
+    });
+
+    it('false for the literal string "null" a cleared mirror can leave behind', () => {
+      expect(hasSessionHint({ getItem: () => 'null' })).toBeFalse();
+    });
+
+    it('true when the hug.session mirror holds a session', () => {
+      const store = { getItem: jasmine.createSpy('getItem').and.returnValue('{"id":"u1"}') };
+      expect(hasSessionHint(store)).toBeTrue();
+      // Reads the SAME key SessionService seeds from — not a private copy.
+      expect(store.getItem).toHaveBeenCalledWith('hug.session');
+    });
+
+    it('false — never throws — when storage access is denied', () => {
+      expect(
+        hasSessionHint({
+          getItem: () => {
+            throw new Error('SecurityError: storage is partitioned');
+          },
+        }),
+      ).toBeFalse();
     });
   });
 });
