@@ -291,12 +291,63 @@ a {
   color: var(--hug-text-muted);
 }
 
+// ── REVEALED HELP BUBBLE — the one shared idiom ────────────────────────────────
+//
+// Icon-only chrome controls (background toggle, menubar-mode toggle, profile
+// trigger) each pair with a bubble: ALWAYS in the accessibility tree via the
+// button's aria-describedby, never hover-ONLY, and revealed visually on
+// hover/focus-within so the corner is not permanently crowded.
+//
+// WHY THIS IS ONE CLASS AND NOT THREE COPIES — the bug it was born from:
+// every one of these bubbles anchors to a container that SHRINK-WRAPS its ~2.5rem
+// icon button. An absolutely positioned box with `width: auto` is shrink-to-fit,
+// and shrink-to-fit is capped by the AVAILABLE width — containing-block width
+// minus the offsets we set. `inset-inline-end: 3rem` inside a 40px anchor makes
+// that available width NEGATIVE, so the bubble fell back to its min-content
+// width: on the live site it painted 32px wide and 657px tall, one character per
+// line, a column of vertical text. `max-width` could never have rescued it — it
+// caps a width, it cannot raise the available one.
+//
+// `width: max-content` is the fix, and it is the whole fix: it takes the used
+// width out of the available-width calculation entirely, so the bubble is as wide
+// as its text wants, `max-width` then caps it, and the text wraps normally.
+// Every bubble carries this class so the collapse cannot come back one instance
+// at a time; the per-control rules below add ONLY the anchor point.
+// Covered by src/app/help-bubble.layout.spec.ts.
+.help-bubble {
+  position: absolute;
+  // THE fix — see above. Never let this become `auto`/`fit-content`.
+  width: max-content;
+  max-width: min(16rem, 60vw);
+  // A single unbreakable token (a URL in help text) must wrap rather than push
+  // the bubble past its cap.
+  overflow-wrap: anywhere;
+  margin-top: 0;
+  padding: 0.4rem 0.6rem;
+  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
+  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
+  border-radius: 0.375rem;
+  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
+  // Visually hidden until the control is hovered/focused (see the reveals below).
+  // `visibility`, deliberately NOT `display: none`: the node must stay rendered so
+  // the button's aria-describedby still resolves to it.
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity t.$transition-base;
+}
+
+// prefers-contrast / forced colors: keep every bubble readable on a solid backdrop.
+@media (prefers-contrast: more) {
+  .help-bubble {
+    background: t.$black;
+    border-color: t.$offwhite;
+    color: t.$offwhite;
+  }
+}
+
 // The floating background-animation control: the icon button is the visible
-// affordance, and `.bg-toggle__help` is a palette-honoring, scalable help bubble
-// anchored to it. The help is ALWAYS in the accessibility tree (announced via
-// aria-describedby, never hover-only) and is REVEALED visually next to the button
-// on hover/focus-within so sighted users get the same guidance without the corner
-// being permanently crowded.
+// affordance, and `.bg-toggle__help` anchors the shared `.help-bubble` to it.
 .bg-toggle-control {
   position: fixed;
   inset-inline-end: 1rem;
@@ -308,23 +359,12 @@ a {
   gap: 0.5rem;
 }
 
+// ANCHOR ONLY. Paint, sizing and the hidden/revealed states all come from
+// `.help-bubble`; adding width rules back here would re-open the collapse.
 .bg-toggle__help {
-  // Visually hidden until the control is hovered/focused (see reveal below), but
-  // ALWAYS present for assistive tech via the button's aria-describedby.
-  position: absolute;
+  // Clear of the 2.5rem button plus its 0.5rem gap.
   inset-inline-end: 3rem;
-  max-width: min(16rem, 60vw);
-  margin-top: 0;
-  padding: 0.4rem 0.6rem;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-  border-radius: 0.375rem;
-  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   text-align: end;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity t.$transition-base;
 }
 
 .bg-toggle-control:hover .bg-toggle__help,
@@ -352,15 +392,6 @@ a {
 .menubar-mode-control:focus-within .bg-toggle__help {
   opacity: 1;
   visibility: visible;
-}
-
-// prefers-contrast / forced colors: keep the help readable with a solid backdrop.
-@media (prefers-contrast: more) {
-  .bg-toggle__help {
-    background: t.$black;
-    border-color: t.$offwhite;
-    color: t.$offwhite;
-  }
 }
 
 .bg-toggle {
