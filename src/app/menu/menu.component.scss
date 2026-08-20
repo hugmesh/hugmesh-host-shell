@@ -92,22 +92,24 @@ nav.navbar {
   // Trigger help: present for assistive tech (aria-describedby) at all times, and
   // REVEALED visually as a bubble when the account button is hovered/focused so the
   // top bar stays uncluttered — never hover-ONLY (always in the a11y tree).
+  //
+  // ANCHOR ONLY. The paint, the hidden/revealed states and — critically — the
+  // `width: max-content` sizing come from the global `.help-bubble` (styles.scss),
+  // which the span carries alongside this class. This rule used to own a full copy
+  // of the bubble WITHOUT that width, so the bubble was shrink-to-fit inside
+  // `.profile-menu` — a container that shrink-wraps the account-name button. Its
+  // used width was therefore the width of the user's name, not the 18rem it asks
+  // for here, and for a short name it collapsed toward a column of vertical text.
+  // Do not re-add width/max-width-only sizing: `max-width` caps a width, it cannot
+  // raise the available one. Covered by src/app/help-bubble.layout.spec.ts.
   &__help {
-    position: absolute;
     inset-inline-end: 0;
     top: calc(100% + 0.25rem);
+    // Above the bar's own siblings; the floating bubbles need no z-index because
+    // their anchors already establish an overlay stacking context.
     z-index: t.$z-nav;
+    // Wider than the floating-corner default: this one hangs under a full-width bar.
     max-width: min(18rem, 70vw);
-    margin-top: 0;
-    padding: 0.4rem 0.6rem;
-    background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-    border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-    border-radius: 0.375rem;
-    color: var(--hug-text); // 15.9:1 AAA on the solid bubble
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity t.$transition-base;
   }
 
   &:hover &__help,
@@ -121,14 +123,6 @@ nav.navbar {
   &--open &__help {
     opacity: 0;
     visibility: hidden;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .profile-menu__help {
-    background: t.$black;
-    border-color: t.$offwhite;
-    color: t.$offwhite;
   }
 }
 
