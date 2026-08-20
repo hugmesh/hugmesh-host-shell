@@ -20,14 +20,23 @@
 }
 
 // OPTIONAL pride-flag accent — painted ONLY when the injected theme defines
-// --sd-flag-stripes (theme_presets.py flag presets: a 180deg hard-stop
+// --hug-flag-stripes (theme_presets.py flag presets: a 180deg hard-stop
 // linear-gradient of the REAL flag, top-to-bottom). The 180deg direction is why
 // this is a slim VERTICAL ribbon on the header's start edge and NOT a 3px top
 // border: on a 3px-tall bar the top-to-bottom stripes would blend to mush,
 // misrendering the flag. Un-themed (token unset): `background: none` paints
 // nothing and pointer-events pass through — byte-identical chrome. Decorative
-// only (empty content, no a11y-tree entry); --sd-flag-name exists in the
+// only (empty content, no a11y-tree entry); --hug-flag-name exists in the
 // contract if a labelled treatment is ever wanted.
+//
+// PREFIX: --hug-*, matching login-ui's identical ribbon rule
+// (login-background.component.scss `background-image: var(--hug-flag-stripes,
+// none)`). The flag extras are NOT base-derivation tokens, so they are absent
+// from a plain theme — but when a flag preset does emit them they go through
+// theme.py `css_root` like everything else, which twins every --sd-* to
+// --hug-*. Both compose_css() AND delta_css() call css_root, so there is no
+// path on which a flag reaches the browser as --sd-* only; the generator's own
+// test_css_emits_the_hug_runtime_contract pins the --hug-flag-stripes twin.
 :host::before {
   content: '';
   position: absolute;
@@ -37,7 +46,7 @@
   inset-inline-start: 0;
   width: 3px;
   border-radius: 2px;
-  background: var(--sd-flag-stripes, none);
+  background: var(--hug-flag-stripes, none);
   pointer-events: none;
 }
 
