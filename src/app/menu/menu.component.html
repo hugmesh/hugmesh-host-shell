@@ -77,7 +77,7 @@
            gated on the session: an anonymous user looking at a wedged login or
            home view needs it just as much. A real <button> (not an icon <div>),
            so it is in the tab order and activates on Enter/Space natively. -->
-      <div class="nav-item reload-nav-item">
+      <div class="nav-item reload-nav-item help-anchor">
         <button
           class="reload-btn"
           type="button"
@@ -108,13 +108,16 @@
             <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
           </svg>
         </button>
-        <!-- VISIBLE, palette-honoring help (the same .field-help idiom the
-             bg-toggle and profile trigger use) so BOTH sighted and screen-reader
-             users are told what the icon-only control does; aria-live reflects
-             the in-flight state so it is announced when it changes. -->
+        <!-- Help for the icon-only control, on the shared .help-anchor/.help-bubble
+             contract (styles.scss): ALWAYS announced via aria-describedby, and
+             revealed as a bubble on hover/focus rather than sitting in the bar.
+             It previously carried .field-help ALONE, which is the always-visible
+             BLOCK help class — so this sentence painted as permanent inline text
+             between the reload icon and Sign in. aria-live reflects the in-flight
+             state so the change is announced. -->
         <span
           id="view-reload-help"
-          class="field-help reload-btn__help"
+          class="field-help help-bubble reload-btn__help"
           data-testid="view-reload-help"
           aria-live="polite"
         >{{ viewReload.busy()
@@ -162,7 +165,7 @@
       }
       @if (session.loggedIn()) {
         <li
-          class="nav-item dropdown profile-menu"
+          class="nav-item dropdown profile-menu help-anchor"
           [class.profile-menu--open]="profileOpen()"
           role="none"
         >
@@ -187,7 +190,7 @@
                unlabelled as to PURPOSE. -->
           <span
             id="profile-trigger-help"
-            class="field-help profile-menu__help"
+            class="field-help help-bubble profile-menu__help"
             data-testid="profile-trigger-help"
           >Open your account menu: profile, role consoles, and sign out.</span>
 
@@ -244,7 +247,7 @@
          renders this: an always-on bar must not offer a close box that fresh
          content would silently override. -->
     @if (barMode.mode() === 'auto') {
-      <div class="nav-item dismiss-nav-item">
+      <div class="nav-item dismiss-nav-item help-anchor">
         <button
           class="menubar-dismiss"
           type="button"
@@ -270,11 +273,14 @@
             <path d="m6 6 12 12"/>
           </svg>
         </button>
-        <!-- VISIBLE help (the .field-help idiom the reload button uses) so BOTH
-             sighted and screen-reader users know the bar returns on its own. -->
+        <!-- Help on the shared .help-anchor/.help-bubble contract (styles.scss) so
+             BOTH sighted and screen-reader users know the bar returns on its own —
+             announced always, painted only on hover/focus. Same as the reload
+             control, it previously carried .field-help alone and leaked into the
+             bar as resident inline text. -->
         <span
           id="menubar-dismiss-help"
-          class="field-help menubar-dismiss__help"
+          class="field-help help-bubble menubar-dismiss__help"
           data-testid="menubar-dismiss-help"
         >Hide the menu bar until new announcements or notifications arrive.</span>
       </div>

@@ -6,7 +6,7 @@
 
 <app-background #bg></app-background>
 
-<div class="bg-toggle-control">
+<div class="bg-toggle-control help-anchor">
   <button
     class="bg-toggle"
     type="button"
@@ -26,13 +26,14 @@
       </svg>
     }
   </button>
-  <!-- VISIBLE help text (palette-honoring .field-help, scalable rem text) that
-       BOTH sighted and screen-reader users get: aria-describedby links it to the
-       icon-only button so it is announced WITH the control, and aria-live reflects
-       the current paused/playing state when it changes — never tooltip/hover-only. -->
+  <!-- Help text BOTH sighted and screen-reader users get, via the shared
+       .help-anchor/.help-bubble idiom (see styles.scss): always in the a11y tree
+       through aria-describedby, and REVEALED as a bubble on hover/focus so the
+       corner is not permanently crowded. aria-live reflects the current
+       paused/playing state when it changes. -->
   <span
     id="bg-toggle-help"
-    class="field-help bg-toggle__help"
+    class="field-help help-bubble bg-toggle__help"
     data-testid="bg-toggle-help"
     aria-live="polite"
   >{{ bg.paused()
@@ -48,7 +49,7 @@
      able to switch back. Signed-in only: the anonymous login screen has no bar
      content for auto mode to wait for. -->
 @if (session.loggedIn()) {
-  <div class="menubar-mode-control">
+  <div class="menubar-mode-control help-anchor">
     <button
       class="bg-toggle menubar-mode-toggle"
       type="button"
@@ -67,7 +68,7 @@
          state change via aria-live. -->
     <span
       id="menubar-mode-help"
-      class="field-help bg-toggle__help"
+      class="field-help help-bubble bg-toggle__help"
       data-testid="menubar-mode-help"
       aria-live="polite"
     >{{ menuBarMode.mode() === 'auto'
