@@ -5,6 +5,22 @@
   @include m.glass-float;
   position: relative; // anchors the ::before flag ribbon below; no visual change alone
   display: block;
+  // The banner sizes its own layout, so it is the QUERY CONTAINER — not the
+  // viewport. A viewport media query would be a guess about how wide the banner
+  // is; `@container` asks. It also makes the stacked layout reachable in a unit
+  // test (set the fixture's width, get the real narrow rendering) instead of
+  // only in a browser someone remembers to resize.
+  container-type: inline-size;
+  container-name: header-banner;
+  // The controls region carries a dropdown + help bubbles that hang BELOW the
+  // banner's own box and therefore land on top of the menubar. `[menu]` is
+  // `position: relative; z-index: $z-nav` (styles.scss), and the global
+  // `header, footer` rule only grants $z-content — so at rest the banner is
+  // BENEATH the bar and the open user menu was painted over (and un-clickable)
+  // for exactly the ~80px the bar is tall. $z-banner is the tier above the bar;
+  // matching $z-nav would not have been enough, because at an equal z-index the
+  // later element in tree order wins and `[menu]` comes after the header.
+  z-index: t.$z-banner;
   // CHROME DENSITY (issue #19: "the app takes far too much space"): the wordmark
   // banner was the tallest fixed cost on every view (1rem/0.5rem margins +
   // 0.75rem paddings + an up-to-3rem h1 with its own 0.5rem bottom margin —
@@ -50,7 +66,49 @@
   pointer-events: none;
 }
 
+// BANNER LAYOUT (operator requirement, issue #19 comment 2026-08-19): the
+// wordmark stays centred while the chrome controls sit at the inline END.
+//
+// `1fr auto 1fr` is what makes "centred" TRUE rather than approximate: the empty
+// leading gutter and the controls' trailing track are the same width, so the
+// wordmark's own `auto` track lands on the banner's real midpoint instead of
+// being pushed left by however wide the controls happen to be. (An end-aligned
+// control cluster with no mirror shifts a "centred" title by half its width —
+// ~95px at 1600, which reads as broken.)
+.header__bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
+hug-header-controls {
+  justify-self: end;
+}
+
+// NARROW BANNER: stack instead of squeezing. Below this width the wordmark and
+// the control cluster cannot share a line without one of them being crushed, so
+// the controls take a row of their own, centred under the title — which stays
+// centred, because there is no longer anything beside it. This is the case a
+// "just pin it top-right" absolute would have got wrong by painting the buttons
+// straight over the wordmark on a phone.
+@container header-banner (max-width: 34rem) {
+  .header__bar {
+    grid-template-columns: 1fr;
+    row-gap: 0.25rem;
+  }
+
+  .header__gutter {
+    display: none;
+  }
+
+  hug-header-controls {
+    justify-self: center;
+  }
+}
+
 h1 {
+  min-width: 0;
   // The brand wordmark renders in the display face ('More Sugar', wired via the
   // @font-face in styles.scss); falls back to the sans stack until it loads.
   font-family: t.$font-fancy;

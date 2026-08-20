@@ -96,6 +96,16 @@ $scrim-alpha: 0.82;
 $z-background: -1;
 $z-content:     1;
 $z-nav:         5;
+// The header BANNER, one step above the bar. It is not merely "more chrome":
+// since the shell's chrome controls moved into it (issue #19 comment,
+// 2026-08-19) the banner carries POPUPS — the user menu's dropdown and the
+// revealed help bubbles — that hang BELOW its own box and therefore land on top
+// of `[menu]`, which styles.scss puts at $z-nav. At an equal z-index the later
+// element in tree order wins, and `[menu]` comes after the header: the dropdown
+// was painted over and un-clickable for its first ~80px. This is the tier that
+// says "banner popups outrank the bar", without promoting the whole banner into
+// the $z-overlay modal/toast tier where it does not belong.
+$z-banner:      6;
 $z-overlay:   200;
 $z-top:      9999;
 

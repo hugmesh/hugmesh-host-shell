@@ -1,3 +1,18 @@
-<h1 tabindex="-1" class="text-center">
-  HugMesh
-</h1>
+<!-- The banner is a THREE-TRACK row: an empty gutter, the wordmark, the chrome
+     controls. The leading gutter is the controls' mirror — it is what keeps the
+     wordmark on the banner's true centre instead of shoved left by the width of
+     the buttons. Purely presentational and empty, so it adds nothing to the
+     accessibility tree. -->
+<div class="header__bar">
+  <span class="header__gutter" aria-hidden="true"></span>
+
+  <h1 tabindex="-1" class="text-center">
+    HugMesh
+  </h1>
+
+  <!-- SHELL CHROME, top-right (operator requirement, issue #19 comment
+       2026-08-19). The animation toggle, the menu toggle, the notification bell
+       and the user menu all live here now — see header-controls.component.ts for
+       where each came from and why the scattering was the bug. -->
+  <hug-header-controls [background]="background()" />
+</div>

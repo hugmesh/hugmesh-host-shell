@@ -1,0 +1,220 @@
+@use 'tokens' as t;
+@use 'mixins' as m;
+
+// ── THE HEADER'S CHROME CONTROL CLUSTER ──────────────────────────────────────
+// One row of icon-sized controls pinned to the header's inline END. Everything
+// in here used to be styled from two other stylesheets (styles.scss for the two
+// floating toggles, menu.component.scss for the bell + profile menu); the rules
+// moved WITH the markup, so there is one place to change how shell chrome looks
+// and no component skins another component's DOM across a boundary.
+//
+// The help bubbles are NOT re-implemented here: each control is a `.help-anchor`
+// and each help span a `.help-bubble` (styles.scss), so this file declares only
+// WHICH EDGE a bubble flies out from. That shared idiom exists precisely because
+// hand-copying the ~12 bubble declarations is how `.bg-toggle__help` ended up
+// revealed-but-widthless (a 32px x 657px ribbon of vertical text on the
+// deployed page) and `.reload-btn__help` ended up never revealed at all.
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  gap: 0.25rem;
+  // Normal type scale for the account name; the header's h1 sets a display face
+  // that must not leak into the controls.
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.header-controls__item {
+  display: flex;
+  align-items: center;
+}
+
+// ── Icon toggles (background animation + menubar mode) ───────────────────────
+// Kept as .bg-toggle so the two toggles stay one visual set. Slightly tighter
+// than the old floating version (2.25rem vs 2.5rem) because they now share a
+// 57px-tall banner with the wordmark instead of an empty page corner.
+.bg-toggle {
+  position: static;
+  flex: 0 0 auto;
+  background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.8);
+  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.3);
+  border-radius: 50%;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow t.$transition-base;
+  padding: 0;
+
+  &:hover,
+  &:focus-visible {
+    box-shadow: 0 0 10px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.5);
+    outline: 2px solid var(--hug-primary, #{t.$neon});
+    outline-offset: 2px;
+  }
+
+  svg {
+    fill: var(--hug-primary, #{t.$neon});
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+// OFFSET ONLY — sizing, skin, hiding and revealing come from `.help-bubble`.
+// The banner's end edge has nothing to its right to fly out into, so the bubble
+// drops straight DOWN from the button and is end-aligned, keeping its ragged
+// edge away from the viewport edge. (Beside the button, which is what the
+// bottom-right floating version did, is not available up here.)
+.bg-toggle__help {
+  top: calc(100% + 0.35rem);
+  inset-inline-end: 0;
+  text-align: start;
+}
+
+// ── Notification bell ────────────────────────────────────────────────────────
+.bell-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--sd-text, #{t.$offwhite});
+  padding: 0.25rem 0.5rem;
+  display: flex;
+  align-items: center;
+  border-radius: 0.25rem;
+  transition: background-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    background-color: rgba(255, 255, 255, 0.1);
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+}
+
+.bell-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 0.55rem;
+  background: var(--sd-error, #e74c3c);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+// ── User (profile) menu ──────────────────────────────────────────────────────
+.profile-menu {
+  &__trigger {
+    background: none;
+    border: 0;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    color: var(--sd-text, #{t.$offwhite});
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover,
+    &:focus-visible {
+      background-color: rgba(255, 255, 255, 0.1);
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
+    }
+  }
+
+  &__name {
+    font-weight: 700;
+  }
+
+  &__list {
+    @include m.card-surface;
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 0.25rem);
+    z-index: t.$z-nav;
+    min-width: 12rem;
+    margin: 0;
+    padding: 0.5rem;
+    list-style: none;
+    // The dropdown is taller than the banner it hangs from, so cap it against
+    // the viewport: a superadmin's full console list must stay reachable on a
+    // laptop rather than running off the bottom of the screen.
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    text-align: start;
+  }
+
+  &__item {
+    background: none;
+    border: 0;
+    // $light (#bbbbbb) fails WCAG AA here: these labels are painted over a
+    // translucent surface ON TOP OF the animated pastel gradient — the effective
+    // backdrop measures around rgb(79,108,79)-rgb(108,100,73), not the dark page
+    // colour. Sampled from real screenshots: $light lands at 3.05-3.11:1 (needs
+    // 4.5), $offwhite at 4.77-4.87:1.
+    color: var(--sd-text, #{t.$offwhite});
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    width: 100%;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--sd-accent-soft, #{t.$neon});
+    }
+  }
+
+  // Per-item help: always visible under the item (muted .field-help colour/size
+  // from styles.scss), so sighted users read what each entry does without hovering.
+  &__item-help {
+    padding: 0 0.75rem 0.4rem;
+    margin-top: 0;
+  }
+
+  // Trigger help: OFFSET ONLY, on the shared `.help-bubble` contract.
+  &__help {
+    inset-inline-end: 0;
+    top: calc(100% + 0.25rem);
+    text-align: start;
+  }
+
+  // While the dropdown is open it occupies the same anchor point as the trigger
+  // help bubble, so suppress the bubble (the open menu's per-item help takes
+  // over). Deliberately more specific than the shared `.help-anchor:focus-within`
+  // reveal — an open menu keeps the trigger inside :focus-within, so this has to
+  // out-weigh it rather than merely follow it.
+  &--open &__help {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+// COARSE POINTERS: these are the shell's smallest targets and they now sit in a
+// tight row, so give them the 44px WCAG 2.5.5 floor on touch.
+@media (pointer: coarse) {
+  .bg-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .bell-btn,
+  .profile-menu__trigger {
+    min-height: 44px;
+  }
+}

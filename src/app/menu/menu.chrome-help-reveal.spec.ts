@@ -108,6 +108,14 @@ describe('MenuComponent — chrome help bubbles are revealed, not resident', () 
     expandCollapse();
   });
 
+  // The menubar mode PERSISTS to localStorage, so a spec that leaves it on
+  // 'auto' hands the next FILE a bar that only renders when content is present
+  // — and jasmine randomises file order, so the victims move around. Observed as
+  // "Expected null to be truthy" storms in menu.component.spec's menubar and
+  // login-gate suites roughly one run in three. Every other spec that touches
+  // the mode already cleans up here; this one set 'auto' and did not.
+  afterEach(() => localStorage.removeItem(MENU_BAR_MODE_KEY));
+
   /**
    * The bar's contents live inside bootstrap's `.collapse.navbar-collapse`,
    * which is `display: none` below the `lg` breakpoint — and the karma iframe is
@@ -220,9 +228,11 @@ describe('MenuComponent — chrome help bubbles are revealed, not resident', () 
     await assertRevealContract('menubar-dismiss', 'menubar-dismiss-help');
   });
 
-  it('profile trigger: the consumer that already conformed keeps conforming', async () => {
-    await assertRevealContract('profile-trigger', 'profile-trigger-help');
-  });
+  // The profile trigger used to be asserted here as "the consumer that already
+  // conformed". It is no longer a menubar control — the user menu moved to the
+  // header banner (issue #19 comment, 2026-08-19) — so the same contract is
+  // asserted at its new home, along with the two chrome toggles that moved with
+  // it: see header/header-controls.help-reveal.spec.ts.
 
   /**
    * The idiom itself, not one consumer of it. EVERY `.field-help` that is a
@@ -236,10 +246,8 @@ describe('MenuComponent — chrome help bubbles are revealed, not resident', () 
     const offenders: string[] = [];
 
     for (const help of Array.from(nav.querySelectorAll<HTMLElement>('.field-help'))) {
-      // Help that lives inside an open dropdown list is deliberately resident.
-      if (help.closest('.profile-menu__list')) continue;
       // Disabled-entry reasons sit UNDER their stacked <li>, not in the run.
-      if (help.closest('li[role="none"]') && !help.classList.contains('profile-menu__help')) continue;
+      if (help.closest('li[role="none"]')) continue;
 
       const cs = getComputedStyle(help);
       const resident = cs.visibility !== 'hidden' && cs.opacity !== '0';

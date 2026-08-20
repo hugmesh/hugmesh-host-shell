@@ -410,76 +410,14 @@ a {
   }
 }
 
-// The floating background-animation control: the icon button is the visible
-// affordance, and `.bg-toggle__help` is the `.help-bubble` anchored to it. The
-// help is ALWAYS in the accessibility tree (announced via aria-describedby,
-// never hover-only) and is REVEALED visually next to the button on hover/focus
-// so sighted users get the same guidance without the corner being permanently
-// crowded.
-.bg-toggle-control {
-  position: fixed;
-  inset-inline-end: 1rem;
-  bottom: 1rem;
-  z-index: t.$z-overlay;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-// OFFSET ONLY — hiding, revealing, sizing and skin all come from `.help-bubble`.
-// These two float in the bottom-right corner, so the bubble flies out to the
-// LEFT of the button (3rem clears the 2.5rem button plus its gap) and is
-// end-aligned so its ragged edge faces away from the screen edge.
-.bg-toggle__help {
-  inset-inline-end: 3rem;
-  max-width: min(16rem, 60vw);
-  text-align: end;
-}
-
-// The floating MENUBAR-MODE control (issue #19): the same icon-button + revealed
-// help idiom as the bg-toggle it sits one slot above (2.5rem button + the 1rem
-// edge inset + a 0.75rem gap). Its button/bubble reuse .bg-toggle/.bg-toggle__help
-// wholesale; only the anchor point lives here — the reveal is `.help-anchor`.
-.menubar-mode-control {
-  position: fixed;
-  inset-inline-end: 1rem;
-  bottom: 4.25rem;
-  z-index: t.$z-overlay;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.bg-toggle {
-  position: static;
-  flex: 0 0 auto;
-  background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.8);
-  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.3);
-  border-radius: 50%;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: box-shadow t.$transition-base;
-  padding: 0;
-
-  &:hover,
-  &:focus-visible {
-    box-shadow: 0 0 10px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.5);
-    outline: 2px solid var(--hug-primary, #{t.$neon});
-    outline-offset: 2px;
-  }
-
-  svg {
-    fill: var(--hug-primary, #{t.$neon});
-    width: 1rem;
-    height: 1rem;
-  }
-}
+// NOTE: the shell's chrome CONTROLS (background-animation toggle, menubar-mode
+// toggle, notification bell, user menu) used to be styled from here as floating
+// `position: fixed` corner furniture — the opposite end of the page from the
+// title. They now live inside the header banner and carry their own
+// component-scoped stylesheet (app/header/header-controls.component.scss), which
+// consumes the `.help-anchor` / `.help-bubble` idiom above exactly like the
+// menubar's remaining controls do. Nothing outside that component uses
+// .bg-toggle / .bg-toggle__help / .bg-toggle-control / .menubar-mode-control.
 
 @media (prefers-reduced-motion: reduce) {
   *,

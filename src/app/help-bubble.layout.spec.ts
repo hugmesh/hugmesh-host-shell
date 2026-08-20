@@ -9,9 +9,12 @@ import { BackgroundComponent } from './background/background.component';
 import { NotificationToastComponent } from './notification-toast.component';
 import { NotificationToastService } from './notification-toast.service';
 import { MenuComponent } from './menu/menu.component';
+import { HeaderControlsComponent } from './header/header-controls.component';
 import { SessionService } from './session.service';
 import { CapabilitiesService } from './capabilities/capabilities.service';
 import { CapabilitiesStub } from './capabilities/capabilities.stub';
+import { BellNotificationsService } from './bell/bell-notifications.service';
+import { of } from 'rxjs';
 
 /**
  * REVEALED HELP BUBBLES — the layout contract for the shared idiom.
@@ -43,6 +46,12 @@ class BackgroundStub {
 
 @Component({ selector: 'hug-notification-toast', standalone: true, template: '' })
 class NotificationToastStub {}
+
+class BellStub {
+  readonly unreadCount$ = of(0);
+  startPolling = jasmine.createSpy('startPolling');
+  stopPolling = jasmine.createSpy('stopPolling');
+}
 
 class SessionStub {
   loggedIn = signal(true);
@@ -160,8 +169,12 @@ describe('revealed help bubbles — width is content-driven, not anchor-driven',
     }
   }
 
-  // ── The floating chrome bubbles (global .bg-toggle__help, styles.scss) ──────
-  describe('floating chrome', () => {
+  // ── The banner's chrome bubbles (.bg-toggle__help) ─────────────────────────
+  // These controls used to be `position: fixed` corner furniture; they now live
+  // in the header banner (header-controls.component.*). The bubble contract is
+  // unchanged — that is the point of the shared idiom — so the assertions are
+  // the same ones, just mounted where the controls actually are.
+  describe('header banner chrome', () => {
     beforeEach(async () => {
       await TestBed.configureTestingModule({
         imports: [AppComponent],
@@ -170,6 +183,7 @@ describe('revealed help bubbles — width is content-driven, not anchor-driven',
           provideHttpClient(),
           provideHttpClientTesting(),
           NotificationToastService,
+          { provide: BellNotificationsService, useValue: new BellStub() },
         ],
       })
         .overrideComponent(AppComponent, {
@@ -205,7 +219,9 @@ describe('revealed help bubbles — width is content-driven, not anchor-driven',
       // other anchor and re-measure: same idiom, different offset.
       const shell = renderShell();
       const anchor = document.createElement('div');
-      anchor.className = 'menubar-mode-control';
+      // Same classes the template gives it: `.help-anchor` is what makes the
+      // anchor a containing block, and the offsets are component-scoped.
+      anchor.className = 'header-controls__item help-anchor menubar-mode-control';
       anchor.innerHTML = '<button type="button" class="bg-toggle"></button>';
       const bubble = (shell.querySelector('#bg-toggle-help') as HTMLElement).cloneNode(
         true,
@@ -227,34 +243,37 @@ describe('revealed help bubbles — width is content-driven, not anchor-driven',
   });
 
   // ── The profile-trigger bubble (component-scoped .profile-menu__help) ───────
+  // The user menu moved out of the menubar and into the header banner (issue #19
+  // comment, 2026-08-19), so this suite mounts HeaderControlsComponent. The
+  // anchor is still the narrow account-name button, which is the condition the
+  // shrink-to-fit bug needs.
   describe('profile trigger', () => {
     beforeEach(async () => {
       await TestBed.configureTestingModule({
-        imports: [MenuComponent],
+        imports: [HeaderControlsComponent],
         providers: [
           provideRouter([]),
           { provide: SessionService, useValue: new SessionStub() },
-          { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+          { provide: BellNotificationsService, useValue: new BellStub() },
         ],
       }).compileComponents();
     });
 
-    function renderMenu(): HTMLElement {
-      const fixture = TestBed.createComponent(MenuComponent);
+    function renderControls(): HTMLElement {
+      const fixture = TestBed.createComponent(HeaderControlsComponent);
       fixture.detectChanges();
       return fixture.nativeElement as HTMLElement;
     }
 
     /**
-     * The bar is `navbar-expand-lg`, so under Karma's ~765px context iframe
-     * bootstrap collapses it to `display: none` and NOTHING inside has a box to
-     * measure. Re-home the REAL `li.profile-menu` subtree (cloneNode keeps every
-     * `_ngcontent-*` attribute, so the component-scoped rules still reach it) into
-     * a plain flex row: that reproduces the desktop condition the bug lives in —
-     * an anchor that shrink-wraps the account-name button — at any viewport.
+     * Re-home the REAL `.profile-menu` subtree (cloneNode keeps every
+     * `_ngcontent-*` attribute, so the component-scoped rules still reach it)
+     * into a plain wide flex row, so the measurement reproduces the desktop
+     * condition the bug lives in — an anchor that shrink-wraps the account-name
+     * button — at Karma's narrow context-iframe width too.
      */
     function reanchoredProfileMenu(): { bubble: HTMLElement; trigger: HTMLElement } {
-      const real = renderMenu().querySelector('.profile-menu') as HTMLElement;
+      const real = renderControls().querySelector('.profile-menu') as HTMLElement;
       expect(real).withContext('profile menu must be rendered').toBeTruthy();
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;justify-content:flex-end;width:600px';
@@ -280,15 +299,36 @@ describe('revealed help bubbles — width is content-driven, not anchor-driven',
     });
 
     it('keeps the help as the trigger description', () => {
-      const menu = renderMenu();
+      const controls = renderControls();
       expectStillDescribesItsControl(
-        menu.querySelector('#profile-trigger-help') as HTMLElement,
-        menu.querySelector('[data-testid="profile-trigger"]') as HTMLElement,
+        controls.querySelector('#profile-trigger-help') as HTMLElement,
+        controls.querySelector('[data-testid="profile-trigger"]') as HTMLElement,
       );
     });
 
+    it('leaves no absolutely positioned help in the header controls without .help-bubble', () => {
+      expectEveryAbsoluteHelpUsesTheSharedClass(renderControls(), 'header controls');
+    });
+  });
+
+  // ── What is LEFT in the menubar must still hold the same contract ───────────
+  describe('menubar', () => {
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        imports: [MenuComponent],
+        providers: [
+          provideRouter([]),
+          { provide: SessionService, useValue: new SessionStub() },
+          { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+          { provide: BellNotificationsService, useValue: new BellStub() },
+        ],
+      }).compileComponents();
+    });
+
     it('leaves no absolutely positioned help in the menubar without .help-bubble', () => {
-      expectEveryAbsoluteHelpUsesTheSharedClass(renderMenu(), 'menubar');
+      const fixture = TestBed.createComponent(MenuComponent);
+      fixture.detectChanges();
+      expectEveryAbsoluteHelpUsesTheSharedClass(fixture.nativeElement as HTMLElement, 'menubar');
     });
   });
 });

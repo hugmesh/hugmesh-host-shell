@@ -35,86 +35,12 @@ nav.navbar {
   }
 }
 
-.profile-menu {
-  position: relative;
-
-  &__trigger {
-    background: none;
-    border: 0;
-    color: var(--sd-text, #{t.$offwhite});
-  }
-
-  &__name {
-    font-weight: 700;
-  }
-
-  &__list {
-    @include m.card-surface;
-    position: absolute;
-    inset-inline-end: 0;
-    top: calc(100% + 0.25rem);
-    z-index: t.$z-nav;
-    min-width: 12rem;
-    margin: 0;
-    padding: 0.5rem;
-    list-style: none;
-  }
-
-  &__item {
-    background: none;
-    border: 0;
-    // $light (#bbbbbb) fails WCAG AA here. The menubar sets `background: none`, so
-    // these labels are painted over the translucent bar ON TOP OF the animated pastel
-    // gradient — the effective backdrop measures around rgb(79,108,79)-rgb(108,100,73),
-    // not the dark page colour. Sampled from real screenshots: $light lands at
-    // 3.05-3.11:1 (needs 4.5), $offwhite at 4.77-4.87:1.
-    color: var(--sd-text, #{t.$offwhite});
-    display: block;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 0.5rem 0.75rem;
-    text-align: start;
-    width: 100%;
-
-    &:hover,
-    &:focus-visible {
-      color: var(--sd-accent-soft, #{t.$neon});
-    }
-  }
-
-  // Per-item help: always visible under the item (muted .field-help colour/size
-  // from styles.scss), so sighted users read what each entry does without hovering.
-  &__item-help {
-    padding: 0 0.75rem 0.4rem;
-    margin-top: 0;
-  }
-
-  // Trigger help: OFFSET ONLY. The <li> carries `.help-anchor` and the span
-  // carries `.help-bubble`, so hiding, revealing, sizing and skin all come from
-  // the one shared idiom in styles.scss; only "which corner it flies out from"
-  // is this component's business.
-  &__help {
-    inset-inline-end: 0;
-    top: calc(100% + 0.25rem);
-  }
-
-  // While the dropdown is open it occupies the same anchor point as the trigger
-  // help bubble, so suppress the bubble (the open menu's per-item help takes
-  // over). Deliberately more specific than the shared `.help-anchor:focus-within`
-  // reveal — an open menu keeps the trigger inside :focus-within, so this has to
-  // out-weigh it rather than merely follow it.
-  &--open &__help {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
-// Icon-only chrome controls (reload + notification bell + the auto-mode
-// dismiss). ONE rule for all so they read as a single set rather than
-// unrelated affordances — and so this already-over-budget stylesheet does not
-// carry the geometry twice.
+// Icon-only chrome controls (reload + the auto-mode dismiss). ONE rule for both
+// so they read as a single set rather than unrelated affordances. The
+// notification bell used to share these rules; it moved to the header banner
+// WITH its markup (header-controls.component.scss) — styling it from here would
+// have meant a component reaching across a boundary to skin someone else's DOM.
 .reload-nav-item,
-.bell-nav-item,
 .dismiss-nav-item {
   display: flex;
   align-items: center;
@@ -134,7 +60,6 @@ nav.navbar {
 }
 
 .reload-btn,
-.bell-btn,
 .menubar-dismiss {
   position: relative;
   background: none;
@@ -171,23 +96,6 @@ nav.navbar {
 
 @keyframes reload-spin {
   to { transform: rotate(360deg); }
-}
-
-.bell-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.25rem;
-  border-radius: 0.55rem;
-  background: var(--sd-error, #e74c3c);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1.1rem;
-  text-align: center;
-  pointer-events: none;
 }
 
 .nav-item {
