@@ -89,37 +89,20 @@ nav.navbar {
     margin-top: 0;
   }
 
-  // Trigger help: present for assistive tech (aria-describedby) at all times, and
-  // REVEALED visually as a bubble when the account button is hovered/focused so the
-  // top bar stays uncluttered — never hover-ONLY (always in the a11y tree).
-  //
-  // ANCHOR ONLY. The paint, the hidden/revealed states and — critically — the
-  // `width: max-content` sizing come from the global `.help-bubble` (styles.scss),
-  // which the span carries alongside this class. This rule used to own a full copy
-  // of the bubble WITHOUT that width, so the bubble was shrink-to-fit inside
-  // `.profile-menu` — a container that shrink-wraps the account-name button. Its
-  // used width was therefore the width of the user's name, not the 18rem it asks
-  // for here, and for a short name it collapsed toward a column of vertical text.
-  // Do not re-add width/max-width-only sizing: `max-width` caps a width, it cannot
-  // raise the available one. Covered by src/app/help-bubble.layout.spec.ts.
+  // Trigger help: OFFSET ONLY. The <li> carries `.help-anchor` and the span
+  // carries `.help-bubble`, so hiding, revealing, sizing and skin all come from
+  // the one shared idiom in styles.scss; only "which corner it flies out from"
+  // is this component's business.
   &__help {
     inset-inline-end: 0;
     top: calc(100% + 0.25rem);
-    // Above the bar's own siblings; the floating bubbles need no z-index because
-    // their anchors already establish an overlay stacking context.
-    z-index: t.$z-nav;
-    // Wider than the floating-corner default: this one hangs under a full-width bar.
-    max-width: min(18rem, 70vw);
-  }
-
-  &:hover &__help,
-  &:focus-within &__help {
-    opacity: 1;
-    visibility: visible;
   }
 
   // While the dropdown is open it occupies the same anchor point as the trigger
-  // help bubble, so suppress the bubble (the open menu's per-item help takes over).
+  // help bubble, so suppress the bubble (the open menu's per-item help takes
+  // over). Deliberately more specific than the shared `.help-anchor:focus-within`
+  // reveal — an open menu keeps the trigger inside :focus-within, so this has to
+  // out-weigh it rather than merely follow it.
   &--open &__help {
     opacity: 0;
     visibility: hidden;
@@ -135,6 +118,19 @@ nav.navbar {
 .dismiss-nav-item {
   display: flex;
   align-items: center;
+}
+
+// Reload + dismiss help: OFFSET ONLY, on the shared `.help-bubble` contract.
+// These two anchors are ~2.5rem wide and sit mid-bar, so the bubble drops
+// straight DOWN and is centred on the glyph rather than flying to an edge.
+// Before this rule existed at all, both spans fell through to plain
+// `.field-help` and rendered as permanent inline sentences inside the bar.
+.reload-btn__help,
+.menubar-dismiss__help {
+  top: calc(100% + 0.25rem);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  text-align: center;
 }
 
 .reload-btn,

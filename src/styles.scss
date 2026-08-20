@@ -307,50 +307,66 @@ a {
   color: var(--hug-text-muted);
 }
 
-// ── REVEALED HELP BUBBLE — the one shared idiom ────────────────────────────────
+// ─── THE CHROME HELP-BUBBLE IDIOM ────────────────────────────────────────────
+// `.field-help` above is BLOCK help: it stacks under the control it explains and
+// is meant to be read without asking (disabled-entry reasons, dropdown item
+// descriptions). Icon-only controls in the CHROME need the opposite shape — the
+// text must be there for assistive tech at all times, but must not be PAINTED
+// at rest, because the chrome is a horizontal run and a sentence of body text
+// between two icons eats the space the navigation entries need.
 //
-// Icon-only chrome controls (background toggle, menubar-mode toggle, profile
-// trigger) each pair with a bubble: ALWAYS in the accessibility tree via the
-// button's aria-describedby, never hover-ONLY, and revealed visually on
-// hover/focus-within so the corner is not permanently crowded.
+// That second shape used to have no name. Every consumer re-typed the same ~12
+// declarations, and the ones that forgot got no reveal at all: `.reload-btn__help`
+// and `.menubar-dismiss__help` shipped with ZERO rules and leaked into the menu
+// bar as permanent inline text ("Reload the current view without losing your
+// session." squatting between the reload icon and Sign in), while
+// `.bg-toggle__help` got the reveal but not a width and unfurled as a 32px-wide,
+// 657px-tall ribbon of wrapped characters down the right edge. A bug you can
+// only avoid by remembering to re-type a block is a bug that will recur, so the
+// shape is a class now:
 //
-// WHY THIS IS ONE CLASS AND NOT THREE COPIES — the bug it was born from:
-// every one of these bubbles anchors to a container that SHRINK-WRAPS its ~2.5rem
-// icon button. An absolutely positioned box with `width: auto` is shrink-to-fit,
-// and shrink-to-fit is capped by the AVAILABLE width — containing-block width
-// minus the offsets we set. `inset-inline-end: 3rem` inside a 40px anchor makes
-// that available width NEGATIVE, so the bubble fell back to its min-content
-// width: on the live site it painted 32px wide and 657px tall, one character per
-// line, a column of vertical text. `max-width` could never have rescued it — it
-// caps a width, it cannot raise the available one.
+//     <div class="help-anchor">            <- owns hover/focus + containing block
+//       <button aria-describedby="x-help"> <- the icon
+//       <span id="x-help" class="field-help help-bubble">
 //
-// `width: max-content` is the fix, and it is the whole fix: it takes the used
-// width out of the available-width calculation entirely, so the bubble is as wide
-// as its text wants, `max-width` then caps it, and the text wraps normally.
-// Every bubble carries this class so the collapse cannot come back one instance
-// at a time; the per-control rules below add ONLY the anchor point.
-// Covered by src/app/help-bubble.layout.spec.ts.
+// Consumers style their OFFSET (which edge it flies out from) and nothing else.
+//
+// `visibility: hidden` — never `display: none` — is load-bearing: a node that is
+// DIRECTLY referenced by aria-describedby is still used to compute the
+// description even while hidden (accname §4.1 step 2B), so the text survives for
+// screen readers while leaving the layout entirely.
+//
+// Declared BEFORE its consumers on purpose: `.help-anchor` and a consumer's own
+// class have equal specificity, so anchors that need a different `position`
+// (the fixed floating controls below) must be able to win on source order.
+.help-anchor {
+  position: relative;
+}
+
 .help-bubble {
   position: absolute;
-  // THE fix — see above. Never let this become `auto`/`fit-content`.
+  z-index: t.$z-nav;
+  // Size to the SENTENCE, then wrap at the cap. Without this an absolutely
+  // positioned bubble shrink-to-fits against whatever sliver of its containing
+  // block is left over — which for a 2.5rem icon button is one character wide.
   width: max-content;
-  max-width: min(16rem, 60vw);
-  // A single unbreakable token (a URL in help text) must wrap rather than push
-  // the bubble past its cap.
-  overflow-wrap: anywhere;
+  max-width: min(18rem, 70vw);
   margin-top: 0;
   padding: 0.4rem 0.6rem;
   background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
   border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
   border-radius: 0.375rem;
   color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
-  // Visually hidden until the control is hovered/focused (see the reveals below).
-  // `visibility`, deliberately NOT `display: none`: the node must stay rendered so
-  // the button's aria-describedby still resolves to it.
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition: opacity t.$transition-base;
+}
+
+.help-anchor:hover > .help-bubble,
+.help-anchor:focus-within > .help-bubble {
+  opacity: 1;
+  visibility: visible;
 }
 
 // prefers-contrast / forced colors: keep every bubble readable on a solid backdrop.
@@ -363,7 +379,11 @@ a {
 }
 
 // The floating background-animation control: the icon button is the visible
-// affordance, and `.bg-toggle__help` anchors the shared `.help-bubble` to it.
+// affordance, and `.bg-toggle__help` is the `.help-bubble` anchored to it. The
+// help is ALWAYS in the accessibility tree (announced via aria-describedby,
+// never hover-only) and is REVEALED visually next to the button on hover/focus
+// so sighted users get the same guidance without the corner being permanently
+// crowded.
 .bg-toggle-control {
   position: fixed;
   inset-inline-end: 1rem;
@@ -375,24 +395,20 @@ a {
   gap: 0.5rem;
 }
 
-// ANCHOR ONLY. Paint, sizing and the hidden/revealed states all come from
-// `.help-bubble`; adding width rules back here would re-open the collapse.
+// OFFSET ONLY — hiding, revealing, sizing and skin all come from `.help-bubble`.
+// These two float in the bottom-right corner, so the bubble flies out to the
+// LEFT of the button (3rem clears the 2.5rem button plus its gap) and is
+// end-aligned so its ragged edge faces away from the screen edge.
 .bg-toggle__help {
-  // Clear of the 2.5rem button plus its 0.5rem gap.
   inset-inline-end: 3rem;
+  max-width: min(16rem, 60vw);
   text-align: end;
-}
-
-.bg-toggle-control:hover .bg-toggle__help,
-.bg-toggle-control:focus-within .bg-toggle__help {
-  opacity: 1;
-  visibility: visible;
 }
 
 // The floating MENUBAR-MODE control (issue #19): the same icon-button + revealed
 // help idiom as the bg-toggle it sits one slot above (2.5rem button + the 1rem
 // edge inset + a 0.75rem gap). Its button/bubble reuse .bg-toggle/.bg-toggle__help
-// wholesale; only the anchor point and its own hover/focus reveal live here.
+// wholesale; only the anchor point lives here — the reveal is `.help-anchor`.
 .menubar-mode-control {
   position: fixed;
   inset-inline-end: 1rem;
@@ -402,12 +418,6 @@ a {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-}
-
-.menubar-mode-control:hover .bg-toggle__help,
-.menubar-mode-control:focus-within .bg-toggle__help {
-  opacity: 1;
-  visibility: visible;
 }
 
 .bg-toggle {
