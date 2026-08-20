@@ -10,6 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "deploy": "gh-pages -d build",
     "test": "ng test --watch false",
+    "check:theme-tokens": "bash scripts/check-theme-token-contract.sh",
     "coverage": "ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI",
     "e2e": "nightwatch  -r ./e2e/html-reporter.js nightwatch.conf.js -e chrome",
     "e2e:test": "./node_modules/.bin/nightwatch --env 'chrome' --config './nightwatch.conf.js'",
