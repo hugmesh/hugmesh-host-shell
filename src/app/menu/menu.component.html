@@ -123,109 +123,15 @@
       </div>
 
 
-    <!-- Account region: anonymous -> Sign in; authenticated -> the profile menu
-         (Profile modal + conditional Admin/Moderation + Sign out). -->
-    <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
-
-      <!-- Notification bell — only for authenticated users -->
-      @if (session.loggedIn()) {
-        <li class="nav-item bell-nav-item">
-          <button
-            class="bell-btn"
-            type="button"
-            aria-label="Notifications"
-            (click)="navigateToBell()"
-          >
-            <!-- Bell SVG (22x22, outline style, feathericons shape) -->
-            <svg
-              aria-hidden="true"
-              focusable="false"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            @let bellCount = (unreadCount$ | async) ?? 0;
-            @if (bellCount > 0) {
-              <span class="bell-badge" aria-hidden="true">{{ bellCount > 99 ? '99+' : bellCount }}</span>
-              <span class="visually-hidden">{{ bellCount }} unread notification{{ bellCount === 1 ? '' : 's' }}</span>
-            }
-          </button>
-        </li>
-      }
-      @if (session.loggedIn()) {
-        <li
-          class="nav-item dropdown profile-menu"
-          [class.profile-menu--open]="profileOpen()"
-          role="none"
-        >
-          <button
-            #profileTrigger
-            type="button"
-            class="nav-link profile-menu__trigger"
-            data-testid="profile-trigger"
-            aria-haspopup="menu"
-            [attr.aria-expanded]="profileOpen()"
-            aria-controls="profile-menu-list"
-            [attr.aria-label]="profileTriggerLabel()"
-            aria-describedby="profile-trigger-help"
-            (click)="toggleProfile()"
-            (keydown)="onTriggerKeydown($event)"
-          >
-            <span class="profile-menu__name" data-testid="nav-user">{{ session.session()?.label }}</span>
-          </button>
-          <!-- VISIBLE, palette-honoring help (revealed on hover/focus, always in the
-               a11y tree via aria-describedby) telling BOTH sighted and screen-reader
-               users what this control opens — the icon-less name button is otherwise
-               unlabelled as to PURPOSE. -->
-          <span
-            id="profile-trigger-help"
-            class="field-help profile-menu__help"
-            data-testid="profile-trigger-help"
-          >Open your account menu: profile, role consoles, and sign out.</span>
-
-          @if (profileOpen()) {
-            <ul
-              id="profile-menu-list"
-              class="profile-menu__list"
-              role="menu"
-              aria-label="Profile menu"
-              (keydown.escape)="closeProfile()"
-              (keydown)="onProfileMenuKeydown($event)"
-            >
-              @for (item of visibleProfileItems(); track item.testid; let i = $index) {
-                <li role="none">
-                  <button
-                    #profileItem
-                    type="button"
-                    role="menuitem"
-                    class="profile-menu__item"
-                    [attr.tabindex]="i === profileActiveIndex() ? 0 : -1"
-                    [attr.data-testid]="item.testid"
-                    [attr.aria-describedby]="item.testid + '-help'"
-                    (click)="onProfileItem(item)"
-                  >{{ item.label }}</button>
-                  <!-- VISIBLE help (palette-honoring .field-help) describing what the
-                       item does + where it goes, wired via aria-describedby so it is
-                       announced WITH the item by a screen reader. -->
-                  <span
-                    class="field-help profile-menu__item-help"
-                    [id]="item.testid + '-help'"
-                    [attr.data-testid]="item.testid + '-help'"
-                  >{{ item.help }}</span>
-                </li>
-              }
-            </ul>
-          }
-        </li>
-      } @else {
+    <!-- ACCOUNT REGION — anonymous only, now that the bell and the user menu have
+         moved to the header banner (operator requirement, issue #19 comment
+         2026-08-19; see header-controls.component.ts). What is left is the
+         anonymous Sign-in ENTRY, which is a navigation destination like the
+         entries above it and belongs in the nav — not an account control.
+         Nothing here duplicates the header: the signed-in branch is gone
+         entirely, and header-controls.placement.spec.ts asserts that. -->
+    @if (!session.loggedIn()) {
+      <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
         <li class="nav-item" role="none">
           <a
             class="nav-link"
@@ -234,8 +140,8 @@
             data-testid="nav-login"
           >Sign in</a>
         </li>
-      }
-    </ul>
+      </ul>
+    }
 
     <!-- AUTO-mode dismiss (issue #19): in 'auto' the bar only rendered because
          announcements/notifications are present, so it carries the control that

@@ -4,7 +4,28 @@
 :host {
   @include m.glass-float;
   position: relative; // anchors the ::before flag ribbon below; no visual change alone
-  display: block;
+  // BANNER LAYOUT (operator requirement, issue #19 comment 2026-08-19): the
+  // wordmark stays centred while the chrome controls sit at the inline END.
+  // Three flex tracks — an empty gutter, the wordmark, the controls — where the
+  // two gutters share the free space equally, so the h1 is OPTICALLY CENTRED in
+  // the banner rather than shoved left by the controls' width.
+  //
+  // `flex-wrap: wrap` is the narrow-width contract: once the wordmark's
+  // min-content and the controls' natural width no longer fit on one line the
+  // controls drop to their own row. They can never paint over the title, which
+  // is exactly what a `position: absolute` "just pin it top-right" would have
+  // done on a phone.
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+  // The controls region carries a dropdown + help bubbles that hang BELOW the
+  // banner and must outrank the menubar underneath it (menu.component.scss uses
+  // $z-nav for its own popups). The global `header, footer` rule only grants
+  // $z-content, which is beneath the bar.
+  z-index: t.$z-nav;
   // CHROME DENSITY (issue #19: "the app takes far too much space"): the wordmark
   // banner was the tallest fixed cost on every view (1rem/0.5rem margins +
   // 0.75rem paddings + an up-to-3rem h1 with its own 0.5rem bottom margin —
@@ -41,7 +62,21 @@
   pointer-events: none;
 }
 
+// The two side tracks. Equal flex-grow from a zero basis makes them the SAME
+// width whenever there is room, which is what keeps the wordmark centred; the
+// `min-width: max-content` floor stops the controls track from being squeezed
+// narrower than the buttons it holds (the empty spacer's max-content is 0, so
+// it simply yields).
+.header__gutter {
+  flex: 1 1 0;
+  min-width: max-content;
+}
+
 h1 {
+  // Sized by its content, shrinkable, and never a flex-grow competitor — the
+  // gutters own the free space so the wordmark lands in the middle.
+  flex: 0 1 auto;
+  min-width: 0;
   // The brand wordmark renders in the display face ('More Sugar', wired via the
   // @font-face in styles.scss); falls back to the sans stack until it loads.
   font-family: t.$font-fancy;

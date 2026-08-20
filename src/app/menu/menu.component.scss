@@ -18,116 +18,18 @@ nav.navbar {
   }
 }
 
-.profile-menu {
-  position: relative;
-
-  &__trigger {
-    background: none;
-    border: 0;
-    color: var(--sd-text, #{t.$offwhite});
-  }
-
-  &__name {
-    font-weight: 700;
-  }
-
-  &__list {
-    @include m.card-surface;
-    position: absolute;
-    inset-inline-end: 0;
-    top: calc(100% + 0.25rem);
-    z-index: t.$z-nav;
-    min-width: 12rem;
-    margin: 0;
-    padding: 0.5rem;
-    list-style: none;
-  }
-
-  &__item {
-    background: none;
-    border: 0;
-    // $light (#bbbbbb) fails WCAG AA here. The menubar sets `background: none`, so
-    // these labels are painted over the translucent bar ON TOP OF the animated pastel
-    // gradient — the effective backdrop measures around rgb(79,108,79)-rgb(108,100,73),
-    // not the dark page colour. Sampled from real screenshots: $light lands at
-    // 3.05-3.11:1 (needs 4.5), $offwhite at 4.77-4.87:1.
-    color: var(--sd-text, #{t.$offwhite});
-    display: block;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 0.5rem 0.75rem;
-    text-align: start;
-    width: 100%;
-
-    &:hover,
-    &:focus-visible {
-      color: var(--sd-accent-soft, #{t.$neon});
-    }
-  }
-
-  // Per-item help: always visible under the item (muted .field-help colour/size
-  // from styles.scss), so sighted users read what each entry does without hovering.
-  &__item-help {
-    padding: 0 0.75rem 0.4rem;
-    margin-top: 0;
-  }
-
-  // Trigger help: present for assistive tech (aria-describedby) at all times, and
-  // REVEALED visually as a bubble when the account button is hovered/focused so the
-  // top bar stays uncluttered — never hover-ONLY (always in the a11y tree).
-  &__help {
-    position: absolute;
-    inset-inline-end: 0;
-    top: calc(100% + 0.25rem);
-    z-index: t.$z-nav;
-    max-width: min(18rem, 70vw);
-    margin-top: 0;
-    padding: 0.4rem 0.6rem;
-    background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-    border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-    border-radius: 0.375rem;
-    color: var(--hug-text); // 15.9:1 AAA on the solid bubble
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity t.$transition-base;
-  }
-
-  &:hover &__help,
-  &:focus-within &__help {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  // While the dropdown is open it occupies the same anchor point as the trigger
-  // help bubble, so suppress the bubble (the open menu's per-item help takes over).
-  &--open &__help {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .profile-menu__help {
-    background: t.$black;
-    border-color: t.$offwhite;
-    color: t.$offwhite;
-  }
-}
-
-// Icon-only chrome controls (reload + notification bell + the auto-mode
-// dismiss). ONE rule for all so they read as a single set rather than
-// unrelated affordances — and so this already-over-budget stylesheet does not
-// carry the geometry twice.
+// Icon-only chrome controls (reload + the auto-mode dismiss). ONE rule for both
+// so they read as a single set rather than unrelated affordances. The
+// notification bell used to share these rules; it moved to the header banner
+// with its markup (header-controls.component.scss) rather than being styled
+// from here across a component boundary.
 .reload-nav-item,
-.bell-nav-item,
 .dismiss-nav-item {
   display: flex;
   align-items: center;
 }
 
 .reload-btn,
-.bell-btn,
 .menubar-dismiss {
   position: relative;
   background: none;
@@ -164,23 +66,6 @@ nav.navbar {
 
 @keyframes reload-spin {
   to { transform: rotate(360deg); }
-}
-
-.bell-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.25rem;
-  border-radius: 0.55rem;
-  background: var(--sd-error, #e74c3c);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1.1rem;
-  text-align: center;
-  pointer-events: none;
 }
 
 .nav-item {

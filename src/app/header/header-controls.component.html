@@ -1,0 +1,184 @@
+<!-- THE HEADER'S TOP-RIGHT CHROME CLUSTER. Every control here was MOVED, not
+     rewritten: same test ids, same aria wiring, same visible .field-help idiom.
+     Order runs least-personal to most-personal (animation, menu, bell, you),
+     so the account trigger sits at the inline end where the eye ends up. -->
+
+<!-- BACKGROUND-ANIMATION toggle. Rendered only when AppComponent actually handed
+     us the backdrop instance — a pause button with nothing to pause is worse
+     than no button. -->
+@if (background(); as bg) {
+  <div class="header-controls__item bg-toggle-control">
+    <button
+      class="bg-toggle"
+      type="button"
+      data-testid="bg-toggle"
+      (click)="bg.toggle()"
+      [attr.aria-pressed]="bg.paused()"
+      [attr.aria-label]="bg.paused() ? 'Play background animation' : 'Pause background animation'"
+      aria-describedby="bg-toggle-help"
+    >
+      @if (bg.paused()) {
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      } @else {
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+      }
+    </button>
+    <!-- VISIBLE help text (palette-honoring .field-help, scalable rem text) that
+         BOTH sighted and screen-reader users get: aria-describedby links it to the
+         icon-only button so it is announced WITH the control, and aria-live reflects
+         the current paused/playing state when it changes — never tooltip/hover-only. -->
+    <span
+      id="bg-toggle-help"
+      class="field-help bg-toggle__help"
+      data-testid="bg-toggle-help"
+      aria-live="polite"
+    >{{ bg.paused()
+        ? 'Background animation is paused. Activate to play it again.'
+        : 'Pause the moving background (helps reduce motion).' }}</span>
+  </div>
+}
+
+<!-- MENUBAR-MODE toggle (issue #19): static (always shown) vs auto (the bar
+     renders only while announcements/notifications are present, and can be
+     dismissed). Deliberately OUTSIDE the bar it controls and reusing the
+     animation toggle's exact button/help idiom — if it sat inside the menubar,
+     switching to auto could remove the only control able to switch back.
+     Signed-in only: the anonymous login screen has no bar content for auto mode
+     to wait for. -->
+@if (session.loggedIn()) {
+  <div class="header-controls__item menubar-mode-control">
+    <button
+      class="bg-toggle menubar-mode-toggle"
+      type="button"
+      data-testid="menubar-mode-toggle"
+      (click)="menuBarMode.toggleMode()"
+      [attr.aria-pressed]="menuBarMode.mode() === 'auto'"
+      aria-label="Auto-hide the menu bar"
+      aria-describedby="menubar-mode-help"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h18v2H3z"/>
+      </svg>
+    </button>
+    <!-- Same visible-help contract as the bg-toggle: always in the a11y tree via
+         aria-describedby, revealed as a bubble on hover/focus, announces the
+         state change via aria-live. -->
+    <span
+      id="menubar-mode-help"
+      class="field-help bg-toggle__help"
+      data-testid="menubar-mode-help"
+      aria-live="polite"
+    >{{ menuBarMode.mode() === 'auto'
+        ? 'Menu bar auto-hides: it appears when announcements or notifications are present. Activate to keep it always shown.'
+        : 'Menu bar is always shown. Activate to show it only when announcements or notifications are present.' }}</span>
+  </div>
+}
+
+<!-- NOTIFICATION BELL — authenticated only. It lives here rather than in the
+     menubar because the bar unmounts on the login page, on the signed-in home
+     (card view) and after an auto-mode dismissal: an unread badge that
+     disappears with its container is not a notification. -->
+@if (session.loggedIn()) {
+  <div class="header-controls__item bell-nav-item">
+    <button
+      class="bell-btn"
+      type="button"
+      aria-label="Notifications"
+      (click)="navigateToBell()"
+    >
+      <!-- Bell SVG (22x22, outline style, feathericons shape) -->
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      @let bellCount = (unreadCount$ | async) ?? 0;
+      @if (bellCount > 0) {
+        <span class="bell-badge" aria-hidden="true">{{ bellCount > 99 ? '99+' : bellCount }}</span>
+        <span class="visually-hidden">{{ bellCount }} unread notification{{ bellCount === 1 ? '' : 's' }}</span>
+      }
+    </button>
+  </div>
+}
+
+<!-- USER (PROFILE) MENU — the account trigger + its dropdown (Profile modal,
+     conditional role consoles, Sign out). -->
+@if (session.loggedIn()) {
+  <div
+    class="header-controls__item profile-menu"
+    [class.profile-menu--open]="profileOpen()"
+  >
+    <button
+      #profileTrigger
+      type="button"
+      class="profile-menu__trigger"
+      data-testid="profile-trigger"
+      aria-haspopup="menu"
+      [attr.aria-expanded]="profileOpen()"
+      aria-controls="profile-menu-list"
+      [attr.aria-label]="profileTriggerLabel()"
+      aria-describedby="profile-trigger-help"
+      (click)="toggleProfile()"
+      (keydown)="onTriggerKeydown($event)"
+    >
+      <span class="profile-menu__name" data-testid="nav-user">{{ session.session()?.label }}</span>
+    </button>
+    <!-- VISIBLE, palette-honoring help (revealed on hover/focus, always in the
+         a11y tree via aria-describedby) telling BOTH sighted and screen-reader
+         users what this control opens — the icon-less name button is otherwise
+         unlabelled as to PURPOSE. -->
+    <span
+      id="profile-trigger-help"
+      class="field-help profile-menu__help"
+      data-testid="profile-trigger-help"
+    >Open your account menu: profile, role consoles, and sign out.</span>
+
+    @if (profileOpen()) {
+      <ul
+        id="profile-menu-list"
+        class="profile-menu__list"
+        role="menu"
+        aria-label="Profile menu"
+        (keydown.escape)="closeProfile()"
+        (keydown)="onProfileMenuKeydown($event)"
+      >
+        @for (item of visibleProfileItems(); track item.testid; let i = $index) {
+          <li role="none">
+            <button
+              #profileItem
+              type="button"
+              role="menuitem"
+              class="profile-menu__item"
+              [attr.tabindex]="i === profileActiveIndex() ? 0 : -1"
+              [attr.data-testid]="item.testid"
+              [attr.aria-describedby]="item.testid + '-help'"
+              (click)="onProfileItem(item)"
+            >{{ item.label }}</button>
+            <!-- VISIBLE help (palette-honoring .field-help) describing what the
+                 item does + where it goes, wired via aria-describedby so it is
+                 announced WITH the item by a screen reader. -->
+            <span
+              class="field-help profile-menu__item-help"
+              [id]="item.testid + '-help'"
+              [attr.data-testid]="item.testid + '-help'"
+            >{{ item.help }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+}

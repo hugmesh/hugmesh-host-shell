@@ -291,106 +291,14 @@ a {
   color: var(--hug-text-muted);
 }
 
-// The floating background-animation control: the icon button is the visible
-// affordance, and `.bg-toggle__help` is a palette-honoring, scalable help bubble
-// anchored to it. The help is ALWAYS in the accessibility tree (announced via
-// aria-describedby, never hover-only) and is REVEALED visually next to the button
-// on hover/focus-within so sighted users get the same guidance without the corner
-// being permanently crowded.
-.bg-toggle-control {
-  position: fixed;
-  inset-inline-end: 1rem;
-  bottom: 1rem;
-  z-index: t.$z-overlay;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.bg-toggle__help {
-  // Visually hidden until the control is hovered/focused (see reveal below), but
-  // ALWAYS present for assistive tech via the button's aria-describedby.
-  position: absolute;
-  inset-inline-end: 3rem;
-  max-width: min(16rem, 60vw);
-  margin-top: 0;
-  padding: 0.4rem 0.6rem;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.4);
-  border-radius: 0.375rem;
-  color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
-  text-align: end;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity t.$transition-base;
-}
-
-.bg-toggle-control:hover .bg-toggle__help,
-.bg-toggle-control:focus-within .bg-toggle__help {
-  opacity: 1;
-  visibility: visible;
-}
-
-// The floating MENUBAR-MODE control (issue #19): the same icon-button + revealed
-// help idiom as the bg-toggle it sits one slot above (2.5rem button + the 1rem
-// edge inset + a 0.75rem gap). Its button/bubble reuse .bg-toggle/.bg-toggle__help
-// wholesale; only the anchor point and its own hover/focus reveal live here.
-.menubar-mode-control {
-  position: fixed;
-  inset-inline-end: 1rem;
-  bottom: 4.25rem;
-  z-index: t.$z-overlay;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.menubar-mode-control:hover .bg-toggle__help,
-.menubar-mode-control:focus-within .bg-toggle__help {
-  opacity: 1;
-  visibility: visible;
-}
-
-// prefers-contrast / forced colors: keep the help readable with a solid backdrop.
-@media (prefers-contrast: more) {
-  .bg-toggle__help {
-    background: t.$black;
-    border-color: t.$offwhite;
-    color: t.$offwhite;
-  }
-}
-
-.bg-toggle {
-  position: static;
-  flex: 0 0 auto;
-  background: rgba(var(--sd-charcoal-rgb, 17, 17, 17), 0.8);
-  border: 1px solid rgba(var(--sd-primary-rgb, 255, 215, 0), 0.3);
-  border-radius: 50%;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: box-shadow t.$transition-base;
-  padding: 0;
-
-  &:hover,
-  &:focus-visible {
-    box-shadow: 0 0 10px rgba(var(--sd-primary-rgb, 255, 215, 0), 0.5);
-    outline: 2px solid var(--sd-primary, #{t.$neon});
-    outline-offset: 2px;
-  }
-
-  svg {
-    fill: var(--sd-primary, #{t.$neon});
-    width: 1rem;
-    height: 1rem;
-  }
-}
+// NOTE: the shell's chrome CONTROLS (background-animation toggle, menubar-mode
+// toggle, notification bell, user menu) used to be styled from here as floating
+// `position: fixed` corner furniture — the opposite end of the page from the
+// title. They now live inside the header banner and carry their own
+// component-scoped stylesheet (app/header/header-controls.component.scss), so
+// the geometry sits next to the markup it belongs to instead of in the global
+// sheet. Nothing outside that component uses .bg-toggle / .bg-toggle__help /
+// .bg-toggle-control / .menubar-mode-control any more.
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -1,4 +1,4 @@
-import { AsyncPipe, DOCUMENT } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,9 +17,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 import { filter } from 'rxjs';
 
 import { SessionService } from '../session.service';
-import { ProfileModalService } from '../profile-modal/profile-modal.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
-import { accessibleName } from '../accessible-name';
 import { BellNotificationsService } from '../bell/bell-notifications.service';
 import { ViewReloadService } from '../view-reload.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
@@ -77,23 +75,6 @@ interface NavSection {
   show?: () => boolean;
 }
 
-/** An item inside the profile dropdown menu. `action` either navigates to a
- *  remote ('admin'/'apidocs'/'mod'/'wiki'/'owncast'/'tube'), opens the profile
- *  modal, or signs out. `show` gates the role-specific Admin / API docs /
- *  Moderation / Wiki / Owncast / Tube entries on the live session. */
-interface ProfileMenuItem {
-  label: string;
-  testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games-admin'
-        | 'character-studio' | 'character-forge' | 'logout';
-  route?: string;
-  show: () => boolean;
-  /** Concise help describing WHAT activating the item does + WHERE it goes. Shown
-   *  as visible .field-help and wired to the item via aria-describedby so screen
-   *  readers announce it WITH the item. */
-  help: string;
-}
-
 /** True when the given router URL is the LOGIN remote — '/login' itself or any of
  *  its child/query/fragment forms ('/login/appeal', '/login?next=…'). String-based
  *  on the NavigationEnd url (not route data) because the login mount is a
@@ -130,7 +111,7 @@ function isHomeUrl(url: string): boolean {
 
 @Component({
   selector: '[menu]',
-  imports: [RouterLink, RouterLinkActive, AsyncPipe],
+  imports: [RouterLink, RouterLinkActive],
   host: {
     id: 'menu',
   },
@@ -140,7 +121,6 @@ function isHomeUrl(url: string): boolean {
 })
 export class MenuComponent {
   readonly session = inject(SessionService);
-  private readonly modal = inject(ProfileModalService);
   private readonly doc = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly capabilities = inject(CapabilitiesService);
@@ -149,10 +129,6 @@ export class MenuComponent {
    *  than per-remote, so every federated view is refreshed the same way and a
    *  remote never has to ship its own reload affordance. */
   readonly viewReload = inject(ViewReloadService);
-
-  /** Unread notification count — drives the bell badge. Emits 0 when unauthenticated
-   *  (polling is stopped and the BehaviorSubject is reset by stopPolling()). */
-  readonly unreadCount$ = this.bellNotifications.unreadCount$;
 
   /** The visitor's menubar mode: 'static' (always shown, default) vs 'auto'
    *  (content-earned + dismissable). Public — the template gates on it. */
@@ -164,7 +140,9 @@ export class MenuComponent {
   private readonly announcements = inject(AnnouncementsService);
 
   /** The unread count as a signal, so barVisible() can compose it with the other
-   *  signals. Same source as the badge's async-piped unreadCount$ above. */
+   *  signals. The BADGE itself is the header banner's now (HeaderControlsComponent,
+   *  which also owns starting/stopping the polling); the bar reads the same shared
+   *  service purely to decide whether AUTO mode has content worth showing for. */
   private readonly unreadCount = toSignal(this.bellNotifications.unreadCount$, {
     initialValue: 0,
   });
@@ -420,148 +398,13 @@ export class MenuComponent {
     return '';
   }
 
-  /** Profile dropdown — Profile (modal) + the conditional Admin / API docs /
-   *  Moderation role shortcuts + Sign out. Admin and the admin-only API docs
-   *  console appear ONLY for admins; Moderation ONLY for moderators. */
-  readonly profileMenuItems: readonly ProfileMenuItem[] = [
-    { label: 'Profile',    testid: 'menu-profile', action: 'profile', show: () => true,
-      help: 'Opens your profile editor in a dialog.' },
-    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdmin(),
-      help: 'Go to the admin console (administrators only).' },
-    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdmin(),
-      help: 'Browse the platform API documentation (administrators only).' },
-    { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod(),
-      help: 'Go to the moderation console (moderators only).' },
-    // WIKI management console — shown to the wiki access tier: admins + superadmins
-    // always, plus a moderator additionally granted the per-service ROLE_WIKI
-    // (a bare mod does NOT see it). Mirrors the wikiGuard that protects the /wiki
-    // mount, so the entry is never a dead link.
-    { label: 'Wiki',       testid: 'menu-wiki',    action: 'wiki',    route: '/wiki',       show: () => this.canAccessWiki(),
-      help: 'Manage the platform wiki (admins, superadmins, and granted moderators).' },
-    // OWNCAST live-stream console — shown to the Owncast access tier: streamers
-    // granted the per-service ROLE_OWNCAST, plus admins/superadmins (grant
-    // management) and moderators (stream moderation). NOTE: unlike the sibling
-    // Wiki/Tube entries, this does NOT exactly mirror the owncastGuard — the guard
-    // admits only admin|superadmin|ROLE_OWNCAST, so a bare moderator (mod without
-    // ROLE_OWNCAST) sees this entry but is bounced to /login if clicked. See
-    // canAccessOwncast()'s doc below for the full rationale.
-    { label: 'Owncast',    testid: 'menu-owncast', action: 'owncast', route: '/owncast',    show: () => this.canAccessOwncast(),
-      help: 'Manage your live stream (streamers, moderators, admins, and superadmins).' },
-    // TUBE subscription-archive console — shown to the Tube access tier: users
-    // granted the per-service ROLE_TUBE, plus admins/superadmins (quota/retention
-    // management). A bare moderator does NOT see it. Mirrors the tubeGuard that
-    // protects the /tube mount, so the entry is never a dead link.
-    { label: 'Tube',       testid: 'menu-tube',    action: 'tube',    route: '/tube',       show: () => this.canAccessTube(),
-      help: 'Manage your YouTube subscription archive (granted users, admins, and superadmins).' },
-    // GAMES-ADMIN console (Phase 8/10) — shown ONLY to the DERIVED
-    // ROLE_GAMES_ADMIN tier (session.isGamesAdmin: ROLE_GAMES ∩ (ROLE_ADMIN ∪
-    // ROLE_MOD)), plus superadmins. A bare games member or a bare admin/mod does
-    // NOT see it. Mirrors the gamesAdminGuard that protects the /games/admin
-    // mount, so the entry is never a dead link.
-    { label: 'Games Admin', testid: 'menu-games-admin', action: 'games-admin', route: '/games/admin', show: () => this.canAccessGamesAdmin(),
-      help: 'Manage the games namespace (games admins and superadmins only).' },
-    // CHARACTER remotes. Shown to any FULLY-REGISTERED session — deliberately not
-    // role-gated: the gateway admits a plain ROLE_USER to both (verified live: 200
-    // for e2e-user, 401 anonymous), and there is no per-service role to gate on, so
-    // a tighter `show` here would hide a feature the backend grants. `fullyRegistered`
-    // (not merely loggedIn) mirrors the registeredGuard on their routes, so the entry
-    // never offers a destination the guard will bounce.
-    { label: 'Character Studio', testid: 'menu-character-studio', action: 'character-studio', route: '/character-studio', show: () => this.session.fullyRegistered(),
-      help: 'Build a layered anthro/furry character (the profile character generator).' },
-    { label: 'Character Forge',  testid: 'menu-character-forge',  action: 'character-forge',  route: '/character-forge',  show: () => this.session.fullyRegistered(),
-      help: 'Forge a 3D character from your saved parts.' },
-    { label: 'Sign out',   testid: 'menu-logout',  action: 'logout',  show: () => true,
-      help: 'Sign out and return to the login page.' },
-  ];
-
-  /** The profile-menu items the current session may see. */
-  readonly visibleProfileItems = computed(() =>
-    this.profileMenuItems.filter((i) => i.show()),
-  );
-
-  /** The WIKI access tier (mirrors the host wikiGuard exactly): an admin or
-   *  superadmin always, or a moderator additionally granted the per-service
-   *  ROLE_WIKI. A plain user / bare moderator is excluded — they never see the
-   *  Wiki entry and could not pass the guard if they reached /wiki directly. */
-  private canAccessWiki(): boolean {
-    return (
-      this.session.isAdmin() ||
-      this.session.isSuperadmin() ||
-      (this.session.isMod() && this.session.hasRole('WIKI'))
-    );
-  }
-
-  /** The OWNCAST access tier (mirrors the host owncastGuard's role gate PLUS the
-   *  menu's broader visibility intent): a streamer granted the per-service
-   *  ROLE_OWNCAST, an admin or superadmin (grant management), OR a moderator
-   *  (stream moderation). A plain user without ROLE_OWNCAST never sees the entry;
-   *  a bare moderator sees it for the moderation surface (the guard then admits
-   *  admin|superadmin|ROLE_OWNCAST, so a bare mod is bounced at /owncast — the BFF
-   *  is the real boundary). */
-  private canAccessOwncast(): boolean {
-    return (
-      this.session.hasRole('OWNCAST') ||
-      this.session.isAdmin() ||
-      this.session.isSuperadmin() ||
-      this.session.isMod()
-    );
-  }
-
-  /** The TUBE access tier (mirrors the host tubeGuard exactly): a user granted the
-   *  per-service ROLE_TUBE, or an admin or superadmin (quota/retention management).
-   *  A bare moderator is excluded — they never see the Tube entry and could not pass
-   *  the guard if they reached /tube directly (mod-side tube moderation lives in
-   *  mod-bff, not this remote). */
-  private canAccessTube(): boolean {
-    return (
-      this.session.hasRole('TUBE') ||
-      this.session.isAdmin() ||
-      this.session.isSuperadmin()
-    );
-  }
-
-  /** The GAMES-ADMIN access tier (mirrors the host gamesAdminGuard exactly): the
-   *  DERIVED ROLE_GAMES_ADMIN tier (session.isGamesAdmin — ROLE_GAMES ∩
-   *  (ROLE_ADMIN ∪ ROLE_MOD)), or a superadmin. A bare games member or a bare
-   *  admin/mod WITHOUT games is excluded — they never see the entry and could
-   *  not pass the guard if they reached /games/admin directly. */
-  private canAccessGamesAdmin(): boolean {
-    return this.session.isGamesAdmin() || this.session.isSuperadmin();
-  }
-
-  /** Accessible NAME for the profile-menu trigger. The visible label is the user's
-   *  display name (email/discord handle, possibly NON-ASCII); the button itself has
-   *  no purpose text, so we announce a clean "Account menu for <name>" using the
-   *  shared {@link accessibleName} ASCII util — so a screen reader announces a
-   *  pronounceable name (the ASCII screen-reader name when the display name carries
-   *  characters AT cannot voice) plus what the control opens. */
-  readonly profileTriggerLabel = computed(() => {
-    const label = this.session.session()?.label ?? '';
-    const spoken = accessibleName(label, null);
-    return spoken ? `Account menu for ${spoken}` : 'Account menu';
-  });
-
   /** Roving-tabindex cursor for the primary menubar (WAI-ARIA menubar pattern):
    *  exactly ONE menuitem is a tab stop (tabindex 0); the rest are tabindex -1
    *  and reachable only with the arrow keys. */
   activeIndex = 0;
 
-  /** Whether the profile dropdown is expanded. */
-  readonly profileOpen = signal(false);
-
   @ViewChildren('navBtn', { read: ElementRef })
   navButtonRefs!: QueryList<ElementRef<HTMLButtonElement>>;
-
-  @ViewChild('profileTrigger', { read: ElementRef })
-  profileTriggerRef?: ElementRef<HTMLButtonElement>;
-
-  @ViewChildren('profileItem', { read: ElementRef })
-  profileItemRefs!: QueryList<ElementRef<HTMLButtonElement>>;
-
-  /** Roving-tabindex cursor for the OPEN profile dropdown (WAI-ARIA menu pattern):
-   *  exactly ONE menuitem is a tab stop (tabindex 0), the rest tabindex -1, and the
-   *  arrow keys move DOM focus. -1 while the menu is closed (no item is a stop). */
-  readonly profileActiveIndex = signal(-1);
 
   /** Indices of the enabled primary entries (the arrow-key cycle skips disabled).
    *  Indexes the RENDERED list — the template iterates visibleNavEntries(), so
@@ -575,17 +418,6 @@ export class MenuComponent {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
-
-    // Start or stop bell polling whenever the login state changes. The effect()
-    // runs in the injection context (constructor body) so it tracks session.loggedIn()
-    // reactively: first call fires immediately, then re-runs on every change.
-    effect(() => {
-      if (this.session.loggedIn()) {
-        this.bellNotifications.startPolling();
-      } else {
-        this.bellNotifications.stopPolling();
-      }
-    });
 
     // The menu is always mounted, so it is the host's natural owner for loading the
     // PUBLIC federation capability list ONCE at startup (load-once + shared, so the
@@ -622,9 +454,9 @@ export class MenuComponent {
       .subscribe((e) => {
         // Track where the outlet now points (login-page chrome gate input).
         this.currentUrl.set(e.urlAfterRedirects ?? e.url);
-        // Close the profile menu on navigation, then focus the routed content.
-        this.profileOpen.set(false);
-        this.profileActiveIndex.set(-1);
+        // Then focus the routed content. (Closing the profile dropdown used to
+        // happen here too; that menu moved to the header banner and closes
+        // itself on NavigationEnd — see HeaderControlsComponent.)
         this.doc.getElementById('maincontent')?.focus();
       });
   }
@@ -635,135 +467,6 @@ export class MenuComponent {
    *  the button stuck. */
   onReload(): void {
     void this.viewReload.reload();
-  }
-
-  /** Navigate to the notifications page (user-ui remote mounted at /user). */
-  navigateToBell(): void {
-    void this.router.navigateByUrl('/user/notifications');
-  }
-
-  /** Toggle the profile dropdown menu (the button is aria-haspopup="menu"). When
-   *  opening, place the roving cursor on the FIRST item and move focus into the
-   *  menu (WAI-ARIA menu-button: a pointer/Enter/Space open lands on the first
-   *  item). When closing, drop the cursor. */
-  toggleProfile(): void {
-    this.profileOpen.update((v) => !v);
-    if (this.profileOpen()) {
-      this.openProfileAt(0);
-    } else {
-      this.profileActiveIndex.set(-1);
-    }
-  }
-
-  /** Open the dropdown (if closed) with the roving cursor at `index` and move DOM
-   *  focus to that item. `index` -1 means the LAST item (ArrowUp-to-open). */
-  private openProfileAt(index: number): void {
-    const count = this.visibleProfileItems().length;
-    if (count === 0) return;
-    const target = index < 0 ? count - 1 : Math.min(index, count - 1);
-    this.profileOpen.set(true);
-    this.profileActiveIndex.set(target);
-    // Wait for the @if-guarded menu list to render before focusing the item.
-    queueMicrotask(() => this.focusProfileItem(target));
-  }
-
-  private focusProfileItem(index: number): void {
-    this.profileItemRefs?.get(index)?.nativeElement.focus();
-  }
-
-  /** Keyboard handler for the trigger BUTTON. ArrowDown/ArrowUp open the menu and
-   *  land on the first/last item per the WAI-ARIA menu-button pattern; Enter/Space
-   *  fall through to the native (click)=toggleProfile. Escape closes if open. */
-  onTriggerKeydown(event: KeyboardEvent): void {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      this.openProfileAt(0);
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      this.openProfileAt(-1);
-    } else if (event.key === 'Escape' && this.profileOpen()) {
-      event.preventDefault();
-      this.closeProfile();
-    }
-  }
-
-  /** Roving-tabindex keyboard handler for the OPEN profile dropdown menu (WAI-ARIA
-   *  menu pattern). ArrowUp/ArrowDown move the cursor (wrapping), Home/End jump to
-   *  the ends, and DOM focus follows. Escape is handled separately on the list. */
-  onProfileMenuKeydown(event: KeyboardEvent): void {
-    const count = this.visibleProfileItems().length;
-    if (count === 0) return;
-    const cur = this.profileActiveIndex();
-    let next: number | undefined;
-
-    if (event.key === 'ArrowDown') {
-      next = (cur + 1) % count;
-    } else if (event.key === 'ArrowUp') {
-      next = (cur - 1 + count) % count;
-    } else if (event.key === 'Home') {
-      next = 0;
-    } else if (event.key === 'End') {
-      next = count - 1;
-    }
-
-    if (next !== undefined) {
-      event.preventDefault();
-      this.profileActiveIndex.set(next);
-      this.focusProfileItem(next);
-    }
-  }
-
-  /** Handle a profile-menu item activation. */
-  onProfileItem(item: ProfileMenuItem): void {
-    this.profileOpen.set(false);
-    this.profileActiveIndex.set(-1);
-    switch (item.action) {
-      case 'profile':
-        this.modal.open();
-        break;
-      case 'admin':
-      case 'apidocs':
-      case 'mod':
-      case 'wiki':
-      case 'owncast':
-      case 'tube':
-      case 'games-admin':
-        if (item.route) this.router.navigateByUrl(item.route);
-        break;
-      // CHARACTER remotes. remoteName is the kebab-case 'character-studio' /
-      // 'character-forge' in app.routes.ts — native-federation registers a remote
-      // under the name declared inside its OWN remoteEntry.json, not the manifest
-      // key, so a camelCase key throws "Remote 'characterStudio' is not initialized"
-      // at load time with no failed request to point at.
-      case 'character-studio':
-      case 'character-forge':
-        if (item.route) this.router.navigateByUrl(item.route);
-        break;
-      case 'logout':
-        void this.logout();
-        break;
-    }
-  }
-
-  /** Close the dropdown and return focus to its trigger (Escape from the menu). */
-  closeProfile(restoreFocus = true): void {
-    this.profileOpen.set(false);
-    this.profileActiveIndex.set(-1);
-    if (restoreFocus) this.profileTriggerRef?.nativeElement.focus();
-  }
-
-  /** Sign out: expire the SERVER session, then return to the authgate at '/', which
-   *  redirects anonymous users into the login remote.
-   *
-   *  The await is load-bearing. {@link SessionService.clear} now posts /bff/sessionOut and
-   *  waits for it, because the cookie has to be dead BEFORE we navigate — roleHomeGuard
-   *  reads the session on the way through, and a live cookie would let a re-hydrate restore
-   *  the session and route the "signed-out" user straight back into their role-home. */
-  async logout(): Promise<void> {
-    await this.session.clear();
-    this.profileOpen.set(false);
-    this.profileActiveIndex.set(-1);
-    await this.router.navigateByUrl('/');
   }
 
   /** Roving-tabindex keyboard handler for the primary menubar. Arrow/Home/End

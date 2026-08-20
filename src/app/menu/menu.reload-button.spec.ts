@@ -61,11 +61,25 @@ describe('MenuComponent — shell reload control', () => {
     return el.querySelector<HTMLButtonElement>('[data-testid="view-reload"]');
   }
 
-  it('renders for an ANONYMOUS session (not gated on login, unlike the bell)', () => {
+  it('renders for an ANONYMOUS session (not gated on login)', () => {
     expect(session.loggedIn()).toBeFalse();
     expect(el.querySelector('[data-testid="view-reload"]')).toBeTruthy();
-    // The bell IS login-gated — this asserts the two are deliberately different.
-    expect(el.querySelector('.bell-btn')).toBeNull();
+  });
+
+  it('is the control that STAYED in the bar when the header cluster was carved out', () => {
+    // Reload is a view ACTION on whatever the outlet is showing, so it belongs
+    // with the nav; the animation/menu toggles, the bell and the user menu are
+    // account/shell chrome and moved to the header banner (issue #19 comment,
+    // 2026-08-19). This asserts the boundary, so a future tidy-up cannot quietly
+    // sweep reload out of the bar — or sweep a header control back into it.
+    expect(el.querySelector('[data-testid="view-reload"]')).toBeTruthy();
+    expect(el.querySelector('.bell-btn')).withContext('bell is the header\'s').toBeNull();
+    expect(el.querySelector('[data-testid="bg-toggle"]'))
+      .withContext('animation toggle is the header\'s')
+      .toBeNull();
+    expect(el.querySelector('[data-testid="menubar-mode-toggle"]'))
+      .withContext('menu toggle is the header\'s')
+      .toBeNull();
   });
 
   it('is a real <button> (keyboard reachable, native Enter/Space activation)', () => {

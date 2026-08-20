@@ -1,16 +1,30 @@
 import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 
-import { MenuComponent } from './menu.component';
+import { HeaderControlsComponent } from './header-controls.component';
 import { SessionService } from '../session.service';
 import { ProfileModalService } from '../profile-modal/profile-modal.service';
-import { CapabilitiesService } from '../capabilities/capabilities.service';
-import { CapabilitiesStub } from '../capabilities/capabilities.stub';
+import { BellNotificationsService } from '../bell/bell-notifications.service';
 
-/** Drives the menu's session-aware account region (Sign in vs the profile menu).
- *  Backed by signals so the component's computed visibleProfileItems() reacts
- *  like the real service. */
+/**
+ * THE USER (PROFILE) MENU — role-aware contents, activation, and sign-out.
+ *
+ * This suite used to mount MenuComponent: the account region lived in the
+ * menubar. The operator moved it to the header banner (issue #19 comment
+ * 2026-08-19 — "the notification bell and user menu belong in the title at the
+ * top on the right, not in the menu"), so the same assertions now mount
+ * HeaderControlsComponent. The coverage is deliberately CARRIED OVER rather than
+ * rewritten: the move must not quietly cost a role gate.
+ *
+ * The anonymous "Sign in" ENTRY did NOT move — it is a navigation destination,
+ * not an account control, and stays in the menubar (menu.component.spec.ts's
+ * login-page chrome gate suite still owns it).
+ */
+
+/** Drives the session-aware account region. Backed by signals so the component's
+ *  computed visibleProfileItems() reacts like the real service. */
 class SessionStub {
   loggedIn = signal(false);
   fullyRegistered = signal(false);
@@ -31,9 +45,15 @@ class SessionStub {
   async clear() { this.cleared = true; this.loggedIn.set(false); this.session.set(null); }
 }
 
-describe('MenuComponent account region + profile menu (role-aware)', () => {
-  let component: MenuComponent;
-  let fixture: ComponentFixture<MenuComponent>;
+class BellStub {
+  readonly unreadCount$ = of(0);
+  startPolling = jasmine.createSpy('startPolling');
+  stopPolling = jasmine.createSpy('stopPolling');
+}
+
+describe('HeaderControlsComponent — user menu (role-aware)', () => {
+  let component: HeaderControlsComponent;
+  let fixture: ComponentFixture<HeaderControlsComponent>;
   let stub: SessionStub;
   let modal: ProfileModalService;
   let el: HTMLElement;
@@ -41,15 +61,15 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
   beforeEach(async () => {
     stub = new SessionStub();
     await TestBed.configureTestingModule({
-      imports: [MenuComponent],
+      imports: [HeaderControlsComponent],
       providers: [
         provideRouter([]),
         { provide: SessionService, useValue: stub },
-        { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
+        { provide: BellNotificationsService, useValue: new BellStub() },
       ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(MenuComponent);
+    fixture = TestBed.createComponent(HeaderControlsComponent);
     component = fixture.componentInstance;
     modal = TestBed.inject(ProfileModalService);
     el = fixture.nativeElement as HTMLElement;
@@ -61,18 +81,20 @@ describe('MenuComponent account region + profile menu (role-aware)', () => {
     fixture.detectChanges();
   }
 
-  it('anonymous: shows Sign in, hides the profile menu', () => {
+  it('anonymous: renders no account controls at all', () => {
     stub.loggedIn.set(false);
     fixture.detectChanges();
-    expect(has('nav-login')).toBeTrue();
     expect(has('profile-trigger')).toBeFalse();
+    expect(el.querySelector('.bell-btn')).withContext('no bell either').toBeNull();
+    // The anonymous Sign-in ENTRY is the menubar's, not this component's — it is a
+    // navigation destination, not an account control.
+    expect(has('nav-login')).toBeFalse();
   });
 
-  it('authenticated: shows the profile trigger labelled with the user, hides Sign in', () => {
+  it('authenticated: shows the profile trigger labelled with the user', () => {
     stub.loggedIn.set(true);
     stub.session.set({ label: 'alice' });
     fixture.detectChanges();
-    expect(has('nav-login')).toBeFalse();
     expect(has('profile-trigger')).toBeTrue();
     expect(el.querySelector('[data-testid="nav-user"]')?.textContent?.trim()).toBe('alice');
   });

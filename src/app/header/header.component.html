@@ -1,3 +1,15 @@
+<!-- Leading spacer: the mirror of the controls cluster, so the wordmark stays
+     OPTICALLY CENTRED in the banner instead of being shoved left by the
+     controls' width. Purely presentational and empty, so it adds nothing to the
+     accessibility tree. -->
+<span class="header__gutter" aria-hidden="true"></span>
+
 <h1 tabindex="-1" class="text-center">
   HugMesh
 </h1>
+
+<!-- SHELL CHROME, top-right (operator requirement, issue #19 comment
+     2026-08-19). The animation toggle, the menu toggle, the notification bell
+     and the user menu all live here now — see header-controls.component.ts for
+     where each came from and why the scattering was the bug. -->
+<hug-header-controls class="header__gutter" [background]="background()" />
