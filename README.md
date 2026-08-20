@@ -150,8 +150,18 @@ manifest's gateway-served remote paths bind as intended.
 
 - **Stack:** Angular 22 standalone components + signals, `@angular-architects/native-federation`
   (`@softarc/native-federation-node`), Bootstrap 5, and a theme-driven animated
-  CSS-gradient backdrop (`src/app/background/` — pure CSS, no WebGL; it reads
+  CSS-gradient backdrop (`src/app/background/` — pure CSS by default; it reads
   the runtime `--sd-*` theme tokens and falls back to the shipped pastels).
+  The backdrop also consumes the cross-repo **`--sd-bg-effect`** theme token
+  (shared with hugmesh-login-ui, whose README "Theme-declared effect" section
+  is the contract's home): `gradient` (default — the animated wash) | `none`
+  (the wash at rest — this shell's "flat") | `vanta-fog|waves|net|globe`
+  (a bundled, lazily-loaded Vanta/three.js WebGL effect; destroyed on switch
+  and unmount, never started under `prefers-reduced-motion` or without WebGL,
+  and any unknown value degrades to `gradient`). Vanta + three.js are
+  self-hosted package dependencies (the nonce'd CSP forbids CDN scripts) and
+  are skipped from the federation shared surface so they stay in their own
+  lazy chunks (`federation.config.js`).
   Built to a static bundle and served by nginx (`Dockerfile`, `nginx.conf`) or
   by the tiny Express fallback (`server.js`).
 - **Role:** the federation **host/consumer** only. `federation.config.js` (via

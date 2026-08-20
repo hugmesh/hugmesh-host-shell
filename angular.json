@@ -41,6 +41,12 @@
               "es-module-shims"
             ],
             "tsConfig": "tsconfig.app.json",
+            "allowedCommonJsDependencies": [
+              "vanta/dist/vanta.fog.min",
+              "vanta/dist/vanta.waves.min",
+              "vanta/dist/vanta.net.min",
+              "vanta/dist/vanta.globe.min"
+            ],
             "assets": [
               "src/favicon.ico",
               "src/assets"
@@ -85,8 +91,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "4kb"
+                  "maximumWarning": "6kb",
+                  "maximumError": "8kb"
                 }
               ],
               "fileReplacements": [
