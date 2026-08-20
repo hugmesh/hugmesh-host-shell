@@ -39,7 +39,7 @@ flowchart TB
   ubff -->|"OidcExchangeClient.exchangeCode"| casdoor["Casdoor :8000"]
   ubff -.->|"/bff/internal ensureAccount / createSession / custody-stamp<br/>(mTLS + X-Internal-Token)"| abff["admin-bff<br/>(owns account/session DATA + /bff/internal)"]
   abff --> abffdb[("admin-bff-db<br/>bff_session.*_enc (AES-256-GCM custody)")]
-  cass[("shared Cassandra cluster<br/>snapdragon_systems_gateway keyspace")]
+  cass[("shared Cassandra cluster<br/>hugmesh_gateway keyspace")]
   gw -.-> cass
 ```
 
@@ -49,7 +49,7 @@ flowchart TB
 > server** — it does **not** log in itself; its `BffJwtExchangeWebFilter` swaps
 > the opaque `bff_` reference → the internal custody JWT pre-security, so the
 > JWT validation + route-access/revocation gate run unchanged. (The local
-> docker-compose dev stack still uses `snapdragon-id-gateway` as an OAuth2 login
+> docker-compose dev stack still uses `hugmesh-id-gateway` as an OAuth2 login
 > client + JWT resource server for a self-contained demo.) The host actually
 > calls the role-BFF surface (`/bff/me`, `/bff/announcements/home`,
 > `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), and
@@ -102,7 +102,7 @@ Invariants to hold onto:
   and the raw `bff_` is never forwarded downstream.
 - The whole ensemble **ships dark** behind default-off flags
   (`app.bff.oidc.enabled`, `app.bff.custody-key`, `app.session.cookie.enabled`,
-  `snapdragon.gateway.bff-exchange.enabled`, `__HUG_OIDC_ENABLED__`), so a default
+  `hugmesh.gateway.bff-exchange.enabled`, `__HUG_OIDC_ENABLED__`), so a default
   deployment is byte-identical to today's.
 
 Component ownership: **hugmesh-auth-core** (shared jar) holds the stateful auth
@@ -130,7 +130,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   SCG-5 route-namespace bug fixed.
 - ✅ **shipped (the SSO BFF-custody flow has since merged, all dark behind default-off
   flags):** gateway `BffJwtExchangeWebFilter` + `BffJwtExchangeConfig`
-  (`snapdragon.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` (since
+  (`hugmesh.gateway.bff-exchange.enabled`); user-bff `OidcCallbackController` (since
   retired — see the native `/bff/login` model above) /
   `SsoAuthController` / `AdminBffInternalClient` / `OidcCustodyBootGuard` (OIDC login
   relocation + admin-bff internal client, `app.bff.oidc.enabled`); login-ui
@@ -151,9 +151,9 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 
 | Concern | Value |
 |---|---|
-| Gateway instance name | `snapdragon-id-gateway` |
-| Cassandra keyspace | `snapdragon_systems_gateway` |
-| Casdoor organization | `snapdragon-systems` |
+| Gateway instance name | `hugmesh-id-gateway` |
+| Cassandra keyspace | `hugmesh_gateway` |
+| Casdoor organization | `hugmesh` |
 | Frontend stack | Angular native-federation host + 11 remotes (this repo) |
 | Browser-held credential | opaque `bff_` session only — never a Casdoor JWT |
 | Token custody | user-bff exchanges code→token; admin-bff-db holds the encrypted custody JWT (`bff_session.*_enc`); gateway swaps `bff_`→JWT pre-security |
@@ -166,8 +166,8 @@ consistently across the platform because the
 and its identity-tier overlay
 [hugmesh-pki-gateway](https://github.com/hugmesh/hugmesh-pki-gateway/)
 (a thin per-instance config layer built `FROM` the same shared gateway image —
-this repo's local docker-compose dev stack still labels its self-contained
-demo instance `snapdragon-id-gateway`, that overlay's pre-rename name).
+this repo's local docker-compose dev stack labels its self-contained
+demo instance `hugmesh-id-gateway`).
 
 ## Role model
 

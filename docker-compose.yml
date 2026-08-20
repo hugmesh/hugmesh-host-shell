@@ -2,7 +2,7 @@
 #
 # Adopts the same topology as hugmesh.games:
 #
-#   browser  ──→  snapdragon-id-gateway (Spring Cloud Gateway, OAuth2
+#   browser  ──→  hugmesh-id-gateway (Spring Cloud Gateway, OAuth2
 #                  login client + JWT resource server)
 #                  │
 #                  ├──→  hugmesh.net Angular frontend (this repo's
@@ -16,7 +16,7 @@
 #   hugmesh-gateway codebase implements).
 #
 # This compose deliberately reuses the published gateway image —
-# `snapdragon-systems/gateway:dev` — rather than building gateway code
+# `hugmesh/gateway:dev` — rather than building gateway code
 # from this repo. hugmesh.net is the deployment artefact; the
 # gateway is a platform dependency consumed via image registry.
 #
@@ -85,9 +85,9 @@ services:
       - -c
       - |
         cqlsh cassandra 9042 -e "
-          CREATE KEYSPACE IF NOT EXISTS snapdragon_systems_gateway
+          CREATE KEYSPACE IF NOT EXISTS hugmesh_gateway
             WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
-        " && echo '✓ snapdragon_systems_gateway keyspace ready'
+        " && echo '✓ hugmesh_gateway keyspace ready'
     restart: "no"
 
   # hugmesh.net Angular frontend. Built from this repo's
@@ -106,8 +106,8 @@ services:
   # `/api/auth/*` + `/login/*` to Casdoor and everything else to the
   # frontend. The revocation list + URL registry + resource-access
   # cache all sit on the same Cassandra keyspace.
-  snapdragon-id-gateway:
-    image: snapdragon-systems/gateway:dev
+  hugmesh-id-gateway:
+    image: hugmesh/gateway:dev
     depends_on:
       casdoor:
         condition: service_healthy
@@ -116,9 +116,9 @@ services:
       cassandra-init:
         condition: service_completed_successfully
     environment:
-      SPRING_APPLICATION_NAME: snapdragon-id-gateway
+      SPRING_APPLICATION_NAME: hugmesh-id-gateway
       CASSANDRA_CONTACT_POINTS: cassandra:9042
-      CASSANDRA_KEYSPACE:       snapdragon_systems_gateway
+      CASSANDRA_KEYSPACE:       hugmesh_gateway
       CASSANDRA_LOCAL_DC:       dc1
       CASDOOR_ISSUER_URI:       http://casdoor:8000
       CASDOOR_JWKS_URI:         http://casdoor:8000/.well-known/jwks
