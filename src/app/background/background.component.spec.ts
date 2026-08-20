@@ -59,6 +59,33 @@ describe('BackgroundComponent', () => {
       .toBeFalse();
   });
 
+  describe('stacking — decorative means BEHIND, not merely non-interactive', () => {
+    // <app-background> is position:fixed and full-viewport. Its nearest stacking
+    // context is the ROOT (main[app-root] is position:absolute but z-index:auto, so
+    // it positions WITHOUT creating one), which puts it in direct paint competition
+    // with the shell's other root-level children. At z-index:0 it is a POSITIONED
+    // element in CSS 2.1 paint step 8 — above the step-3/5 content of every
+    // NON-positioned in-flow sibling, i.e. it covers them with an animated gradient.
+    //
+    // Regression guard for exactly that. It has to be a computed-style check on the
+    // real component: pointer-events:none means clicks, hit-testing, element boxes
+    // and contrast probes ALL keep reporting a healthy page while content is buried,
+    // so no behavioural assertion anywhere can see this. Only the z-index can.
+    it('sits in the negative-z layer, so it can never paint over shell content', () => {
+      const z = Number(getComputedStyle(host).zIndex);
+      expect(Number.isNaN(z))
+        .withContext('$z-background must resolve to a NUMBER, not `auto`')
+        .toBeFalse();
+      expect(z)
+        .withContext(
+          'the backdrop must paint below in-flow shell chrome. Shell children that ' +
+            'never opt into a z-index — [status-gate], the suspension/ban appeal ' +
+            'alert — are protected by this and nothing else.',
+        )
+        .toBeLessThan(0);
+    });
+  });
+
   describe('accessibility — decorative and non-interactive', () => {
     it('exposes no focusable elements (nothing in the tab order)', () => {
       const focusable = host.querySelectorAll(

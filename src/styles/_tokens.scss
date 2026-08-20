@@ -37,7 +37,38 @@ $opacity-ghost:  0.05;
 $opacity-border: 0.18;
 $opacity-muted:  0.35;
 
-$z-background:  0;
+// MUST be negative, not 0 — "behind the app" is what this token has always
+// claimed to mean, and at 0 it does not deliver it.
+//
+// <app-background> is `position: fixed` (background.component.scss). Its nearest
+// ancestor that forms a stacking context is the ROOT element: `main[app-root]` is
+// `position: absolute` (styles.scss) but its z-index is `auto`, which positions it
+// WITHOUT creating a stacking context. So the backdrop competes directly with the
+// shell's other root-level children, and CSS paint order (CSS 2.1 Appendix E) puts
+// a POSITIONED z-index:0 element in step 8 — above the step-3/5 backgrounds and
+// inline content of every NON-positioned in-flow sibling.
+//
+// Every piece of shell chrome that outranks it does so only because it separately
+// opts in: header/footer and the `router-outlet + *` backpane take $z-content, the
+// menubar $z-nav, the modal/toasts/bg-toggle $z-overlay, the skip link $z-top.
+// Anything added to app.component.html that does NOT is painted over by a
+// full-viewport animated gradient — silently, because <app-background> also sets
+// pointer-events:none, so the buried element still takes clicks, still reports a
+// correct box, and a contrast probe still reads a healthy ratio (it resolves the
+// backdrop by walking up to the dark <body>, which is NOT what is painted there).
+// Only a screenshot shows it. `[status-gate]` — the suspension/ban appeal alert,
+// `:host { display: block }` and nothing else — is exactly that case today.
+//
+// -1 puts the backdrop in step 2 instead: above the canvas background (<body>'s
+// background-color propagates to the canvas, since nothing sets one on <html>) and
+// above `main[app-root]`'s own `background: transparent`, but below the in-flow
+// content of the shell. The gradient stays fully visible; it simply stops being
+// able to paint over anything.
+//
+// Raising `main` instead does NOT work — the backdrop is its child and rides up
+// with it — and neither does giving `main` a scrim, because a parent's background
+// paints below a positioned child. Both were tried and reverted.
+$z-background: -1;
 $z-content:     1;
 $z-nav:         5;
 $z-overlay:   200;
