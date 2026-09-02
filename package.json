@@ -25,15 +25,15 @@
   },
   "private": true,
   "dependencies": {
-    "@angular-architects/native-federation": "^22.1.1",
-    "@angular/animations": "^22.1.2",
-    "@angular/common": "^22.1.2",
-    "@angular/compiler": "^22.1.2",
-    "@angular/compiler-cli": "^22.1.2",
-    "@angular/core": "^22.1.2",
-    "@angular/platform-browser": "^22.1.2",
-    "@angular/platform-browser-dynamic": "^22.1.2",
-    "@angular/router": "^22.1.2",
+    "@angular-architects/native-federation": "^22.1.2",
+    "@angular/animations": "^22.1.4",
+    "@angular/common": "^22.1.4",
+    "@angular/compiler": "^22.1.4",
+    "@angular/compiler-cli": "^22.1.4",
+    "@angular/core": "^22.1.4",
+    "@angular/platform-browser": "^22.1.4",
+    "@angular/platform-browser-dynamic": "^22.1.4",
+    "@angular/router": "^22.1.4",
     "@softarc/native-federation-node": "^4.0.0",
     "bootstrap": "^5.3.8",
     "es-module-shims": "^2.8.4",
@@ -45,9 +45,9 @@
     "zone.js": "^0.16.2"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^22.1.4",
-    "@angular/cli": "^22.1.4",
-    "@angular/localize": "^22.1.2",
+    "@angular-devkit/build-angular": "^22.1.6",
+    "@angular/cli": "^22.1.6",
+    "@angular/localize": "^22.1.4",
     "@cucumber/cucumber": "^13.2.1",
     "@nightwatch/angular": "^3.1.1",
     "@nightwatch/mobile-helper": "^2.0.0",
@@ -87,10 +87,10 @@
     "typescript": "^6.0.3"
   },
   "_overridesNote": {
-    "@softarc/native-federation": "MUST satisfy the range @angular-architects/native-federation depends on (^4.4.0 at 22.1.1), and MUST be bumped together with the angular group. The override exists to collapse two copies onto one: without it the hoisted copy is older than the one @angular-architects nests and the orchestrator typings fail to compile (TS2724 DenseSharedInfo). A stale pin here does NOT fail the unit tests -- it only breaks 'ng build --prod', which is how the angular-group bump to 22.1.1 landed green while leaving the production bundle unbuildable."
+    "@softarc/native-federation": "MUST satisfy the range @angular-architects/native-federation depends on (~4.5.0 at 22.1.2; it was ^4.4.0 at 22.1.1), and MUST be bumped together with the angular group. The override exists to collapse two copies onto one: without it the hoisted copy is older than the one @angular-architects nests and the orchestrator typings fail to compile (TS2724 DenseSharedInfo). A stale pin here does NOT fail the unit tests -- it only breaks 'ng build --prod', which is how the angular-group bump to 22.1.1 landed green while leaving the production bundle unbuildable. WORSE, a stale pin can also fail SILENTLY: 22.1.2 injects a watchpack-backed watcher via the `watch` option of createNfWatcher, an option that only exists from 4.5.0, so under a 4.4.x pin the injected watcher is discarded with no error and watch mode quietly falls back to the old fs path. Dependabot CANNOT bump this for you -- it only rewrites an override whose value literally matches the old dependency range, and a bare pin like 4.4.1 never matches ^4.4.0, so it is left behind silently. Check this value by hand on every angular group bump."
   },
   "overrides": {
-    "@softarc/native-federation": "4.4.1",
+    "@softarc/native-federation": "4.5.0",
     "@babel/core": "7.29.7",
     "lodash": "4.18.1",
     "axios": "1.20.0",

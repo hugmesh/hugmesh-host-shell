@@ -30,6 +30,12 @@ jobs:
         run: |
           npm install
           npm run-script coverage
+      # A production build is the ONLY thing that catches a stale
+      # overrides.@softarc/native-federation pin -- see _overridesNote in
+      # package.json. The unit suite goes green on a broken bundle, which is
+      # how the 22.1.1 bump landed with an unbuildable production tree.
+      - name: Production build
+        run: npm run-script build
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2.18.0
         if: always()
