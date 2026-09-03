@@ -30,6 +30,25 @@ jobs:
         run: |
           npm install
           npm run-script coverage
+      # Fires at the bump that INTRODUCES override drift. npm applies
+      # `overrides` without resolution, so a pin that contradicts what
+      # @angular-architects/native-federation requires installs with exit 0 and
+      # no ERESOLVE -- and, measured on this repo, also passes the unit suite
+      # AND the production build below. See scripts/check-nf-override.mjs.
+      - name: Override contract gate
+        run: npm run-script check:nf-override
+      # MEASURED REACH of this step, so nobody mistakes it for the override gate:
+      # it catches a pin stale enough to break the @softarc/native-federation
+      # /internal export surface -- override 4.3.2 under @angular-architects
+      # 22.1.x fails here with "does not provide an export named 'isUnderAnyDir'",
+      # no bundle emitted. It does NOT catch one minor of drift: override 4.4.1
+      # under 22.1.2 (which requires ~4.5.0) exits 0 here, on the committed
+      # lockfile and on a full fresh re-resolve alike. That case is the
+      # Override contract gate's job, not this one.
+      # What this step IS for: before it was added, the job named build_and_test
+      # ran no build at all -- only check:theme-tokens and ng test.
+      - name: Production build
+        run: npm run-script build
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2.18.0
         if: always()
