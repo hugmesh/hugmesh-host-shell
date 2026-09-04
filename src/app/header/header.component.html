@@ -6,9 +6,15 @@
 <div class="header__bar">
   <span class="header__gutter" aria-hidden="true"></span>
 
-  <h1 tabindex="-1" class="text-center">
-    HugMesh
-  </h1>
+  <!-- REAL MARKUP, not a CSS `content:` read, for the theme's replacement text
+       (--sd-header-content). The generator's own docstring offers consumers both
+       shapes; only this one puts the operator's words in the accessibility tree,
+       in the page's text selection and in the document outline. See
+       chrome/chrome-tokens.ts. -->
+  <!-- The interpolation hugs the tags: `white-space: pre-line` on the themed
+       branch would otherwise render the template's own indentation as a leading
+       blank line. -->
+  <h1 tabindex="-1" class="text-center" [class.header__title--themed]="themedWordmark()">{{ wordmark() }}</h1>
 
   <!-- SHELL CHROME, top-right (operator requirement, issue #19 comment
        2026-08-19). The animation toggle, the menu toggle, the notification bell

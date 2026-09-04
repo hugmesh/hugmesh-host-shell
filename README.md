@@ -195,6 +195,68 @@ public, unguarded routes; everything else is federated and gated.
 
 ---
 
+## The runtime theme contract this shell consumes
+
+The theme is derived in ONE place — hugmesh-generator
+`studio/hugmesh_studio/core/theme.py` — delivered as token text through
+`HUG_THEME_CSS`, written to `hug-theme.css` by
+`docker-entrypoint.d/50-hug-theme.sh` at container start, and `<link>`ed from
+`index.html`. This repo does **zero** colour or shape maths; it only *reads*.
+Every read is `var(--sd-X, var(--hug-X, <shipped literal>))` — `--sd-*` is the
+contract name, `--hug-*` is the runtime twin the generator's `css_root` emits
+beside it, and the innermost literal is what an **un-themed deploy** renders.
+A theme that names nothing therefore renders the shipped chrome byte for byte,
+which is the same conservative-schema promise the generator makes on its side.
+`scripts/check-theme-token-contract.sh` (`npm run check:theme-tokens`) polices
+both failure modes — an orphan read no theme can reach, and a dead fallback that
+can never be hit.
+
+| Axis | Tokens | What the shell does with them |
+| --- | --- | --- |
+| **Palette / ramps** | `--sd-bg-*`, `--sd-text*`, `--sd-primary*`, `--sd-accent*`, `--sd-*-rgb` | Chrome colours, the animated backdrop's own palette, the `:root` `--hug-*` block every federated remote reaches for. |
+| **Background effect** | `--sd-bg-effect` | `gradient` \| `none` \| `vanta-fog\|waves\|net\|globe` — see the backdrop bullet above. |
+| **Decor** | `--sd-nav-suffix{,-hover,-active}` | Nav-link suffixes, paired with CSS alt-text syntax so screen readers skip them. |
+| **Chrome** | `--sd-{header,footer}-{display,height,bg,on,content}` | Hide a surface outright; size it (`compact` 2.5rem / `comfortable` 4rem / `tall` 6rem); paint a flat background with the generator's derived black/white text twin; replace the surface's content with the operator's own text. |
+| **Style** | `--sd-radius{,-sm,-lg}`, `--sd-border-{width,style}`, `--sd-shadow{,-sm}`, `--sd-surface-blur` | The shape of every shared surface: `glass-float` chrome (header/footer/menubar/modal) and `card-surface` panels, plus the routed-content backpane and help bubbles. |
+
+**Chrome and Style were both inert until 2026-09-04.** The generator had shipped
+the QT Themes editor's header/footer hide/size/background/content controls and
+the six style variants (`soft`, `sharp`, `outlined`, `elevated`, `flat`,
+`glass`) months earlier, and a census across this repo and hugmesh-login-ui found
+**zero** consumers of either token family — so an operator who ticked "hide the
+footer" or picked "sharp" got a byte-identical page and no error anywhere. That
+is the same silent no-op as the `--sd-`/`--hug-` prefix bug. Both axes are now
+consumed here and pinned by rendered-geometry specs
+(`src/app/header/header.chrome-axis.spec.ts`,
+`src/app/footer/footer.chrome-axis.spec.ts`,
+`src/app/theme-style-axis.spec.ts`), never by reading the stylesheet back.
+
+Three rules the axes deliberately do **not** get to break:
+
+- **The scrim alpha is a contrast contract, not a taste knob.** `$scrim-alpha`
+  (`src/styles/_tokens.scss`) is what keeps text legible over a theme's own
+  unbounded background gradient, so a themed flat background is layered as a
+  `background-image` *over* the scrim rather than replacing it, and the Style
+  axis reaches shape only.
+- **A height is an intent, never a guillotine.** Each surface pairs its themed
+  `block-size` with `min-block-size: fit-content`, so a `compact` header still
+  shows every line of the operator's own text and every control it must offer.
+  Content is *capped* to meet the height (`--shell-chrome-fit`, shell-private
+  plumbing that is deliberately **not** on the `--hug-*` contract prefix) so
+  "compact" actually shrinks rather than drawing a smaller box around unchanged
+  chrome.
+- **Accessibility floors outrank density.** The WCAG 2.5.5 44px touch target on
+  coarse pointers is not capped by a themed height, and replacement text is
+  rendered as **real markup** rather than a CSS `content:` read — the branch the
+  generator's own docstring offers — so an operator's words stay selectable,
+  translatable and present in the accessibility tree.
+
+`--hug-header-scale` remains what it always was: a hand-authored escape hatch for
+the banner's block metrics, with no producer in the generator. The Chrome axis
+above is the generator-facing contract.
+
+---
+
 ## Where it sits — gateway, Casdoor, federation, multi-tenancy
 
 ```mermaid

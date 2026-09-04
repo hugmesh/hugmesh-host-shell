@@ -189,8 +189,11 @@ router-outlet + * {
   position: relative;
   z-index: t.$z-content;
   background: rgba(t.$black, t.$scrim-alpha);
-  border: 1px solid rgba(t.$offwhite, t.$opacity-border);
-  border-radius: t.$radius-page;
+  // Shape follows the theme's STYLE axis (styles/_mixins.scss carries the note);
+  // the scrim ALPHA does not — that is the contrast contract.
+  border: var(--hug-border-width, 1px) var(--hug-border-style, solid)
+    rgba(t.$offwhite, t.$opacity-border);
+  border-radius: var(--hug-radius-lg, #{t.$radius-page});
   // Responsive: hugs the viewport on a phone, never sprawls on a wide monitor, and
   // the gradient stays visible around it rather than being blanked out.
   margin: clamp(0.5rem, 1.5vw, 1.25rem) auto;
@@ -386,8 +389,9 @@ a {
   margin-top: 0;
   padding: 0.4rem 0.6rem;
   background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.95);
-  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.4);
-  border-radius: 0.375rem;
+  border: var(--hug-border-width, 1px) var(--hug-border-style, solid)
+    rgba(var(--hug-primary-rgb, 255, 215, 0), 0.4);
+  border-radius: var(--hug-radius-sm, 0.375rem);
   color: var(--hug-text); // 15.9:1 AAA — not muted, this is the only on-bubble text
   opacity: 0;
   visibility: hidden;

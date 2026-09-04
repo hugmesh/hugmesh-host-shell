@@ -3,9 +3,35 @@
 
 :host {
   @include m.glass-float;
-  display: block;
   margin: 0.5rem 1.5rem 1rem;
   padding: 0 1rem;
+
+  // ── THE GENERATOR'S CHROME AXIS (--sd-footer-*, issue #19 items 4 + 8) ──────
+  // The footer half of the same contract the banner consumes; read
+  // header.component.scss's block for why each read is shaped
+  // `var(--sd-X, var(--hug-X, <shipped value>))` and what an un-themed deploy
+  // gets. The one difference is which surface the tokens name.
+  display: var(--sd-footer-display, var(--hug-footer-display, block));
+  block-size: var(--sd-footer-height, var(--hug-footer-height, auto));
+  min-block-size: fit-content;
+  // Centres the content inside a THEMED height — see the twin note in
+  // header.component.scss for why this is `align-content` and not a
+  // `block-size: 100%` on the child (which silently defeats fit-content).
+  align-content: center;
+  --shell-chrome-cap: calc(var(--sd-footer-height, var(--hug-footer-height, 100rem)) * 0.45);
+  --shell-chrome-fit: calc(var(--sd-footer-height, var(--hug-footer-height, 100rem)) * 0.55);
+  color: var(--sd-footer-on, var(--hug-footer-on, inherit));
+}
+
+// Flat themed background as a layered image, so `glass-float`'s scrim — whose
+// alpha is the shell's contrast contract — stays the single source of truth.
+// Un-themed: transparent-to-transparent, i.e. nothing painted. See the twin
+// block in header.component.scss.
+:host {
+  background-image: linear-gradient(
+    var(--sd-footer-bg, var(--hug-footer-bg, transparent)),
+    var(--sd-footer-bg, var(--hug-footer-bg, transparent))
+  );
 }
 
 a {
@@ -22,4 +48,29 @@ a {
   font-weight: 600;
   font-family: t.$font-fancy;
   font-size: 0.875rem;
+
+  // The mark is a fixed 32px in the markup; a themed footer height caps it so
+  // `compact` is compact instead of being a 2.5rem box drawn around a 2.5rem
+  // glyph. 100rem is the un-themed no-op sentinel — min(2rem, 55rem) is 2rem.
+  svg {
+    block-size: min(2rem, var(--shell-chrome-fit, 100rem));
+    inline-size: auto;
+  }
+}
+
+// OPERATOR-SUPPLIED FOOTER LINE (--sd-footer-content), rendered as real markup
+// by footer.component.html. `pre-line` is the load-bearing declaration: the
+// generator writes newlines into the token as the CSS escape `\A `, so a
+// multi-line footer the operator typed in the Studio must survive as multiple
+// lines here instead of collapsing into one run of text.
+.footer__content {
+  margin: 0;
+  padding-block: 0.5rem;
+  text-align: center;
+  white-space: pre-line;
+  // Inherits the -on twin from :host when the theme set a background; falls back
+  // to the shell's own muted body colour, never to a literal, so the line stays
+  // legible on both a themed and an un-themed footer.
+  color: inherit;
+  font-size: min(0.9375rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
 }

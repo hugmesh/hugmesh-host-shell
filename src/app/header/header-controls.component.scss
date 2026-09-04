@@ -23,7 +23,14 @@
   // Normal type scale for the account name; the header's h1 sets a display face
   // that must not leak into the controls.
   font-family: inherit;
-  font-size: 1rem;
+  // …and it shrinks with a THEMED header height. --shell-chrome-fit is set on
+  // the banner host (header.component.scss) from the generator's
+  // --sd-header-height, and inherits down here; the 100rem fallback is a no-op
+  // sentinel for the un-themed page and for any mount outside a banner, where
+  // `min(1rem, 45rem)` is exactly the 1rem this always shipped. Without this the
+  // "compact" chrome size would have been 2.5rem of box drawn around 3.4rem of
+  // unchanged controls — a taller header, not a shorter one.
+  font-size: min(1rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
 }
 
 .header-controls__item {
@@ -41,8 +48,9 @@
   background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), 0.8);
   border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.3);
   border-radius: 50%;
-  width: 2.25rem;
-  height: 2.25rem;
+  // Capped by a themed header height — see the --shell-chrome-fit note on :host.
+  width: min(2.25rem, var(--shell-chrome-fit, 100rem));
+  height: min(2.25rem, var(--shell-chrome-fit, 100rem));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,8 +67,8 @@
 
   svg {
     fill: var(--hug-primary, #{t.$neon});
-    width: 1rem;
-    height: 1rem;
+    width: min(1rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
+    height: min(1rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
   }
 }
 
@@ -207,6 +215,11 @@
 
 // COARSE POINTERS: these are the shell's smallest targets and they now sit in a
 // tight row, so give them the 44px WCAG 2.5.5 floor on touch.
+//
+// DELIBERATELY UNCAPPED by --shell-chrome-fit: an accessibility floor outranks a
+// theme's density choice. A `compact` header on a phone therefore grows to hold
+// a 44px target (the banner's `min-block-size: fit-content` lets it) rather than
+// honouring the height by shipping a control nobody can hit.
 @media (pointer: coarse) {
   .bg-toggle {
     width: 2.75rem;
