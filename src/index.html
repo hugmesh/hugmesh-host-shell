@@ -33,11 +33,17 @@
     <meta property="og:url" content="https://hugmesh.net" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:type" content="website" />
+    <!-- `font/ttf`, not `font/truetype`: the latter is not a registered media
+         type (RFC 8081 registers font/ttf), so Chrome logged "<link rel=preload>
+         has an unsupported 'type' value" and DISCARDED the preload entirely --
+         the wordmark font was then fetched late, by the stylesheet, which is the
+         opposite of what this tag is for. It was the only console warning on an
+         otherwise clean boot. -->
     <link
       rel="preload"
       href="assets/MoreSugar-Thin.ttf"
       as="font"
-      type="font/truetype"
+      type="font/ttf"
       crossorigin="anonymous"
     />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
