@@ -26,9 +26,23 @@ jobs:
         uses: actions/checkout@v5
       - name: Theme-token contract gate
         run: npm run-script check:theme-tokens
-      - name: npm install and coverage
+      # `npm ci`, NOT `npm install`. This job is the only automated gate on a
+      # dependency bump, so it must test the tree the merge actually produces.
+      # MEASURED on this repo (npm 11.19.0), package.json pinned to
+      # @types/node 26.2.0 against a lockfile holding 26.4.0:
+      #   npm install  -> exit 0, and it SILENTLY REWRITES package-lock.json to
+      #                   match package.json. CI goes green on a lockfile that
+      #                   is not the committed one and says nothing.
+      #   npm ci       -> exit 1, EUSAGE, "lock file's @types/node@26.4.0 does
+      #                   not satisfy @types/node@26.2.0" -- names the package.
+      # MEASURED LIMIT, so this line is not credited with more than it does: on
+      # an already-in-sync tree `npm install` did NOT drift within a caret range
+      # (^26.4.0 stayed 26.4.0 with 26.4.1 published), and it rewrote nothing.
+      # The failure this closes is a package.json/package-lock.json DESYNC being
+      # papered over, not silent version drift.
+      - name: npm ci and coverage
         run: |
-          npm install
+          npm ci
           npm run-script coverage
       # Fires at the bump that INTRODUCES override drift. npm applies
       # `overrides` without resolution, so a pin that contradicts what
