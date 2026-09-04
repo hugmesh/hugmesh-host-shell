@@ -24,11 +24,56 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+      # WITHOUT THIS STEP THE MATRIX IS DECORATION. `node-version: [24.x]` was
+      # declared above and never installed, so the job ran on whatever node the
+      # runner image happened to preinstall and the matrix value only ever
+      # reached the job NAME, "build_and_test (24.x)". That is not cosmetic:
+      # the preinstalled npm was a 10.x, and npm 10 CANNOT read this repo's
+      # lockfile (see the npm ci step below). Measured against the committed
+      # package-lock.json, `npm ci --dry-run`:
+      #     npm  9.9.4  exit 1     npm 11.0.0  exit 1
+      #     npm 10.8.2  exit 1     npm 11.3.0  exit 0
+      #     npm 10.9.4  exit 1     npm 11.6.2 / 11.12.0 / 11.16.0 / 11.19.0  exit 0
+      # Every node 24.x ships an npm at or above the passing bound (24.0.0 ->
+      # npm 11.3.0, 24.20.0 -> npm 11.19.0), so pinning the matrix for real is
+      # what makes the step below viable across the whole 24.x line.
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      # Recorded on every run so the versions this job actually used are never
+      # again a matter of inference.
+      - name: Record toolchain
+        run: node -v && npm -v
       - name: Theme-token contract gate
         run: npm run-script check:theme-tokens
-      - name: npm install and coverage
+      # `npm ci`, NOT `npm install`. This job is the only automated gate on a
+      # dependency bump, so it must test the tree the merge actually produces.
+      # MEASURED on this repo (npm 11.19.0), package.json pinned to
+      # @types/node 26.2.0 against a lockfile holding 26.4.0:
+      #   npm install  -> exit 0, and it SILENTLY REWRITES package-lock.json to
+      #                   match package.json. CI goes green on a lockfile that
+      #                   is not the committed one and says nothing.
+      #   npm ci       -> exit 1, EUSAGE, "lock file's @types/node@26.4.0 does
+      #                   not satisfy @types/node@26.2.0" -- names the package.
+      # MEASURED LIMIT, so this line is not credited with more than it does: on
+      # an already-in-sync tree `npm install` did NOT drift within a caret range
+      # (^26.4.0 stayed 26.4.0 with 26.4.1 published), and it rewrote nothing.
+      # The failure this closes is a package.json/package-lock.json DESYNC being
+      # papered over, not silent version drift.
+      #
+      # THIS STEP REQUIRES npm >= 11.3.0, which is why the setup-node step above
+      # is not optional. The nested override
+      #   overrides["cucumber-html-reporter"]["@cucumber/cucumber"]["semver"]
+      # is placed differently by npm 10 and npm 11: npm 10 builds an ideal tree
+      # wanting semver@7.5.2 / lru-cache@6.0.0 / yallist@4.0.0 at a second path
+      # the lockfile does not record, and aborts with "Missing: ... from lock
+      # file". `npm install` never noticed because it simply re-resolves. The
+      # first push of this change proved it live: with no setup-node step the
+      # job failed here on the runner's preinstalled npm 10.
+      - name: npm ci and coverage
         run: |
-          npm install
+          npm ci
           npm run-script coverage
       # Fires at the bump that INTRODUCES override drift. npm applies
       # `overrides` without resolution, so a pin that contradicts what
