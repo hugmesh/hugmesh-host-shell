@@ -47,16 +47,30 @@ RUN npm install -g @angular/cli
 # On the committed tree `npm ci` here exits 0 with exactly one hoisted
 # @softarc/native-federation@4.5.0, i.e. the same tree the CI job validates.
 #
-# THIS LINE REQUIRES npm >= 11.3.0. The nested override
+# THIS LINE REQUIRES npm >= 11.3.0, and the `node -e` below ENFORCES it. The
+# nested override
 #   overrides["cucumber-html-reporter"]["@cucumber/cucumber"]["semver"]
-# is placed differently by npm 10, which aborts with "Missing: semver@7.5.2 /
-# lru-cache@6.0.0 / yallist@4.0.0 from lock file"; `npm install` never noticed
-# because it simply re-resolves. node:lts-alpine satisfies the bound (node 24
-# ships npm 11.6.1 .. 11.19.0) and node LTS only moves forward -- but node 22
-# ships npm 10.9.x, so a base-image DOWNGRADE is the one change that breaks this
-# line. `node -v && npm -v` is recorded in the build log for exactly that reason
-# (same rationale as the CI job's "Record toolchain" step).
-RUN node -v && npm -v && npm ci
+# is placed differently by npm 10, which aborts with the unhelpful "Missing:
+# semver@7.5.2 / lru-cache@6.0.0 / yallist@4.0.0 from lock file" -- all three ARE
+# in the committed lockfile, just at a different path. `npm install` never
+# noticed because it simply re-resolves, so this floor arrives WITH `npm ci`.
+# `node:lts-alpine` satisfies it today (it is the same digest as node:24-alpine,
+# npm 11.17.0) and node LTS only moves forward -- but node 22 ships npm 10.9.x,
+# so a base-image DOWNGRADE is the one change that breaks the install.
+#
+# A CHECK, not a digest or major pin, deliberately: a pin stops the base image
+# receiving LTS security updates and is exactly the kind of hardcoded version
+# this file's own history (the 4.3.2 override above) shows going stale downward
+# and un-derivable. The check costs nothing, keeps `lts` moving, and converts
+# that "Missing: ... from lock file" into a named cause on the line that owns it.
+# MEASURED against #54's bisect: it rejects 9.9.4 / 10.8.2 / 10.9.4 / 11.0.0 /
+# 11.2.9 and admits 11.3.0 / 11.17.0 / 12.0.2 -- the same boundary `npm ci
+# --dry-run` draws on the committed package-lock.json. `node -v && npm -v` is
+# printed either way, so the versions a build used are never inferred (same
+# rationale as the CI job's "Record toolchain" step).
+RUN node -v && npm -v && \
+    node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(p[0]<11||(p[0]===11&&p[1]<3)){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
+    npm ci
 
 #### copy things
 COPY . .
