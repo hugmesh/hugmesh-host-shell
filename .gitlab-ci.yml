@@ -30,6 +30,18 @@ stages: [test, build, pentest]
 # against the installed browser at npm-install time), build the prod bundle,
 # serve it with the repo's server.js on :8080 (the nightwatch launch_url), and
 # run the headless chrome env.
+#
+# The container image is PINNED to `node:24`, matching the GitHub matrix
+# (.github/workflows/coverage.yml `node-version: [24.x]`), rather than floating on
+# the `node:lts` tag it used before. `npm ci` below needs npm >= 11.3.0 to read
+# this repo's lockfile -- the nested
+# overrides["cucumber-html-reporter"]["@cucumber/cucumber"]["semver"] is placed
+# differently by npm 10, which aborts with "Missing: semver@7.5.2 /
+# lru-cache@6.0.0 / yallist@4.0.0 from lock file". The floating tag asserts only
+# "some LTS": it happens to be node 24 (npm 11.6.1 .. 11.19.0) today, but node 22
+# is an LTS until 2027 and ships npm 10.9.x, which fails that step. Pinning the
+# major makes both CI systems run one toolchain instead of two different
+# promises -- the same defect the GitHub job's missing setup-node step had.
 # -----------------------------------------------------------------------------
 e2e:host:
   stage: test
@@ -39,7 +51,7 @@ e2e:host:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - >
-      docker run --rm --shm-size=2g -v "$PWD:/work" -w /work node:lts bash -c '
+      docker run --rm --shm-size=2g -v "$PWD:/work" -w /work node:24 bash -c '
       set -euo pipefail;
       apt-get update -qq && apt-get install -y -qq --no-install-recommends wget ca-certificates procps >/dev/null;
       wget -qO /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb;
@@ -54,7 +66,7 @@ e2e:host:
     # The container ran as root over the mounted workspace — hand the generated
     # output (node_modules, public, reports) back to the runner user so the next
     # checkout can clean it.
-    - docker run --rm -v "$PWD:/work" -w /work node:lts chown -R "$(id -u):$(id -g)" .
+    - docker run --rm -v "$PWD:/work" -w /work node:24 chown -R "$(id -u):$(id -g)" .
   artifacts:
     when: always
     paths:

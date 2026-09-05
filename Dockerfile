@@ -7,9 +7,11 @@ WORKDIR /usr/src/app
 #### copy 'package.json', 'package-lock.json' (if available), and .npmrc — the
 #### repo pins legacy-peer-deps=true here (some direct deps' peer ranges have
 #### drifted from what's actually resolvable on the registry); without this
-#### file the Docker build's npm install runs in strict-peer mode and can fail
-#### with ERESOLVE even though local/CI installs outside Docker have always
-#### picked it up automatically from the working tree.
+#### file the Docker build's install runs in strict-peer mode and can fail with
+#### ERESOLVE even though local/CI installs outside Docker have always picked it
+#### up automatically from the working tree. Still required now that the install
+#### below is `npm ci`: the lockfile was RESOLVED under legacy-peer-deps, so the
+#### tree it records is not one strict-peer mode would agree to build.
 COPY package*.json .npmrc ./
 
 #### install angular cli
@@ -28,8 +30,47 @@ COPY package*.json .npmrc ./
 # self-healing behaviour committing its output defeated.
 RUN npm install -g @angular/cli
 
-#### install project dependencies
-RUN npm install
+#### install project dependencies FROM THE LOCKFILE
+# `npm ci`, NOT `npm install`. This stage builds the image users actually run
+# (.gitlab-ci.yml `build:image`, default branch + tags), so leaving `npm install`
+# here meant the shipped artifact was a fresh re-resolve while CI validated the
+# LOCKED tree -- a CI-vs-artifact divergence that nothing gated.
+# MEASURED in this exact base image (node:lts-alpine and node:24-alpine are the
+# same digest today; node v24.19.0 / npm 11.17.0), with package.json pinned to
+# @types/node 26.2.0 against a lockfile holding 26.4.0:
+#   npm install -> exit 0, and it SILENTLY REWROTE package-lock.json to 26.2.0
+#                  (md5 8c2de3af -> 3f9d9c0b). The image ships a tree nobody
+#                  reviewed and the build says nothing.
+#   npm ci      -> exit 1, EUSAGE, "lock file's @types/node@26.4.0 does not
+#                  satisfy @types/node@26.2.0" -- names the package, and leaves
+#                  package-lock.json byte-identical.
+# On the committed tree `npm ci` here exits 0 with exactly one hoisted
+# @softarc/native-federation@4.5.0, i.e. the same tree the CI job validates.
+#
+# THIS LINE REQUIRES npm >= 11.3.0, and the `node -e` below ENFORCES it. The
+# nested override
+#   overrides["cucumber-html-reporter"]["@cucumber/cucumber"]["semver"]
+# is placed differently by npm 10, which aborts with the unhelpful "Missing:
+# semver@7.5.2 / lru-cache@6.0.0 / yallist@4.0.0 from lock file" -- all three ARE
+# in the committed lockfile, just at a different path. `npm install` never
+# noticed because it simply re-resolves, so this floor arrives WITH `npm ci`.
+# `node:lts-alpine` satisfies it today (it is the same digest as node:24-alpine,
+# npm 11.17.0) and node LTS only moves forward -- but node 22 ships npm 10.9.x,
+# so a base-image DOWNGRADE is the one change that breaks the install.
+#
+# A CHECK, not a digest or major pin, deliberately: a pin stops the base image
+# receiving LTS security updates and is exactly the kind of hardcoded version
+# this file's own history (the 4.3.2 override above) shows going stale downward
+# and un-derivable. The check costs nothing, keeps `lts` moving, and converts
+# that "Missing: ... from lock file" into a named cause on the line that owns it.
+# MEASURED against #54's bisect: it rejects 9.9.4 / 10.8.2 / 10.9.4 / 11.0.0 /
+# 11.2.9 and admits 11.3.0 / 11.17.0 / 12.0.2 -- the same boundary `npm ci
+# --dry-run` draws on the committed package-lock.json. `node -v && npm -v` is
+# printed either way, so the versions a build used are never inferred (same
+# rationale as the CI job's "Record toolchain" step).
+RUN node -v && npm -v && \
+    node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(p[0]<11||(p[0]===11&&p[1]<3)){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
+    npm ci
 
 #### copy things
 COPY . .

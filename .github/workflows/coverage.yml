@@ -28,8 +28,13 @@ jobs:
       # declared above and never installed, so the job ran on whatever node the
       # runner image happened to preinstall and the matrix value only ever
       # reached the job NAME, "build_and_test (24.x)". That is not cosmetic:
-      # the preinstalled npm was a 10.x, and npm 10 CANNOT read this repo's
-      # lockfile (see the npm ci step below). Measured against the committed
+      # the runner's preinstalled npm was BELOW 11.3.0, and such an npm CANNOT
+      # read this repo's lockfile (see the npm ci step below). The exact version
+      # is NOT recoverable and this comment previously overstated it as "a 10.x":
+      # the failing run (33928197351) predates the Record toolchain step below so
+      # it printed none, and the failure signature ("Missing: semver@7.5.2 /
+      # lru-cache@6.0.0 / yallist@4.0.0 from lock file") is IDENTICAL across npm
+      # 9.9.4, 10.8.2, 10.9.4 and 11.0.0. Measured against the committed
       # package-lock.json, `npm ci --dry-run`:
       #     npm  9.9.4  exit 1     npm 11.0.0  exit 1
       #     npm 10.8.2  exit 1     npm 11.3.0  exit 0
@@ -47,8 +52,14 @@ jobs:
         run: node -v && npm -v
       - name: Theme-token contract gate
         run: npm run-script check:theme-tokens
-      # `npm ci`, NOT `npm install`. This job is the only automated gate on a
-      # dependency bump, so it must test the tree the merge actually produces.
+      # `npm ci`, NOT `npm install`: this job must test the tree the merge
+      # actually produces, not a fresh re-resolve of it.
+      # (An earlier revision of this comment justified that with "this job is the
+      # only automated gate on a dependency bump". That is FALSE and is corrected
+      # here: .gitlab-ci.yml also runs e2e:host -- npm ci + build + nightwatch --
+      # and build:image, both on merge requests and the default branch, via the
+      # in-cluster GitLab pull mirror. This is the only gate that runs on GITHUB,
+      # which is where Dependabot opens its PRs.)
       # MEASURED on this repo (npm 11.19.0), package.json pinned to
       # @types/node 26.2.0 against a lockfile holding 26.4.0:
       #   npm install  -> exit 0, and it SILENTLY REWRITES package-lock.json to
@@ -70,7 +81,9 @@ jobs:
       # the lockfile does not record, and aborts with "Missing: ... from lock
       # file". `npm install` never noticed because it simply re-resolves. The
       # first push of this change proved it live: with no setup-node step the
-      # job failed here on the runner's preinstalled npm 10.
+      # job failed here on the runner's preinstalled npm, with that exact
+      # signature. (What the run artifacts prove is npm < 11.3.0, not a specific
+      # 10.x -- see the setup-node comment above.)
       - name: npm ci and coverage
         run: |
           npm ci
