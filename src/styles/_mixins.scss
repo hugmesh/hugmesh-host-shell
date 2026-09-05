@@ -13,10 +13,33 @@
     rgba(var(--hug-surface-rgb, 28, 28, 28), 0.85) 0%,
     rgba(var(--hug-mid-rgb, 58, 58, 58), 0.4) 100%
   );
-  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), #{t.$opacity-border});
-  border-radius: t.$radius-card;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 0 12px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.07);
+  // ── THE STYLE AXIS (--sd-radius / -border-* / -shadow*, issue #19 item 8) ──
+  // hugmesh-generator's STYLE variants (theme.py STYLE_VARIANTS: default, sharp,
+  // flat, soft, glass) emit exactly these five names, and admin-ui's
+  // domain-themes editor has been offering the axis to operators for months —
+  // while this shell consumed NONE of it (census 2026-09-04: 0 hits for
+  // --hug-radius / -border-width / -border-style / -shadow / -surface-blur).
+  // Picking "sharp" or "flat" therefore changed nothing anywhere in the shell,
+  // which is the same shape of silent no-op as the --sd-/--hug- prefix bug and
+  // the inert chrome axis. Every read keeps the shipped literal as its fallback,
+  // so an un-themed deploy renders what it always rendered.
+  //
+  // --sd-* FIRST, THEN --hug-*, exactly like the chrome axis and for exactly the
+  // same reason: --sd-* is the contract name and --hug-* is the runtime twin
+  // `css_root` emits beside it, and reading only ONE side of that pair is the
+  // prefix bug that made the whole theme a silent no-op for its entire life. An
+  // earlier revision of this block read the --hug-* half alone, which the
+  // README's own "every read is var(--sd-X, var(--hug-X, <literal>))" rule
+  // forbade and which no spec could see, because the spec set --hug-* too.
+  border: var(--sd-border-width, var(--hug-border-width, 1px))
+    var(--sd-border-style, var(--hug-border-style, solid))
+    rgba(var(--hug-primary-rgb, 255, 215, 0), #{t.$opacity-border});
+  border-radius: var(--sd-radius, var(--hug-radius, #{t.$radius-card}));
+  backdrop-filter: blur(var(--sd-surface-blur, var(--hug-surface-blur, 6px)));
+  box-shadow: var(
+    --sd-shadow-sm,
+    var(--hug-shadow-sm, 0 0 12px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.07))
+  );
 }
 
 @mixin glass-float {
@@ -27,16 +50,32 @@
   // on the live shell's header, under WCAG AA. See t.$scrim-alpha for the
   // derivation. Interpolated because the alpha rides inside an rgba(var(...)).
   background: rgba(var(--hug-charcoal-rgb, 17, 17, 17), #{t.$scrim-alpha});
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
-  border-radius: t.$radius-lg;
-  border: 1px solid rgba(var(--hug-primary-rgb, 255, 215, 0), 0.2);
-  box-shadow:
-    inset 0  1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
-    0 0 0 1px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.06),
-    0 12px 40px rgba(0, 0, 0, 0.30),
-    0  4px 12px rgba(0, 0, 0, 0.15);
+  // SHAPE follows the theme's STYLE axis (see card-surface above for the whole
+  // note, including why each read is --sd-* first then the --hug-* twin); the
+  // ALPHA above deliberately does not — it is the contrast contract, not a taste
+  // knob.
+  backdrop-filter: blur(var(--sd-surface-blur, var(--hug-surface-blur, 16px))) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--sd-surface-blur, var(--hug-surface-blur, 16px)))
+    saturate(1.5);
+  border-radius: var(--sd-radius-lg, var(--hug-radius-lg, #{t.$radius-lg}));
+  border: var(--sd-border-width, var(--hug-border-width, 1px))
+    var(--sd-border-style, var(--hug-border-style, solid))
+    rgba(var(--hug-primary-rgb, 255, 215, 0), 0.2);
+  // ONE var() for the whole stack, not a themed layer bolted onto a fixed one:
+  // `flat` and `sharp` both emit `--sd-shadow: none`, and a stack that kept its
+  // own inset highlights underneath would have made "flat" mean "slightly less
+  // shiny". A theme that says no elevation gets no elevation.
+  box-shadow: var(
+    --sd-shadow,
+    var(
+      --hug-shadow,
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+      0 0 0 1px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.06),
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 4px 12px rgba(0, 0, 0, 0.15)
+    )
+  );
 }
 
 @mixin neon-glow($color: t.$neon) {
@@ -45,6 +84,6 @@
 
 @mixin page-host {
   background-color: rgba(white, t.$opacity-ghost);
-  border-radius: t.$radius-page;
+  border-radius: var(--sd-radius-lg, var(--hug-radius-lg, #{t.$radius-page}));
   display: block;
 }

@@ -33,6 +33,130 @@
   // unset, the calc() falls back to 1 and the compact literals ship as-is.
   margin: calc(var(--hug-header-scale, 1) * 0.5rem) 1.5rem calc(var(--hug-header-scale, 1) * 0.25rem);
   padding: calc(var(--hug-header-scale, 1) * 0.375rem) 1.5rem;
+
+  // ── THE GENERATOR'S CHROME AXIS (--sd-header-*, issue #19 items 4 + 8) ──────
+  // hugmesh-generator's Themes editor has shipped header/footer HIDE, SIZE,
+  // BACKGROUND and CONTENT controls since core/theme.py grew `chrome_tokens()`,
+  // and until now NOTHING in the web fleet read a single one of them (census
+  // 2026-09-04: 0 hits for --sd-header-* / --hug-header-* in this repo and in
+  // hugmesh-login-ui). The QT controls were inert end to end while this banner
+  // scaled itself from --hug-header-scale, a hook with no producer anywhere in
+  // the generator. These four declarations are the shell becoming the axis's
+  // first consumer; --hug-header-scale stays as the hand-authored escape hatch.
+  //
+  // Every read is `var(--sd-X, var(--hug-X, <shipped value>))`: the --sd-* name
+  // is the contract, the --hug-* name is the runtime twin `css_root` emits
+  // alongside it (this platform has been burned once by reading only one side),
+  // and the innermost literal is what an UN-THEMED deploy renders — byte for
+  // byte what shipped, which is the conservative-schema guarantee the generator
+  // makes on its side.
+  // HIDE is the one chrome axis this surface cannot honour as a bare `display`
+  // read — see `HeaderComponent.chromeHidden` and the
+  // `:host(.header--chrome-hidden)` block below for the measurement that says
+  // why. `display` stays a plain block here; the class does the stripping.
+  display: block;
+  // SIZE. `min-block-size: fit-content` is what makes a fixed height safe: the
+  // surface takes the theme's height when the content fits inside it and grows
+  // rather than CLIPPING when it does not — the narrow (< 34rem) layout below
+  // stacks the controls onto a second row, and a hard 2.5rem there would have
+  // sliced the user menu in half. A height is an intent, never a guillotine.
+  block-size: var(--sd-header-height, var(--hug-header-height, auto));
+  min-block-size: fit-content;
+  // Centre the row inside a THEMED height. `align-content` on a block container
+  // (CSS Box Alignment, block-axis) is what does it; a `block-size: 100%` on the
+  // row would have looked equivalent and was not — it makes the row's height
+  // definite, which defeats the `min-block-size: fit-content` above and lets a
+  // tall headline be clipped by a compact banner. Measured, not assumed: the
+  // "GROWS past a themed height" spec fails on the 100% variant.
+  align-content: center;
+  // …and the content shrinks to MEET that intent, so `compact` is actually
+  // compact instead of being 2.5rem of box around 3.4rem of unchanged chrome.
+  // A ratio of the chosen height caps the wordmark and the control buttons
+  // (--shell-chrome-fit is read by header-controls.component.scss, which
+  // inherits it from this host). The 100rem default is a deliberate no-op
+  // sentinel: `min(anything, 45rem)` is `anything`, so an un-themed banner is
+  // untouched. NOT on the --hug-* prefix — this is shell-private layout
+  // plumbing, not part of the cross-repo theme contract, and
+  // scripts/check-theme-token-contract.sh polices that prefix precisely because
+  // it IS the contract.
+  --shell-chrome-cap: calc(var(--sd-header-height, var(--hug-header-height, 100rem)) * 0.45);
+  --shell-chrome-fit: calc(var(--sd-header-height, var(--hug-header-height, 100rem)) * 0.55);
+  // The -on twin is derived black/white-by-luminance on the generator side, so
+  // pairing it with -bg is legibility by construction rather than by taste.
+  color: var(--sd-header-on, var(--hug-header-on, inherit));
+}
+
+// FLAT THEMED BACKGROUND, layered rather than substituted. `glass-float` above
+// paints the scrim whose ALPHA is the shell's contrast contract (t.$scrim-alpha
+// — see styles/_tokens.scss: dropping it is what once put the wordmark at 3.98:1
+// on the live header). Re-declaring `background-color` here would mean copying
+// that expression into a second place where it can rot; painting the operator's
+// flat colour as a background-IMAGE over it leaves the scrim rule the single
+// source of truth. Un-themed the gradient is transparent-to-transparent, i.e.
+// invisible: the banner renders identically to what shipped. (Identically, not
+// byte-identically as a COMPUTED STYLE: `background-image` reads `none` without
+// this rule and `linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0))` with it.
+// The always-present transparent layer paints nothing, so the difference is in
+// getComputedStyle and not on the screen.) Declared after the include so the
+// mixin's `background` shorthand cannot reset it.
+:host {
+  background-image: linear-gradient(
+    var(--sd-header-bg, var(--hug-header-bg, transparent)),
+    var(--sd-header-bg, var(--hug-header-bg, transparent))
+  );
+}
+
+// ── HIDE, WITHOUT THE LOCKOUT (--sd-header-display: none) ────────────────────
+// The generator's hide switch means "the surface is hidden outright", and for
+// the footer that is exactly what it does, in CSS, with no code (see
+// footer.component.scss). This banner is different in ONE way that matters: it
+// is the only host of the account menu — profile, role consoles and SIGN OUT —
+// the notification bell, the menubar toggle and the animation toggle. Measured:
+// `grep -rl signOut src/app --include=*.html` returns header-controls.component.html
+// and nothing else. A `display: none` on this host is therefore not a restyle,
+// it is a lockout — the very outcome HeaderComponent's own docstring refuses for
+// the CONTENT axis while pointing at THIS axis as the honest alternative.
+//
+// So the banner is stripped to nothing and the controls survive: no scrim, no
+// backdrop blur, no border, no elevation, no flag ribbon, no spacing, no
+// wordmark and no gutter — an unpainted row holding only the shell's functional
+// chrome, right-aligned where it already sits. Signed out, with no backdrop
+// handed down, the cluster renders nothing at all and the row collapses to 0px,
+// which is the operator's "no header" in full.
+//
+// The class comes from HeaderComponent's host binding rather than a `var()` read
+// because CSS cannot branch a whole rule on a custom property's VALUE without a
+// style container query, and this must not be a bet on one. The binding is
+// applied in the first change-detection pass — ChromeThemeService reads the
+// token in its constructor, which runs while the component is being created — so
+// a hidden banner is hidden on the first paint, not after a flash.
+:host(.header--chrome-hidden) {
+  background: none;
+  background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+  margin: 0 1.5rem;
+  padding: 0;
+  block-size: auto;
+  min-block-size: 0;
+
+  // The flag ribbon is banner decoration; a hidden banner has none.
+  &::before {
+    content: none;
+  }
+
+  // One track, so the surviving cluster keeps its end alignment without the
+  // centring gutter that only existed to balance the wordmark.
+  .header__bar {
+    grid-template-columns: 1fr;
+  }
+
+  .header__gutter,
+  h1 {
+    display: none;
+  }
 }
 
 // OPTIONAL pride-flag accent — painted ONLY when the injected theme defines
@@ -117,12 +241,37 @@ h1 {
   // scaled by the same --hug-header-scale hook as the box metrics above so one
   // token moves the whole banner. No bottom margin — the :host padding is the
   // banner's breathing room, not a stacked h1 default.
-  font-size: calc(var(--hug-header-scale, 1) * clamp(1.25rem, 2vw + 0.5rem, 2.25rem));
+  // min() with --shell-chrome-cap keeps the wordmark inside a themed header
+  // height; the cap defaults to 45rem (100rem * 0.45), so an un-themed banner
+  // resolves to exactly the clamp it always used.
+  font-size: min(
+    calc(var(--hug-header-scale, 1) * clamp(1.25rem, 2vw + 0.5rem, 2.25rem)),
+    var(--shell-chrome-cap, 45rem)
+  );
   margin-block-end: 0;
   // -soft, not the raw brand hex: the wordmark is TEXT, and --hug-primary-soft
   // is the contract's contrast-solved primary-as-text token (for the shipped
   // gold it IS #ffd700, so a default theme matches the fallback exactly).
-  color: var(--hug-primary-soft, #{t.$neon});
+  // A themed header background brings its own text twin: --sd-header-on is
+  // derived pure black/white by luminance on the generator side, so it is the
+  // only value guaranteed legible on whatever colour the operator picked. It
+  // therefore OUTRANKS the brand-primary-as-text token, which is contrast-solved
+  // against the page background and knows nothing about a flat header colour.
+  color: var(--sd-header-on, var(--hug-header-on, var(--hug-primary-soft, #{t.$neon})));
   text-shadow: 0 0 12px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.5), 0 0 30px rgba(var(--hug-primary-rgb, 255, 215, 0), 0.2);
   word-break: break-word;
+}
+
+// OPERATOR-SUPPLIED HEADLINE (--sd-header-content). The brand display face is a
+// thin 100-400 weight cut chosen for one short wordmark; operator text is
+// arbitrary — a sentence, a domain, another language — so the themed branch
+// falls back to the readable sans stack and keeps only the size ramp. The glow
+// stays: it is the banner's treatment, not the brand's spelling.
+h1.header__title--themed {
+  font-family: t.$font-sans;
+  // The generator writes a multi-line headline into the token as the CSS escape
+  // `\A `, so the operator's line breaks must survive to the page — the same
+  // rule the footer's themed line follows. Without this a two-line banner is
+  // silently one long run of text.
+  white-space: pre-line;
 }

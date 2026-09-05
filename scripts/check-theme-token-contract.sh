@@ -58,7 +58,29 @@ PRIVATE=(--hug-header-scale --hug-nav-suffix --hug-nav-suffix-active --hug-nav-s
 # and delta_css() route through — so there is no path on which they reach a
 # browser as --sd-* only. Pass a flag-preset theme as a second wire to check
 # them positively rather than trusting this list.
-CONDITIONAL=(--hug-flag-stripes --hug-bg-gradient)
+#   --hug-{radius*,border-width,border-style,shadow*,surface-blur}
+#                       theme.py style_tokens(), the STYLE axis. Reaches the wire
+#                       through the DOMAIN theme (core/domain_theme.py, the
+#                       admin-ui domain-themes editor), not through
+#                       compose_login_css() — so a login-only theme carries none
+#                       of them and the shipped shape ships. --hug-surface-blur
+#                       is narrower still: only the `glass` variant emits it.
+#   --hug-<surface>-{display,height,bg,on}
+#                       theme.py chrome_tokens(), emitted per surface and ONLY
+#                       for the axes the operator actually deviated on — an
+#                       all-defaults call returns {} by design ("a config saved
+#                       before these options existed composes byte-identical
+#                       css"). So a base theme legitimately carries none of the
+#                       eight, and their absence is the contract working, not an
+#                       orphan. The --sd-* spelling is what the shell reads
+#                       FIRST in every case (header/footer .component.scss); the
+#                       --hug-* twin listed here is the runtime fallback.
+CONDITIONAL=(--hug-flag-stripes --hug-bg-gradient
+             --hug-header-display --hug-header-height --hug-header-bg --hug-header-on
+             --hug-footer-display --hug-footer-height --hug-footer-bg --hug-footer-on
+             --hug-radius --hug-radius-sm --hug-radius-lg
+             --hug-border-width --hug-border-style
+             --hug-shadow --hug-shadow-sm --hug-surface-blur)
 
 in_list() { local n=$1; shift; local x; for x in "$@"; do [[ "$x" == "$n" ]] && return 0; done; return 1; }
 
