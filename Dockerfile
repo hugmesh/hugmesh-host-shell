@@ -63,13 +63,20 @@ RUN npm install -g @angular/cli
 # this file's own history (the 4.3.2 override above) shows going stale downward
 # and un-derivable. The check costs nothing, keeps `lts` moving, and converts
 # that "Missing: ... from lock file" into a named cause on the line that owns it.
-# MEASURED against #54's bisect: it rejects 9.9.4 / 10.8.2 / 10.9.4 / 11.0.0 /
-# 11.2.9 and admits 11.3.0 / 11.17.0 / 12.0.2 -- the same boundary `npm ci
-# --dry-run` draws on the committed package-lock.json. `node -v && npm -v` is
-# printed either way, so the versions a build used are never inferred (same
-# rationale as the CI job's "Record toolchain" step).
+# MUTATION-TESTED by running this exact program over a version table (the guard
+# itself had never been exercised, only reasoned about). It rejects 8.19.4 /
+# 9.9.4 / 10.8.2 / 10.9.4 / 10.9.8 / 11.0.0 / 11.2.9 and admits 11.3.0 / 11.17.0
+# / 11.19.0 / 12.0.2 -- the same boundary `npm ci --dry-run` draws on the
+# committed package-lock.json. `node -v && npm -v` is printed either way, so the
+# versions a build used are never inferred (same rationale as the CI job's
+# "Record toolchain" step).
+# The Number.isInteger / `!(p[1]>=3)` spellings are the fail-CLOSED half: a
+# version string this cannot parse ("unknown", "11.x") yields NaN, and a bare
+# `NaN < 11` is FALSE, so the naive comparison would have waved an unreadable
+# npm through. An empty `npm -v` was already caught (it parses to 0). A
+# prerelease of the bound, "11.3.0-pre", still passes -- deliberate.
 RUN node -v && npm -v && \
-    node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(p[0]<11||(p[0]===11&&p[1]<3)){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
+    node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(!Number.isInteger(p[0])||p[0]<11||(p[0]===11&&!(p[1]>=3))){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
     npm ci
 
 #### copy things

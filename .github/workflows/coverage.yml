@@ -27,21 +27,40 @@ jobs:
       # WITHOUT THIS STEP THE MATRIX IS DECORATION. `node-version: [24.x]` was
       # declared above and never installed, so the job ran on whatever node the
       # runner image happened to preinstall and the matrix value only ever
-      # reached the job NAME, "build_and_test (24.x)". That is not cosmetic:
-      # the runner's preinstalled npm was BELOW 11.3.0, and such an npm CANNOT
-      # read this repo's lockfile (see the npm ci step below). The exact version
-      # is NOT recoverable and this comment previously overstated it as "a 10.x":
-      # the failing run (33928197351) predates the Record toolchain step below so
-      # it printed none, and the failure signature ("Missing: semver@7.5.2 /
-      # lru-cache@6.0.0 / yallist@4.0.0 from lock file") is IDENTICAL across npm
-      # 9.9.4, 10.8.2, 10.9.4 and 11.0.0. Measured against the committed
-      # package-lock.json, `npm ci --dry-run`:
+      # reached the job NAME, "build_and_test (24.x)". That is not cosmetic: the
+      # runner's preinstalled npm was a 10.9.x, and such an npm CANNOT read this
+      # repo's lockfile (see the npm ci step below).
+      #
+      # THAT VERSION IS RECOVERED FROM THE RUN, not guessed. A previous revision
+      # of this comment called it "NOT recoverable" and weakened the claim to
+      # "BELOW 11.3.0"; that over-corrected and understated the evidence the run
+      # already carries. The failing run 33928197351 predates the Record
+      # toolchain step below, so it printed no version -- but its "Set up job"
+      # log names the image exactly:
+      #     Image: ubuntu-24.04   Version: 20260831.293.1
+      #     Included Software: .../runner-images/blob/ubuntu24/20260831.293/...
+      # and images/ubuntu/toolsets/toolset-2404.json AT THAT RELEASE TAG sets
+      # "node": {"default": "22"}. All 35 published node 22.x releases ship an
+      # npm between 10.5.1 and 10.9.8 (nodejs.org/dist/index.json), so any
+      # recent 22 image carries a 10.9.x. Confirmed end to end: npm 10.9.8, the
+      # npm bundled with the newest node 22 (v22.23.2), run against THIS
+      # package-lock.json, exits 1 with the run's exact signature -- "Missing:
+      # semver@7.5.2 / lru-cache@6.0.0 / yallist@4.0.0 from lock file" -- and
+      # leaves the lockfile byte-identical.
+      #
+      # Full bisect, `npm ci --dry-run` against the committed package-lock.json:
       #     npm  9.9.4  exit 1     npm 11.0.0  exit 1
       #     npm 10.8.2  exit 1     npm 11.3.0  exit 0
       #     npm 10.9.4  exit 1     npm 11.6.2 / 11.12.0 / 11.16.0 / 11.19.0  exit 0
-      # Every node 24.x ships an npm at or above the passing bound (24.0.0 ->
-      # npm 11.3.0, 24.20.0 -> npm 11.19.0), so pinning the matrix for real is
-      # what makes the step below viable across the whole 24.x line.
+      #     npm 10.9.8  exit 1
+      # The SIGNATURE alone identifies nothing -- it is identical across every
+      # failing npm above. The runner IMAGE TAG is what identifies the version,
+      # which is why it is quoted rather than inferred.
+      #
+      # Every node 24.x ships an npm at or above the passing bound -- all 28
+      # published releases, 24.0.0 -> npm 11.3.0 through 24.20.0 -> npm 11.19.0
+      # -- so pinning the matrix for real is what makes the step below viable
+      # across the whole 24.x line without also pinning an npm.
       - name: Set up Node ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
@@ -81,9 +100,10 @@ jobs:
       # the lockfile does not record, and aborts with "Missing: ... from lock
       # file". `npm install` never noticed because it simply re-resolves. The
       # first push of this change proved it live: with no setup-node step the
-      # job failed here on the runner's preinstalled npm, with that exact
-      # signature. (What the run artifacts prove is npm < 11.3.0, not a specific
-      # 10.x -- see the setup-node comment above.)
+      # job failed here on the runner's preinstalled npm 10.9.x, with that exact
+      # signature. (The signature is common to every npm below the bound; it is
+      # the runner image tag in that run's log that pins the version -- see the
+      # setup-node comment above.)
       - name: npm ci and coverage
         run: |
           npm ci
