@@ -23,14 +23,23 @@
   // Normal type scale for the account name; the header's h1 sets a display face
   // that must not leak into the controls.
   font-family: inherit;
-  // …and it shrinks with a THEMED header height. --shell-chrome-fit is set on
-  // the banner host (header.component.scss) from the generator's
-  // --sd-header-height, and inherits down here; the 100rem fallback is a no-op
+  // …and it shrinks with a THEMED header height. --shell-chrome-cap is set on
+  // the banner host (header.component.scss) as 0.45 of the generator's
+  // --sd-header-height, and inherits down here; the 45rem fallback is the no-op
   // sentinel for the un-themed page and for any mount outside a banner, where
   // `min(1rem, 45rem)` is exactly the 1rem this always shipped. Without this the
   // "compact" chrome size would have been 2.5rem of box drawn around 3.4rem of
   // unchanged controls — a taller header, not a shorter one.
-  font-size: min(1rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
+  //
+  // THE *CAP*, NOT THE *FIT*. These two ratios of the themed height do different
+  // jobs: --shell-chrome-fit (0.55) sizes BOXES, --shell-chrome-cap (0.45) sizes
+  // TEXT, and the banner's own <h1> has always used the cap. Taking a further
+  // 0.45 of the fit — which is what this line used to do — compounds to 0.2475
+  // of the height and rendered the signed-in account name at 9.9px on the
+  // generator's `compact`, while the wordmark two elements away rendered at 18px.
+  // Two symmetric jobs must use the same ratio or "compact" is illegible rather
+  // than dense.
+  font-size: min(1rem, var(--shell-chrome-cap, 45rem));
 }
 
 .header-controls__item {
@@ -89,7 +98,17 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--sd-text, #{t.$offwhite});
+  // ON A THEMED HEADER THE DERIVED TWIN OUTRANKS THE PALETTE TOKEN, for exactly
+  // the reason header.component.scss gives for the wordmark: --sd-header-on is
+  // pure black/white by luminance on the generator side, so it is the only value
+  // guaranteed legible on whatever flat colour the operator picked, while
+  // --sd-text is contrast-solved against the PAGE background and knows nothing
+  // about a header colour. Reading only --sd-text here is what put this cluster
+  // at 1.12:1 on a light `--sd-header-bg` while the <h1> beside it measured
+  // correctly — the contrast contract defended for one element on the surface
+  // and abandoned for every other. Un-themed the chain falls through to the
+  // shipped $offwhite byte for byte.
+  color: var(--sd-header-on, var(--hug-header-on, var(--sd-text, #{t.$offwhite})));
   padding: 0.25rem 0.5rem;
   display: flex;
   align-items: center;
@@ -129,7 +148,10 @@
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
     cursor: pointer;
-    color: var(--sd-text, #{t.$offwhite});
+    // Same derived-twin-first chain as .bell-btn above, and for the same measured
+    // reason: the signed-in account name is painted straight onto the header
+    // surface, so a themed --sd-header-bg has to be able to repaint it.
+    color: var(--sd-header-on, var(--hug-header-on, var(--sd-text, #{t.$offwhite})));
     max-width: 12rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -224,6 +246,17 @@
   .bg-toggle {
     width: 2.75rem;
     height: 2.75rem;
+
+    // THE GLYPH FOLLOWS THE BUTTON THROUGH THE FLOOR. Capping the icon on
+    // --shell-chrome-fit while its button is deliberately uncapped is the floor
+    // half-applied: measured on `compact` + coarse, the button correctly grew to
+    // 44px and the glyph inside it stayed 9.9px — a 44px target around an
+    // invisible icon, which satisfies 2.5.5 by arithmetic and fails it in use.
+    // 1rem is exactly the size an un-themed coarse-pointer button already ships.
+    svg {
+      width: 1rem;
+      height: 1rem;
+    }
   }
 
   .bell-btn,

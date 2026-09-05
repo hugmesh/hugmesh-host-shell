@@ -34,17 +34,31 @@
   );
 }
 
+// THE SHIPPED PAGE-SOURCE MARK, on a themed footer. `footer_bg` without
+// `footer_text` is a combination the generator explicitly supports —
+// chrome_tokens() emits each axis independently — so the operator's flat colour
+// has to be able to repaint the one piece of content this footer ships. Reading
+// the literal alone measured 1.92:1 on `footer_bg: #ffffff` while :host and
+// .footer__content beside it were both correctly carrying the derived twin: the
+// -on token reaching the surface but not its content. Un-themed, both chains
+// fall through to the literals that always shipped.
+//
+// The HOVER colour collapses onto the same twin on a themed footer rather than
+// swapping to the brand gold, which is contrast-solved against the page and not
+// against the operator's colour (gold on white is 1.6:1). Nothing is lost: the
+// shell's global `a` rule already carries the WCAG 1.4.1 affordance as an
+// underline that thickens on hover/focus, so the hover cue is not a colour.
 a {
-  color: t.$light;
+  color: var(--sd-footer-on, var(--hug-footer-on, #{t.$light}));
 
   &:hover,
   &:focus-visible {
-    color: t.$neon;
+    color: var(--sd-footer-on, var(--hug-footer-on, #{t.$neon}));
   }
 }
 
 .github {
-  color: t.$muted;
+  color: var(--sd-footer-on, var(--hug-footer-on, #{t.$muted}));
   font-weight: 600;
   font-family: t.$font-fancy;
   font-size: 0.875rem;
@@ -72,5 +86,12 @@ a {
   // to the shell's own muted body colour, never to a literal, so the line stays
   // legible on both a themed and an un-themed footer.
   color: inherit;
-  font-size: min(0.9375rem, calc(var(--shell-chrome-fit, 100rem) * 0.45));
+  // THE CAP, NOT A RATIO OF THE FIT. --shell-chrome-cap (0.45 of the themed
+  // height) is the TEXT scale the banner's <h1> uses; --shell-chrome-fit (0.55)
+  // is the BOX scale. Taking 0.45 of the fit compounded to 0.2475 of the height
+  // and rendered the operator's own footer line at 9.9px on `compact`, against
+  // the wordmark's 18px for the identical job. This is also the only read of
+  // --shell-chrome-cap in this file — declaring the cap on :host and never
+  // reading it is what let that drift go unnoticed.
+  font-size: min(0.9375rem, var(--shell-chrome-cap, 45rem));
 }

@@ -50,7 +50,11 @@
   // and the innermost literal is what an UN-THEMED deploy renders — byte for
   // byte what shipped, which is the conservative-schema guarantee the generator
   // makes on its side.
-  display: var(--sd-header-display, var(--hug-header-display, block));
+  // HIDE is the one chrome axis this surface cannot honour as a bare `display`
+  // read — see `HeaderComponent.chromeHidden` and the
+  // `:host(.header--chrome-hidden)` block below for the measurement that says
+  // why. `display` stays a plain block here; the class does the stripping.
+  display: block;
   // SIZE. `min-block-size: fit-content` is what makes a fixed height safe: the
   // surface takes the theme's height when the content fits inside it and grows
   // rather than CLIPPING when it does not — the narrow (< 34rem) layout below
@@ -89,13 +93,70 @@
 // that expression into a second place where it can rot; painting the operator's
 // flat colour as a background-IMAGE over it leaves the scrim rule the single
 // source of truth. Un-themed the gradient is transparent-to-transparent, i.e.
-// invisible: the banner renders byte-identically. Declared after the include so
-// the mixin's `background` shorthand cannot reset it.
+// invisible: the banner renders identically to what shipped. (Identically, not
+// byte-identically as a COMPUTED STYLE: `background-image` reads `none` without
+// this rule and `linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0))` with it.
+// The always-present transparent layer paints nothing, so the difference is in
+// getComputedStyle and not on the screen.) Declared after the include so the
+// mixin's `background` shorthand cannot reset it.
 :host {
   background-image: linear-gradient(
     var(--sd-header-bg, var(--hug-header-bg, transparent)),
     var(--sd-header-bg, var(--hug-header-bg, transparent))
   );
+}
+
+// ── HIDE, WITHOUT THE LOCKOUT (--sd-header-display: none) ────────────────────
+// The generator's hide switch means "the surface is hidden outright", and for
+// the footer that is exactly what it does, in CSS, with no code (see
+// footer.component.scss). This banner is different in ONE way that matters: it
+// is the only host of the account menu — profile, role consoles and SIGN OUT —
+// the notification bell, the menubar toggle and the animation toggle. Measured:
+// `grep -rl signOut src/app --include=*.html` returns header-controls.component.html
+// and nothing else. A `display: none` on this host is therefore not a restyle,
+// it is a lockout — the very outcome HeaderComponent's own docstring refuses for
+// the CONTENT axis while pointing at THIS axis as the honest alternative.
+//
+// So the banner is stripped to nothing and the controls survive: no scrim, no
+// backdrop blur, no border, no elevation, no flag ribbon, no spacing, no
+// wordmark and no gutter — an unpainted row holding only the shell's functional
+// chrome, right-aligned where it already sits. Signed out, with no backdrop
+// handed down, the cluster renders nothing at all and the row collapses to 0px,
+// which is the operator's "no header" in full.
+//
+// The class comes from HeaderComponent's host binding rather than a `var()` read
+// because CSS cannot branch a whole rule on a custom property's VALUE without a
+// style container query, and this must not be a bet on one. The binding is
+// applied in the first change-detection pass — ChromeThemeService reads the
+// token in its constructor, which runs while the component is being created — so
+// a hidden banner is hidden on the first paint, not after a flash.
+:host(.header--chrome-hidden) {
+  background: none;
+  background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+  margin: 0 1.5rem;
+  padding: 0;
+  block-size: auto;
+  min-block-size: 0;
+
+  // The flag ribbon is banner decoration; a hidden banner has none.
+  &::before {
+    content: none;
+  }
+
+  // One track, so the surviving cluster keeps its end alignment without the
+  // centring gutter that only existed to balance the wordmark.
+  .header__bar {
+    grid-template-columns: 1fr;
+  }
+
+  .header__gutter,
+  h1 {
+    display: none;
+  }
 }
 
 // OPTIONAL pride-flag accent — painted ONLY when the injected theme defines

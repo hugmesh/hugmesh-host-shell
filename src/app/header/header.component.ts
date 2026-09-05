@@ -18,6 +18,9 @@ import { ChromeThemeService } from '../chrome/chrome-theme.service';
   host: {
     id: 'personal-header',
     class: 'text-center',
+    // `--sd-header-display: none` collapses the BANNER, not the shell's only
+    // route to the account menu — see `chromeHidden` below.
+    '[class.header--chrome-hidden]': 'chromeHidden()',
   },
   templateUrl: './header.component.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -52,4 +55,31 @@ export class HeaderComponent {
    *  shipped wordmark. Drives the display-face opt-out below and lets a spec
    *  assert the branch without string-matching the rendered text. */
   readonly themedWordmark = computed(() => this.chromeTheme.content('header')() !== null);
+
+  /**
+   * The theme's HIDE switch for this surface (`--sd-header-display: none`).
+   *
+   * THE SAME REASONING AS `wordmark` ABOVE, APPLIED TO THE AXIS THAT ACTUALLY
+   * DELETES THINGS. That docstring refuses to let the CONTENT axis remove the
+   * control cluster because "a theme that silently deleted the only route to the
+   * user menu would be a lockout, not a restyle" — and then pointed at
+   * `--sd-header-display: none` as the honest way to ask for no banner. Measured,
+   * that pointer was the lockout: `grep -rl "signOut" src/app --include=*.html`
+   * returns exactly one file, header-controls.component.html, so a `display:none`
+   * on this host took sign-out, the profile menu, the role consoles, the
+   * notification bell, the menubar toggle and the animation toggle with it, with
+   * no second route to any of them anywhere in the shell.
+   *
+   * So the switch is honoured as far as it can honestly go: this class strips the
+   * banner to nothing — surface, scrim, border, elevation, flag ribbon, spacing
+   * and the wordmark itself all go (header.component.scss) — and the control
+   * cluster stays, unpainted, at the inline end. An operator who hides the header
+   * gets no header; they do not get a shell their users cannot sign out of.
+   *
+   * The FOOTER keeps honouring its own hide switch purely in CSS, with no code
+   * and no exception, because it carries no control, no navigation and no session
+   * affordance (see FooterComponent's own docstring). One surface differs from
+   * the other because the surfaces differ, not because the axis does.
+   */
+  readonly chromeHidden = computed(() => this.chromeTheme.hidden('header')());
 }

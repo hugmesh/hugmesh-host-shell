@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { FooterComponent } from './footer/footer.component';
+import { AboutComponent } from './about/about.component';
 import { AboutSectionComponent } from './about/about-section/about-section.component';
 
 /**
@@ -30,11 +31,12 @@ import { AboutSectionComponent } from './about/about-section/about-section.compo
  * shared assertion would have missed.
  */
 @Component({
-  imports: [FooterComponent, AboutSectionComponent],
+  imports: [FooterComponent, AboutComponent, AboutSectionComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <footer personal-footer></footer>
     <div section><span question>Q</span><span content>A</span></div>
+    <div about></div>
   `,
 })
 class HostComponent {}
@@ -66,6 +68,7 @@ const VARIANTS: Record<string, Record<string, string>> = {
 
 describe('Theme STYLE axis (--sd-radius / -border-* / -shadow* / -surface-blur)', () => {
   const applied: string[] = [];
+  const probes: HTMLElement[] = [];
 
   async function mount(tokens: Record<string, string> = {}) {
     for (const [name, value] of Object.entries(tokens)) {
@@ -79,12 +82,42 @@ describe('Theme STYLE axis (--sd-radius / -border-* / -shadow* / -surface-blur)'
     return {
       chrome: getComputedStyle(el.querySelector<HTMLElement>('footer[personal-footer]')!),
       card: getComputedStyle(el.querySelector<HTMLElement>('.section-backpane')!),
+      page: getComputedStyle(el.querySelector<HTMLElement>('div[about]')!),
     };
+  }
+
+  /**
+   * The two STYLE-axis surfaces that live in the GLOBAL stylesheet rather than in
+   * a component — the routed-content backpane (`router-outlet + *`) and the help
+   * bubble. There is nothing to mount for either, so they are probed as raw DOM
+   * against the same `src/styles.scss` karma already loads.
+   *
+   * They are here because they were the axis's blind spot: a mutation battery
+   * that reverted each of their reads to a literal left all 664 specs green,
+   * while the README named both surfaces as covered. An unguarded read looks
+   * exactly like a guarded one in source.
+   */
+  function globalProbe(html: string, selector: string) {
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    document.body.appendChild(host);
+    probes.push(host);
+    return getComputedStyle(host.querySelector<HTMLElement>(selector)!);
+  }
+
+  /** Apply theme tokens without mounting anything. */
+  function setTokens(tokens: Record<string, string>) {
+    for (const [name, value] of Object.entries(tokens)) {
+      document.documentElement.style.setProperty(name, value);
+      applied.push(name);
+    }
   }
 
   afterEach(() => {
     for (const name of applied) document.documentElement.style.removeProperty(name);
     applied.length = 0;
+    for (const probe of probes) probe.remove();
+    probes.length = 0;
   });
 
   it('ships the shell shape when the theme names no style', async () => {
@@ -140,6 +173,86 @@ describe('Theme STYLE axis (--sd-radius / -border-* / -shadow* / -surface-blur)'
     const { chrome, card } = await mount({ '--hug-radius-lg': '3rem', '--hug-radius': '1rem' });
     expect(chrome.borderRadius).toBe('48px');
     expect(card.borderRadius).toBe('16px');
+  });
+
+  // ── THE CONTRACT SPELLING, NOT ONLY THE RUNTIME TWIN ───────────────────────
+  // Every VARIANTS block above sets --hug-* alone, which is how this describe's
+  // own title ("--sd-radius / -border-* / -shadow* / -surface-blur") could name a
+  // prefix the stylesheets never read. Measured in a browser against the built
+  // bundle: injecting the CONTRACT spelling changed the chrome axis (header
+  // height moved) and left the style axis untouched, because the style reads had
+  // only the --hug-* half. These specs are that asymmetry, closed and pinned.
+  it('honours the --sd-* CONTRACT spelling on every style token', async () => {
+    const { chrome, card, page } = await mount({
+      '--sd-radius': '1rem',
+      '--sd-radius-sm': '0.25rem',
+      '--sd-radius-lg': '3rem',
+      '--sd-border-width': '4px',
+      '--sd-border-style': 'dashed',
+      '--sd-shadow': 'none',
+      '--sd-shadow-sm': 'none',
+      '--sd-surface-blur': '2px',
+    });
+    expect(chrome.borderRadius).withContext('--sd-radius-lg').toBe('48px');
+    expect(chrome.borderTopWidth).toBe('4px');
+    expect(chrome.borderTopStyle).toBe('dashed');
+    expect(chrome.boxShadow).toBe('none');
+    expect(chrome.backdropFilter).toContain('blur(2px)');
+    expect(card.borderRadius).withContext('--sd-radius').toBe('16px');
+    expect(card.boxShadow).toBe('none');
+    expect(card.backdropFilter).toContain('blur(2px)');
+    expect(page.borderRadius).withContext('page-host takes --sd-radius-lg').toBe('48px');
+  });
+
+  it('lets the --sd-* contract name WIN over its --hug-* runtime twin', async () => {
+    // Same order, same reason, as the chrome axis: --sd-* is the contract, --hug-*
+    // is the twin css_root emits beside it. A read that consults only one side is
+    // the prefix bug that made the whole theme a silent no-op for its entire life.
+    const { chrome, card } = await mount({
+      '--sd-radius-lg': '3rem', '--hug-radius-lg': '0.25rem',
+      '--sd-radius': '1rem', '--hug-radius': '0.25rem',
+    });
+    expect(chrome.borderRadius).toBe('48px');
+    expect(card.borderRadius).toBe('16px');
+  });
+
+  // ── THE SURFACES THE README NAMES AND NOTHING GUARDED ──────────────────────
+  it('reaches the ROUTED-CONTENT BACKPANE', async () => {
+    setTokens({ '--sd-radius-lg': '0px', '--sd-border-width': '3px', '--sd-border-style': 'dotted' });
+    const pane = globalProbe('<router-outlet></router-outlet><div class="probe"></div>', '.probe');
+    expect(pane.borderRadius).toBe('0px');
+    expect(pane.borderTopWidth).toBe('3px');
+    expect(pane.borderTopStyle).toBe('dotted');
+  });
+
+  it('ships the backpane shape when the theme names no style', () => {
+    const pane = globalProbe('<router-outlet></router-outlet><div class="probe"></div>', '.probe');
+    expect(pane.borderRadius).withContext('$radius-page 1.5rem').toBe('24px');
+    expect(pane.borderTopWidth).toBe('1px');
+    expect(pane.borderTopStyle).toBe('solid');
+  });
+
+  it('reaches the HELP BUBBLE', () => {
+    setTokens({ '--sd-radius-sm': '1rem', '--sd-border-width': '2px' });
+    const bubble = globalProbe('<span class="help-bubble">h</span>', '.help-bubble');
+    expect(bubble.borderRadius).toBe('16px');
+    expect(bubble.borderTopWidth).toBe('2px');
+  });
+
+  it('ships the help-bubble shape when the theme names no style', () => {
+    const bubble = globalProbe('<span class="help-bubble">h</span>', '.help-bubble');
+    expect(bubble.borderRadius).withContext('0.375rem').toBe('6px');
+    expect(bubble.borderTopWidth).toBe('1px');
+  });
+
+  it('reaches the PAGE-HOST mixin, the third shared surface', async () => {
+    const { page } = await mount({ '--hug-radius-lg': '0px' });
+    expect(page.borderRadius).toBe('0px');
+  });
+
+  it('ships the page-host shape when the theme names no style', async () => {
+    const { page } = await mount();
+    expect(page.borderRadius).withContext('$radius-page 1.5rem').toBe('24px');
   });
 
   it('does not let the STYLE axis touch the scrim alpha', async () => {

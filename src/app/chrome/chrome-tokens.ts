@@ -148,13 +148,56 @@ function unescapeCssString(body: string): string {
  * leaks into every later spec in the same browser).
  */
 export function readChromeContent(surface: ChromeSurface, root?: Element | null): string | null {
+  const raw = readChromeAxis(surface, 'content', root);
+  return raw === null ? null : parseChromeContent(raw);
+}
+
+/**
+ * The RAW text of one axis of a surface's chrome contract, or `null` when the
+ * theme named neither the `--sd-*` spelling nor its `--hug-*` twin.
+ *
+ * Shared by every axis this module has to read in code rather than in CSS. The
+ * first token that HAS a value decides, for the same reason as everywhere else in
+ * this file: the generator emits the twins together, so the second is only ever a
+ * fallback for a hand-written theme that set one and not the other.
+ */
+export function readChromeAxis(
+  surface: ChromeSurface,
+  axis: string,
+  root?: Element | null,
+): string | null {
   if (typeof getComputedStyle !== 'function') return null;
   const element = root ?? (typeof document !== 'undefined' ? document.documentElement : null);
   if (!element) return null;
   const style = getComputedStyle(element);
-  for (const token of chromeTokens(surface, 'content')) {
+  for (const token of chromeTokens(surface, axis)) {
     const raw = style.getPropertyValue(token);
-    if (raw && raw.trim()) return parseChromeContent(raw);
+    if (raw && raw.trim()) return raw.trim();
   }
   return null;
+}
+
+/**
+ * Does the theme ask for this surface to be hidden outright?
+ *
+ * `--sd-<s>-display` is the generator's hide switch and `none` is the only value
+ * it ever emits ("the surface is hidden outright"); anything else — including a
+ * hand-written `block` that turns the surface back on — is not a hide. Compared
+ * case-insensitively because CSS keywords are, and a hand-written theme is free
+ * to shout.
+ *
+ * WHY THIS IS READ IN CODE AT ALL, when every other geometry axis is a plain
+ * `var()` chain in the surface's own stylesheet: the FOOTER honours its hide
+ * switch purely in CSS, because the footer carries no control, no navigation and
+ * no session affordance. The HEADER cannot, because this shell's banner is also
+ * the only host of the account menu — profile, role consoles and SIGN OUT — plus
+ * the notification bell and the menubar and animation toggles. A `display: none`
+ * on that host does not restyle the shell, it locks the operator's users out of
+ * it, which is the exact failure `HeaderComponent.wordmark`'s docstring refuses
+ * for the CONTENT axis. So the header reads the switch here and strips its
+ * banner (surface, wordmark, ribbon, spacing) while keeping the controls, and
+ * `header.component.scss` spells out what survives.
+ */
+export function isChromeHidden(surface: ChromeSurface, root?: Element | null): boolean {
+  return readChromeAxis(surface, 'display', root)?.toLowerCase() === 'none';
 }

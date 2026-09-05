@@ -2,7 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { Injectable, NgZone, OnDestroy, Signal, inject, signal } from '@angular/core';
 
 import { THEME_CHANGE_EVENT } from '../background/background.component';
-import { ChromeSurface, readChromeContent } from './chrome-tokens';
+import { ChromeSurface, isChromeHidden, readChromeContent } from './chrome-tokens';
 
 /**
  * The live half of the theme CHROME contract: the header's and footer's
@@ -43,6 +43,16 @@ export class ChromeThemeService implements OnDestroy {
     footer: signal<string | null>(null),
   };
 
+  /** `--sd-<s>-display: none`, per surface. Only the HEADER consumes this signal
+   *  — see {@link isChromeHidden} for why one surface hides itself in CSS and the
+   *  other has to be told in code. Watched by the same observers as the text, so
+   *  a theme that arrives after bootstrap collapses the banner exactly as one
+   *  present at boot does. */
+  private readonly hide: Record<ChromeSurface, ReturnType<typeof signal<boolean>>> = {
+    header: signal(false),
+    footer: signal(false),
+  };
+
   private readonly observers: MutationObserver[] = [];
   private readonly teardown: Array<() => void> = [];
   private frame = 0;
@@ -69,6 +79,14 @@ export class ChromeThemeService implements OnDestroy {
     return this.text[surface].asReadonly();
   }
 
+  /**
+   * Whether the theme asks for this surface to be hidden outright
+   * (`--sd-<s>-display: none`, or its `--hug-` twin).
+   */
+  hidden(surface: ChromeSurface): Signal<boolean> {
+    return this.hide[surface].asReadonly();
+  }
+
   /** Re-read both surfaces now. Public so a spec (or a future in-page theme
    *  switcher) can force a read without faking a DOM mutation. */
   refresh(): void {
@@ -80,6 +98,8 @@ export class ChromeThemeService implements OnDestroy {
     for (const surface of ['header', 'footer'] as const) {
       const next = readChromeContent(surface, root);
       if (this.text[surface]() !== next) this.text[surface].set(next);
+      const hidden = isChromeHidden(surface, root);
+      if (this.hide[surface]() !== hidden) this.hide[surface].set(hidden);
     }
   }
 

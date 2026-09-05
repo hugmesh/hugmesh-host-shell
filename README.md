@@ -217,7 +217,7 @@ can never be hit.
 | **Background effect** | `--sd-bg-effect` | `gradient` \| `none` \| `vanta-fog\|waves\|net\|globe` — see the backdrop bullet above. |
 | **Decor** | `--sd-nav-suffix{,-hover,-active}` | Nav-link suffixes, paired with CSS alt-text syntax so screen readers skip them. |
 | **Chrome** | `--sd-{header,footer}-{display,height,bg,on,content}` | Hide a surface outright; size it (`compact` 2.5rem / `comfortable` 4rem / `tall` 6rem); paint a flat background with the generator's derived black/white text twin; replace the surface's content with the operator's own text. |
-| **Style** | `--sd-radius{,-sm,-lg}`, `--sd-border-{width,style}`, `--sd-shadow{,-sm}`, `--sd-surface-blur` | The shape of every shared surface: `glass-float` chrome (header/footer/menubar/modal) and `card-surface` panels, plus the routed-content backpane and help bubbles. |
+| **Style** | `--sd-radius{,-sm,-lg}`, `--sd-border-{width,style}`, `--sd-shadow{,-sm}`, `--sd-surface-blur` | The shape of every shared surface: `glass-float` chrome (header/footer/menubar/modal), `card-surface` panels, the `page-host` mixin, the routed-content backpane and help bubbles. **No shipped delivery path reaches this shell yet — see below.** |
 
 **Chrome and Style were both inert until 2026-09-04.** The generator had shipped
 the QT Themes editor's header/footer hide/size/background/content controls and
@@ -241,15 +241,58 @@ Three rules the axes deliberately do **not** get to break:
 - **A height is an intent, never a guillotine.** Each surface pairs its themed
   `block-size` with `min-block-size: fit-content`, so a `compact` header still
   shows every line of the operator's own text and every control it must offer.
-  Content is *capped* to meet the height (`--shell-chrome-fit`, shell-private
-  plumbing that is deliberately **not** on the `--hug-*` contract prefix) so
-  "compact" actually shrinks rather than drawing a smaller box around unchanged
-  chrome.
+  Content is *capped* to meet the height by two shell-private ratios of it,
+  deliberately **not** on the `--hug-*` contract prefix: `--shell-chrome-fit`
+  (0.55) caps BOXES and `--shell-chrome-cap` (0.45) caps TEXT. So "compact"
+  actually shrinks rather than drawing a smaller box around unchanged chrome —
+  and every piece of text on a surface uses the same one of those two, or
+  "compact" means illegible instead of dense.
 - **Accessibility floors outrank density.** The WCAG 2.5.5 44px touch target on
-  coarse pointers is not capped by a themed height, and replacement text is
+  coarse pointers is not capped by a themed height — nor is the glyph inside it,
+  which is the half of that floor that is easy to leave behind — and the derived
+  `-on` twin outranks the palette text token on **every** element painted on a
+  themed surface, not only the headline. Replacement text is
   rendered as **real markup** rather than a CSS `content:` read — the branch the
   generator's own docstring offers — so an operator's words stay selectable,
   translatable and present in the accessibility tree.
+
+### The Style axis has a consumer here and no producer yet
+
+Stated plainly, because the opposite mistake is what this work exists to fix. The
+shell's only runtime theme delivery is `HUG_THEME_CSS` / `SNAP_THEME_CSS` →
+`docker-entrypoint.d/50-hug-theme.sh` → `hug-theme.css` → the `<link>` in
+`index.html`; nothing else in `src/` fetches a theme. That env is filled by the
+generator's `cfg.login_theme_css()`, which composes `compose_login_css` + a
+preset's `delta_css` + `chrome_css` — and **not** `style_tokens()`. Executed
+against a full login theme, zero lines match radius / shadow / border-width /
+border-style / surface-blur. `style_tokens()` reaches CSS only through
+`core/domain_theme.py`'s `render_css`, i.e. `PUT /bff/admin/themes/{domain}`,
+which this shell does not read.
+
+So the Chrome axis is wired end to end and the Style axis is wired on this side
+only: the reads are correct, pinned by `src/app/theme-style-axis.spec.ts`, and
+will light up the moment a delivery path carries the tokens — but an operator
+picking `sharp` in the Studio today still sees no change **here**. Closing that is
+generator-side work (thread `style_tokens()` into `login_theme_css()`, or serve
+the domain theme to the shell) and is deliberately not claimed by this repo.
+Replacing "producer with no consumer" with "consumer with no producer" would be
+the same silent no-op wearing the other hat, so it is written down rather than
+implied.
+
+### Hiding the header is not a lockout
+
+`--sd-header-display: none` is honoured by **stripping** the banner — surface,
+scrim, border, elevation, flag ribbon, spacing, wordmark and centring gutter all
+go — while the control cluster survives, unpainted, at the inline end. It is not a
+`display: none` on the host, and the reason is a measurement:
+`grep -rl signOut src/app --include=*.html` returns exactly one file,
+`src/app/header/header-controls.component.html`. This banner is the shell's only
+host of sign-out, the profile menu, the role consoles, the notification bell and
+both toggles, so a `display: none` there does not restyle the shell, it locks the
+operator's users out of it. Signed out, with no backdrop to pause, the cluster
+renders nothing and the row collapses to 0px — the operator's "no header", in
+full. The **footer** takes the bare `display` read with no exception, because it
+carries no control, no navigation and no session affordance.
 
 `--hug-header-scale` remains what it always was: a hand-authored escape hatch for
 the banner's block metrics, with no producer in the generator. The Chrome axis

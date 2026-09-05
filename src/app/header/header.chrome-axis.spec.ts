@@ -96,19 +96,63 @@ describe('Header chrome axis (--sd-header-*)', () => {
   });
 
   // ── --sd-<s>-display ───────────────────────────────────────────────────────
-  it('HIDES the banner outright on --sd-header-display: none', async () => {
+  // The hide switch is honoured by STRIPPING the banner, not by `display: none`
+  // on this host. The footer does take the bare `display` read (see
+  // footer.chrome-axis.spec.ts) because it hosts nothing functional; this banner
+  // is the shell's only host of sign-out, the profile menu, the role consoles,
+  // the notification bell and both toggles, so a `display: none` here is a
+  // lockout rather than a restyle. See HeaderComponent.chromeHidden.
+  it('STRIPS the banner to nothing on --sd-header-display: none', async () => {
     const header = await mount({ '--sd-header-display': 'none' });
-    expect(getComputedStyle(header).display)
-      .withContext('the operator ticked "hide the header entirely"')
+    const style = getComputedStyle(header);
+    expect(header.classList.contains('header--chrome-hidden')).toBeTrue();
+    // The wordmark and its centring gutter are gone…
+    expect(getComputedStyle(header.querySelector<HTMLElement>('h1')!).display).toBe('none');
+    expect(getComputedStyle(header.querySelector<HTMLElement>('.header__gutter')!).display)
       .toBe('none');
-    // display:none also removes it from the accessibility tree, which is the
-    // point: a hidden banner must not be announced, not merely unpainted.
-    expect(header.getBoundingClientRect().height).toBe(0);
+    // …and so is every painted affordance the banner owns: the glass scrim, the
+    // operator's own flat layer, the border, the elevation and the spacing.
+    expect(style.backgroundColor).withContext('no scrim').toBe('rgba(0, 0, 0, 0)');
+    expect(style.backgroundImage).withContext('no themed layer').toBe('none');
+    expect(style.borderTopWidth).toBe('0px');
+    expect(style.boxShadow).toBe('none');
+    expect(style.paddingTop).toBe('0px');
+    expect(style.paddingBottom).toBe('0px');
+    expect(style.marginTop).toBe('0px');
+    expect(style.marginBottom).toBe('0px');
+  });
+
+  it('KEEPS the control cluster when the banner is hidden — hide is not lockout', async () => {
+    // The measurement behind this spec: `grep -rl signOut src/app --include=*.html`
+    // returns header-controls.component.html and nothing else, so a hidden host
+    // took sign-out, the profile menu, the role consoles, the bell and both
+    // toggles with it and left no second route to any of them.
+    const header = await mount({ '--sd-header-display': 'none' });
+    expect(header.querySelector('hug-header-controls'))
+      .withContext('the only route to the account menu must survive a hidden banner')
+      .toBeTruthy();
+    expect(getComputedStyle(header).display)
+      .withContext('a display:none host would take the cluster with it')
+      .not.toBe('none');
   });
 
   it('honours the --hug-header-display runtime twin when only it is set', async () => {
     const header = await mount({ '--hug-header-display': 'none' });
-    expect(getComputedStyle(header).display).toBe('none');
+    expect(header.classList.contains('header--chrome-hidden')).toBeTrue();
+    expect(getComputedStyle(header.querySelector<HTMLElement>('h1')!).display).toBe('none');
+  });
+
+  it('does NOT strip the banner for a display value that is not a hide', async () => {
+    // `none` is the only value the generator emits, but a hand-written theme may
+    // spell the axis back on. Anything that is not a hide leaves the banner whole.
+    const header = await mount({ '--sd-header-display': 'block' });
+    expect(header.classList.contains('header--chrome-hidden')).toBeFalse();
+    expect(header.querySelector('h1')!.textContent!.trim()).toBe('HugMesh');
+  });
+
+  it('reads the hide switch case-insensitively, the way CSS keywords work', async () => {
+    const header = await mount({ '--sd-header-display': 'NONE' });
+    expect(header.classList.contains('header--chrome-hidden')).toBeTrue();
   });
 
   // ── --sd-<s>-height ────────────────────────────────────────────────────────
@@ -334,5 +378,123 @@ describe('Header chrome axis — the control cluster obeys a themed height', () 
     const r = region.getBoundingClientRect();
     expect(r.top).withContext('cluster must not overflow the banner top').toBeGreaterThanOrEqual(h.top - 0.5);
     expect(r.bottom).withContext('cluster must not overflow the banner bottom').toBeLessThanOrEqual(h.bottom + 0.5);
+  });
+
+  // ── THE CONTRAST CONTRACT REACHES THE WHOLE SURFACE, NOT JUST THE <h1> ──────
+  // Measured on the built bundle with real generator output: with
+  // chrome_tokens(header_bg='#f5f5f5') the derived twin --sd-header-on is
+  // #000000, :host correctly carried it, the wordmark correctly carried it — and
+  // the signed-in account name beside them was still painted --sd-text
+  // (rgb(232,232,240)) at 1.12:1 on the operator's colour, because that rule
+  // declared `color` explicitly and never inherited the twin. The generator hands
+  // this shell the right answer; every element painted ON the surface has to take
+  // it. These two specs are that, per control.
+  it('paints the ACCOUNT NAME in the derived twin on a themed header', async () => {
+    const header = await mountReal({ '--sd-header-bg': '#f5f5f5', '--sd-header-on': '#000000' });
+    const trigger = header.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!;
+    expect(getComputedStyle(trigger).color)
+      .withContext('1.12:1 against #f5f5f5 is what --sd-text measured here')
+      .toBe('rgb(0, 0, 0)');
+  });
+
+  it('paints the NOTIFICATION BELL in the derived twin on a themed header', async () => {
+    const header = await mountReal({ '--sd-header-bg': '#f5f5f5', '--sd-header-on': '#000000' });
+    const bell = header.querySelector<HTMLElement>('.bell-btn')!;
+    // The bell glyph is stroke="currentColor", so the button's colour IS the icon.
+    expect(getComputedStyle(bell).color).toBe('rgb(0, 0, 0)');
+  });
+
+  it('keeps the shipped control colour when no header colour is themed', async () => {
+    // The other half of the same contract: adding the twin to the front of the
+    // chain must not repaint an un-themed deploy. $offwhite, exactly as shipped.
+    const header = await mountReal();
+    expect(getComputedStyle(header.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!).color)
+      .toBe('rgb(232, 232, 232)');
+  });
+
+  // ── ONE RATIO FOR TEXT, ONE FOR BOXES ──────────────────────────────────────
+  it('sizes the account name on the WORDMARK cap, not on a ratio of the box fit', async () => {
+    const header = await mountReal({ '--sd-header-height': '2.5rem' });
+    const trigger = header.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!;
+    // --shell-chrome-cap is 0.45 of the height (18px at compact) and caps TEXT;
+    // --shell-chrome-fit is 0.55 and caps BOXES. Taking 0.45 OF THE FIT compounds
+    // to 0.2475 of the height and rendered this at 9.9px while the <h1> two
+    // elements away rendered at 18px — two symmetric jobs on two different ratios.
+    // min(1rem, 18px) is 16px: the shipped size, uncompounded.
+    expect(parseFloat(getComputedStyle(trigger).fontSize))
+      .withContext('9.9px here is the compounded-ratio regression')
+      .toBeCloseTo(16, 0);
+  });
+
+  it('leaves the control type scale alone when no height is themed', async () => {
+    const header = await mountReal();
+    expect(parseFloat(getComputedStyle(header.querySelector<HTMLElement>('[data-testid="profile-trigger"]')!).fontSize))
+      .toBeCloseTo(16, 0);
+  });
+
+  it('scales the toggle GLYPH with its button on a compact banner', async () => {
+    const header = await mountReal({ '--sd-header-height': '2.5rem' });
+    const svg = header.querySelector<SVGElement>('[data-testid="menubar-mode-toggle"] svg')!;
+    // 2.5rem * 0.55 * 0.45 = 9.9px inside the 22px button — the glyph stays the
+    // same fraction of its button that it is un-themed (16/36), which is what
+    // makes `compact` dense rather than empty. The COARSE-POINTER floor is the
+    // case this ratio must not follow; see the header-controls stylesheet.
+    // BOTH AXES: capping one and not the other renders an ellipse, and a
+    // height-only assertion cannot see it.
+    const rect = svg.getBoundingClientRect();
+    expect(rect.height).toBeCloseTo(9.9, 1);
+    expect(rect.width).toBeCloseTo(9.9, 1);
+  });
+
+  it('ships a 16px toggle glyph when nothing is themed', async () => {
+    const header = await mountReal();
+    const rect = header
+      .querySelector<SVGElement>('[data-testid="menubar-mode-toggle"] svg')!
+      .getBoundingClientRect();
+    expect(rect.height).toBeCloseTo(16, 0);
+    expect(rect.width).toBeCloseTo(16, 0);
+  });
+
+  it('gives the COARSE-POINTER floor to the glyph, not only to its button', async () => {
+    // The one assertion in this file that reads the stylesheet instead of the
+    // rendering, and it says so. `@media (pointer: coarse)` describes the DEVICE,
+    // not the viewport, and karma cannot claim one — so the rendered proof for
+    // this rule is a browser probe under pointer emulation (recorded with this
+    // change: button 44x44 and glyph 16x16, against 9.89px in a 44px button
+    // before). What a spec CAN hold is that the rule exists and does not put the
+    // glyph back on the density token, which is exactly the half-applied floor
+    // that was measured: the button was already uncapped and the icon inside it
+    // was not.
+    await mountReal();
+    const coarse: CSSStyleRule[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      let rules: CSSRuleList;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue; // a cross-origin sheet; none of ours are
+      }
+      for (const rule of Array.from(rules)) {
+        if (!(rule instanceof CSSMediaRule)) continue;
+        if (!/pointer\s*:\s*coarse/.test(rule.conditionText)) continue;
+        for (const inner of Array.from(rule.cssRules)) {
+          if (inner instanceof CSSStyleRule) coarse.push(inner);
+        }
+      }
+    }
+    expect(coarse.length).withContext('the coarse-pointer block must exist at all').toBeGreaterThan(0);
+
+    const glyph = coarse.filter((r) => /\.bg-toggle\b/.test(r.selectorText) && /\bsvg\b/.test(r.selectorText));
+    expect(glyph.length).withContext('the coarse block must size the toggle glyph').toBeGreaterThan(0);
+    for (const rule of glyph) {
+      expect(rule.style.width).withContext(rule.selectorText).toBe('1rem');
+      expect(rule.style.height).withContext(rule.selectorText).toBe('1rem');
+    }
+
+    const button = coarse.filter(
+      (r) => /\.bg-toggle\b/.test(r.selectorText) && !/\bsvg\b/.test(r.selectorText),
+    );
+    expect(button.length).withContext('…and its button, which is the 2.5.5 target').toBeGreaterThan(0);
+    for (const rule of button) expect(rule.style.width).toBe('2.75rem');
   });
 });
