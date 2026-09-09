@@ -82,7 +82,7 @@
     "mocha": "^11.8.0",
     "nightwatch": "^3.16.0",
     "nightwatch-html-reporter": "^2.0.6",
-    "sass": "^1.103.1",
+    "sass": "^1.104.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.8.1",
     "typescript": "^6.0.3"
