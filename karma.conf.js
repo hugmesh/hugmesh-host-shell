@@ -32,8 +32,26 @@ module.exports = function (config) {
     colors: true,
     logLevel: config.LOG_INFO,
     autoWatch: false,
-    browsers: ["Chrome", "ChromeHeadless", "ChromeHeadlessCI"],
+    // Every launcher named here MUST carry a >= 992px --window-size. See the
+    // ChromeHeadlessCI comment below for why that is load-bearing, and
+    // scripts/check-karma-viewport.mjs for the guard that enforces it.
+    //
+    // This used to read ["Chrome", "ChromeHeadless", "ChromeHeadlessCI"]. Only
+    // the third had the window size, so `npm test` — the command in this repo's
+    // own package.json — ran the suite three times and went RED on 7
+    // desktop-layout specs, every time, on a perfectly healthy tree. CI never
+    // saw it because `npm run coverage` passes --browsers=ChromeHeadlessCI and
+    // bypasses this list entirely. A suite that is green in CI and red on every
+    // developer's machine teaches people to ignore it.
+    browsers: ["ChromeHeadlessCI"],
     customLaunchers: {
+      // Headed, for local debugging: `npm test -- --browsers=ChromeDebugCI`.
+      // Same window size as the headless one, because a layout spec that passes
+      // headless and fails headed (or the reverse) is worse than useless.
+      ChromeDebugCI: {
+        base: "Chrome",
+        flags: ["--window-size=1600,1200"],
+      },
       ChromeHeadlessCI: {
         base: "ChromeHeadless",
         // --window-size is LOAD-BEARING, not cosmetic. Karma renders the specs
