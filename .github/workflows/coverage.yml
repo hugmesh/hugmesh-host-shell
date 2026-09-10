@@ -115,6 +115,14 @@ jobs:
       # AND the production build below. See scripts/check-nf-override.mjs.
       - name: Override contract gate
         run: npm run-script check:nf-override
+      # Karma viewport gate. commit 544d9eb gave ChromeHeadlessCI a load-bearing
+      # --window-size and left the other two launchers in `browsers` at Chrome's
+      # 800x600 default, so `npm test` went red on 7 desktop-layout specs on a
+      # healthy tree for three weeks. This job never saw it because the coverage
+      # script passes --browsers=ChromeHeadlessCI and bypasses that list. The
+      # gate reads the real karma.conf.js through karma's own callback.
+      - name: Karma viewport gate
+        run: npm run-script check:karma-viewport
       # MEASURED REACH of this step, so nobody mistakes it for the override gate:
       # it catches a pin stale enough to break the @softarc/native-federation
       # /internal export surface -- override 4.3.2 under @angular-architects
