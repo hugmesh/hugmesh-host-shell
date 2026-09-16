@@ -24,10 +24,14 @@ COPY package*.json .npmrc ./
 # began requiring ^4.4.0, and this build failed with
 #   The requested module '@softarc/native-federation/internal' does not provide
 #   an export named 'isUnderAnyDir'
-# The override now lives ONCE, in package.json, where the lockfile records it
-# and Dependabot can see it. The generator script derives its value from the
-# lockfile and re-injects only when two copies actually diverge, which is the
-# self-healing behaviour committing its output defeated.
+# The override was then moved ONCE into package.json, and REMOVED there by #53:
+# the only thing that ever produced a second copy was the dead
+# @softarc/native-federation-node dependency (pinned EXACTLY 4.1.3, imported
+# nowhere), now deleted, so the lockfile resolves one copy from
+# @angular-architects/native-federation own range with no pin anywhere. The
+# generator script still derives from the lockfile and re-injects only if two
+# copies ever diverge again, which is the self-healing behaviour committing its
+# output defeated.
 RUN npm install -g @angular/cli
 
 #### install project dependencies FROM THE LOCKFILE

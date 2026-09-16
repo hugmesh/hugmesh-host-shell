@@ -148,8 +148,8 @@ manifest's gateway-served remote paths bind as intended.
 
 ## What it is
 
-- **Stack:** Angular 22 standalone components + signals, `@angular-architects/native-federation`
-  (`@softarc/native-federation-node`), Bootstrap 5, and a theme-driven animated
+- **Stack:** Angular 22 standalone components + signals, `@angular-architects/native-federation`,
+  Bootstrap 5, and a theme-driven animated
   CSS-gradient backdrop (`src/app/background/` — pure CSS by default; it reads
   the runtime `--sd-*` theme tokens and falls back to the shipped pastels).
   The backdrop also consumes the cross-repo **`--sd-bg-effect`** theme token

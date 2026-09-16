@@ -108,13 +108,13 @@ jobs:
         run: |
           npm ci
           npm run-script coverage
-      # Fires at the bump that INTRODUCES override drift. npm applies
-      # `overrides` without resolution, so a pin that contradicts what
-      # @angular-architects/native-federation requires installs with exit 0 and
-      # no ERESOLVE -- and, measured on this repo, also passes the unit suite
-      # AND the production build below. See scripts/check-nf-override.mjs.
-      - name: Override contract gate
-        run: npm run-script check:nf-override
+      # There is no "Override contract gate" step here any more. It guarded
+      # overrides["@softarc/native-federation"], and #53 removed that override
+      # together with the dead @softarc/native-federation-node dependency that
+      # was the ONLY thing ever producing a second copy of the package. The
+      # lockfile now resolves ONE copy from @angular-architects/native-federation
+      # own range, and the `npm ci` above installs exactly that tree -- there is
+      # no pin left to drift.
       # Karma viewport gate. commit 544d9eb gave ChromeHeadlessCI a load-bearing
       # --window-size and left the other two launchers in `browsers` at Chrome's
       # 800x600 default, so `npm test` went red on 7 desktop-layout specs on a
@@ -123,14 +123,16 @@ jobs:
       # gate reads the real karma.conf.js through karma's own callback.
       - name: Karma viewport gate
         run: npm run-script check:karma-viewport
-      # MEASURED REACH of this step, so nobody mistakes it for the override gate:
-      # it catches a pin stale enough to break the @softarc/native-federation
-      # /internal export surface -- override 4.3.2 under @angular-architects
-      # 22.1.x fails here with "does not provide an export named 'isUnderAnyDir'",
-      # no bundle emitted. It does NOT catch one minor of drift: override 4.4.1
-      # under 22.1.2 (which requires ~4.5.0) exits 0 here, on the committed
-      # lockfile and on a full fresh re-resolve alike. That case is the
-      # Override contract gate's job, not this one.
+      # MEASURED REACH of this step, kept as history so nobody over-credits it:
+      # while overrides["@softarc/native-federation"] existed, this step caught
+      # only a pin stale enough to break the /internal export surface (4.3.2
+      # under @angular-architects 22.1.x: "does not provide an export named
+      # 'isUnderAnyDir'", no bundle) and NOT one minor of drift (4.4.1 under
+      # 22.1.2, which requires ~4.5.0, exited 0 here on the committed lockfile
+      # and on a fresh re-resolve alike). That gap was the Override contract
+      # gate's job; #53 removed the override and the gate together, so the
+      # lockfile now follows the consumer's own range and there is no pin here
+      # to go stale.
       # What this step IS for: before it was added, the job named build_and_test
       # ran no build at all -- only check:theme-tokens and ng test.
       - name: Production build
