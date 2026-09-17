@@ -115,6 +115,26 @@ jobs:
       # lockfile now resolves ONE copy from @angular-architects/native-federation
       # own range, and the `npm ci` above installs exactly that tree -- there is
       # no pin left to drift.
+      # MEASURED REACH of that removal, 2026-09-16 -- recorded so the paragraph
+      # above is not read as wider than it is. The deleted gate's HARD 3 also
+      # asserted an OVERRIDE-INDEPENDENT invariant: the lockfile records EXACTLY
+      # ONE copy of @softarc/native-federation. Nothing here replaces it, and
+      # nothing else in the repo detects a violation. Mutation-tested on this
+      # tree: re-adding the dead dependency
+      #   npm pkg set 'dependencies.@softarc/native-federation-node=^4.0.0'
+      #   npm install --package-lock-only        # exit 0
+      # reproduces the two-copy state (4.5.0 hoisted + 4.1.3 nested under
+      # native-federation-node, both on disk after `npm ci`), and on that tree
+      # EVERY remaining gate PASSED: npm ci exit 0 (1905 pkgs, no EUSAGE and no
+      # ERESOLVE), npm test 697/697 SUCCESS, npm run build exit 0 with
+      # remoteEntry.json emitted and ZERO TS2724 / error TS / isUnderAnyDir
+      # hits, check:karma-viewport exit 0, check:theme-tokens PASS. So the old
+      # "two copies compile to TS2724" rationale does NOT reproduce on Angular
+      # 22.1.6 / @softarc 4.5.0 / TS 6.0.3: the harm today is nil, but a second
+      # copy is now UNDETECTED, so the residual risk is unknown rather than
+      # zero. Whether to keep a ~15-line check:nf-single-copy doing only that
+      # invariant is issue #73 -- an operator decision, deliberately NOT made
+      # inside #53.
       # Karma viewport gate. commit 544d9eb gave ChromeHeadlessCI a load-bearing
       # --window-size and left the other two launchers in `browsers` at Chrome's
       # 800x600 default, so `npm test` went red on 7 desktop-layout specs on a
