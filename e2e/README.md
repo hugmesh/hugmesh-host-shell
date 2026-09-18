@@ -193,7 +193,8 @@ $ ./node_modules/chromedriver/lib/chromedriver/chromedriver --version
 ChromeDriver 151.0.7922.138 (...)       # now matches the installed Chrome
 
 # and a real WebDriver session against it now succeeds (HTTP 200, a live
-# Chrome process attaches) where it would 4xx/error on the mismatched driver
+# Chrome process attaches) where it would return HTTP 500 ("session not
+# created", the WebDriver spec's error status) on the mismatched driver
 ```
 
 **Fix locally**, same mechanism CI uses:
