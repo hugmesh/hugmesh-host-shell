@@ -87,7 +87,8 @@
     "typescript": "^6.0.3"
   },
   "_overridesNote": {
-    "@softarc/native-federation": "REMOVED 2026-09-16 (issue #53): the override existed only to collapse the tree onto one copy, and the sole reason a second copy ever appeared was the dead @softarc/native-federation-node dependency (pinned EXACTLY 4.1.3, imported nowhere, end-of-life upstream). With that dependency deleted, @angular-architects/native-federation is the only consumer and the lockfile resolves ONE hoisted copy from its own range with no override. Do not re-add a bare pin here -- npm applies overrides without resolution, so a stale pin installs green and rots silently (this one sat at 4.3.2 under a consumer requiring ^4.4.0 until the production build broke on a missing /internal export)."
+    "@softarc/native-federation": "REMOVED 2026-09-16 (issue #53): the override existed only to collapse the tree onto one copy, and the sole reason a second copy ever appeared was the dead @softarc/native-federation-node dependency (pinned EXACTLY 4.1.3, imported nowhere, end-of-life upstream). With that dependency deleted, @angular-architects/native-federation is the only consumer and the lockfile resolves ONE hoisted copy from its own range with no override. Do not re-add a bare pin here -- npm applies overrides without resolution, so a stale pin installs green and rots silently (this one sat at 4.3.2 under a consumer requiring ^4.4.0 until the production build broke on a missing /internal export).",
+    "mocha.diff": "REMOVED 2026-09-18 (issue #71): the pin was added 2026-07-08 (e1453fb) to close an npm-audit advisory against `diff`, but npm applies overrides by package name only, so `8.0.4` was forced onto EVERY nested `diff` under a `mocha` parent regardless of what that mocha actually declared -- and it never once matched: mocha 11's bundled diff wanted ^7, mocha 12 (this bump) wants ^9, and nightwatch's own nested mocha 10.8.2 wants ^5.2.0. `npm audit` on this tree shows no advisory for `diff` at all, so the pin is not closing anything live. Removed rather than re-pinned so each nested diff resolves to the range its own mocha declares; re-verify with `npm ls diff` after any future mocha bump instead of re-adding a bare version override here."
   },
   "overrides": {
     "@babel/core": "7.29.7",
@@ -121,9 +122,6 @@
     "micromatch": "4.0.8",
     "pug-code-gen": "3.0.3",
     "uuid": "11.1.1",
-    "mocha": {
-      "diff": "8.0.4"
-    },
     "esbuild": "0.28.1",
     "brace-expansion@^5.0.0": "^5.0.9",
     "body-parser@^2.0.0": "^2.3.0",
