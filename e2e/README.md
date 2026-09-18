@@ -158,6 +158,65 @@ npm run e2e:integration  # @cluster subset — needs the federation remotes serv
                           # from their own dev servers (fe-gateway integrated env)
 ```
 
+### If `npm run e2e` fails with "session not created" (issue #74)
+
+`package.json`'s `chromedriver` devDependency pins a specific driver version,
+and by default `npm install`/`npm ci` install exactly that pin regardless of
+which Chrome is on the machine. A chromedriver **major** bump (dependabot
+does these routinely) can then be ahead of — or behind — whatever
+`google-chrome-stable` you actually have installed, and Nightwatch's `chrome`
+env (`server_path: ''`, i.e. "use whatever `node_modules/chromedriver`
+resolved to") launches that mismatched driver. The session then fails
+immediately:
+
+```
+session not created: This version of ChromeDriver only supports Chrome version 153
+```
+
+**GitLab CI never hits this** because `.gitlab-ci.yml`'s `e2e:host` job runs
+`DETECT_CHROMEDRIVER_VERSION=true npm ci`, which makes the `chromedriver`
+package's own install step re-resolve the driver against the Chrome the CI
+image just installed, ignoring the version pinned in `package.json`. A local
+`npm install`/`npm ci` does not set that env var, so it always takes the bare
+pin. **This is the one place that has no browser-matching step.**
+
+Measured 2026-09-18 on this box (node v26.8.1 / npm 11.19.0, Chrome
+151.0.7922.169, `chromedriver` pinned `^153.0.0`):
+
+```bash
+$ npm ci
+$ ./node_modules/chromedriver/lib/chromedriver/chromedriver --version
+ChromeDriver 153.0.8010.36 (...)        # mismatched — npm run e2e would fail here
+
+$ DETECT_CHROMEDRIVER_VERSION=true npm rebuild chromedriver
+$ ./node_modules/chromedriver/lib/chromedriver/chromedriver --version
+ChromeDriver 151.0.7922.138 (...)       # now matches the installed Chrome
+
+# and a real WebDriver session against it now succeeds (HTTP 200, a live
+# Chrome process attaches) where it would return HTTP 500 ("session not
+# created", the WebDriver spec's error status) on the mismatched driver
+```
+
+**Fix locally**, same mechanism CI uses:
+
+```bash
+# Fresh install (matches the CI command exactly):
+DETECT_CHROMEDRIVER_VERSION=true npm ci
+
+# Or, if node_modules already exists and you just want to re-resolve the
+# driver without a full reinstall:
+DETECT_CHROMEDRIVER_VERSION=true npm rebuild chromedriver
+```
+
+Then re-run `npm run e2e` / `npm run e2e:integration` as usual.
+
+`DETECT_CHROMEDRIVER_VERSION=true` is **not** set repo-wide (e.g. in
+`.npmrc`) because `.npmrc` is also copied into the `Dockerfile` build stage
+(`COPY package*.json .npmrc ./`), which has no Chrome installed to detect
+against — that risk is exactly why this stays a documented local command
+rather than a blanket config change; see issue #74 for the option to revisit
+that decision.
+
 ## Validate OFFLINE (no cluster, no browser)
 
 ```bash
