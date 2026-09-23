@@ -45,3 +45,27 @@ Feature: The animated background and header chrome read the active theme's token
     Given I go to "/"
     When the active theme declares "--sd-header-height" as "6rem"
     Then the header element's rendered height is close to 96 pixels
+
+  # ── Signed-in rows (issue #19 item 4, the "compact must not be cosmetic" and
+  # "hide must not be a lockout" halves PR #56's second round fixed). The banner
+  # is the shell's ONLY host of the account menu, the bell and both toggles, so
+  # a density token is only honest if the control cluster still fits inside the
+  # themed box, and a hide token is only honest if those controls survive it.
+  # `I have a user session` seeds the JWT-shaped localStorage session the real
+  # login remote writes (role.steps.js) — host-only, no served remotes needed.
+  @issue:host-shell-19
+  Scenario: a signed-in member's compact banner keeps the account controls inside it
+    Given I have a user session
+    And I go to "/"
+    When the active theme declares "--sd-header-height" as "2.5rem"
+    Then the header controls cluster sits inside the banner box
+    And the "menubar-mode-toggle" header control is close to 22 pixels tall
+
+  @issue:host-shell-19
+  Scenario: a theme that hides the banner outright keeps the signed-in controls reachable
+    Given I have a user session
+    And I go to "/"
+    When the active theme declares "--sd-header-display" as "none"
+    Then the header wordmark is hidden
+    And the "profile-trigger" header control is still visible
+    And the "menubar-mode-toggle" header control is still visible
