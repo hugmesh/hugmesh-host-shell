@@ -11,8 +11,11 @@ Feature: The animated background and header chrome read the active theme's token
   that "effects are not yet *selectable in the theme maker*" (that editor is
   admin-ui's domain-themes screen) and that the generator's login-preview demo has
   no header-scale hook yet — so those two remaining half-checkboxes are not
-  testable from this repo's own e2e suite; see the workflow's needs_from_catalogue
-  note for the pointer.
+  testable from this repo's own e2e suite. The first is pinned where the editor
+  lives: hugmesh-admin-ui e2e/features/admin/theme-editor-axes.feature carries a
+  `@fixme @issue:host-shell-19` scenario asserting an effect choice with more than
+  one effect (`grep -rnwF "@issue:host-shell-19"` across the UI repos finds both
+  files). The generator login-preview half has no scenario yet.
 
   This repo has no in-page theme maker of its own: the theme normally arrives as
   injected CSS text (`docker-entrypoint.d/50-snap-theme.sh` writing
