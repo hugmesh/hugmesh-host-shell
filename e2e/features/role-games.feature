@@ -42,13 +42,20 @@ Feature: Games tier — menu visibility, derived-role gating, and the local plac
     Then the games-admin placeholder renders
 
   @cluster
-  Scenario: A bare moderator deep-linking /games is bounced to /login
+  Scenario: A bare moderator deep-linking /games lands on the denied landing, never /login
     # gamesGuard admits ROLE_GAMES | admin | superadmin; a bare mod without
-    # ROLE_GAMES is redirected. @cluster because the deep link needs the SPA
-    # fallback env and the /login remote to settle the URL.
+    # ROLE_GAMES is refused. They are SIGNED IN, so this is an authorization
+    # failure, and (issue #88) the guard answers it the way every other console
+    # mount does: /home?denied=<path> plus the denied notice — never /login, which
+    # is the anonymous destination and would tell a signed-in user to sign in.
+    # @cluster because the deep link needs the SPA fallback env (server.js serves
+    # index.html at '/' only); the landing itself is host-local, so no remote is
+    # needed to settle the URL.
     Given I have a mod session
     When I go to "/games"
-    Then the URL path is "/login"
+    Then the URL path is "/home"
+    And the URL carries a denied query naming "/games"
+    And the denied notice is visible
 
   @cluster
   Scenario: A games member deep-linking /games reaches the games placeholder

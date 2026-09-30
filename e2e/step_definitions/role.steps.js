@@ -205,6 +205,62 @@ Then('I am redirected to {string}', async function (expected) {
   assert.strictEqual(actual, expected, `Expected redirect to "${expected}" but URL path was "${actual}"`);
 });
 
+/* --- The SIGNED-IN refusal landing (guards/role-guard.factory.ts) -------------
+ * roleGuard sends a signed-in caller who lacks a role to /home?denied=<attempted
+ * path>, so the landing can say WHICH console was refused; /login is reserved
+ * for the ANONYMOUS visitor, who has a credential to supply. Answering an
+ * authorization failure with /login tells a user who just signed in that they
+ * are not signed in (operator report 2026-08-14; issue #88 for the two games
+ * guards that kept doing it). Wording mirrors the generator's mined-identity
+ * steps so the two layers read alike. */
+
+/** THEN the URL carries a denied query naming {string} — polls, because the
+ *  query lands through the same client-side redirect chain the path does. */
+Then('the URL carries a denied query naming {string}', async function (attempted) {
+  const deadline = Date.now() + 6000;
+  let actual = null;
+  while (Date.now() < deadline) {
+    actual = await browser.execute(() => new URLSearchParams(window.location.search).get('denied'));
+    if (actual === attempted) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  const href = await browser.execute(() => window.location.href);
+  assert.strictEqual(actual, attempted, `Expected ?denied=${attempted} but the URL was "${href}"`);
+});
+
+/** THEN the denied notice is visible — the landing must EXPLAIN the refusal
+ *  (home/denied-notice.component.ts), not merely be somewhere else. Asserts the
+ *  notice is DRAWN, not just present in the DOM: a box that starts inside the
+ *  viewport, at least a sentence wide and a line tall. Measured 2026-09-30 in the
+ *  1280x1024 e2e window the alert spans the home container at 1114x86px, so the
+ *  floors below catch a collapsed, hidden or off-screen rendering without
+ *  pinning the layout. */
+Then('the denied notice is visible', async function () {
+  await browser.waitForElementVisible('[data-testid="denied-notice"]', 6000);
+  const box = await browser.execute(() => {
+    const el = document.querySelector('[data-testid="denied-notice"]');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.x,
+      y: r.y,
+      width: r.width,
+      height: r.height,
+      viewportW: window.innerWidth,
+      viewportH: window.innerHeight,
+      text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    };
+  });
+  assert.ok(box, 'denied notice must be in the DOM');
+  assert.ok(box.width >= 320, `denied notice must be at least 320px wide, got ${box.width}px`);
+  assert.ok(box.height >= 40, `denied notice must be at least 40px tall, got ${box.height}px`);
+  assert.ok(
+    box.x >= 0 && box.x < box.viewportW && box.y >= 0 && box.y < box.viewportH,
+    `denied notice must start inside the viewport, got (${box.x}, ${box.y}) in ${box.viewportW}x${box.viewportH}`,
+  );
+  assert.ok(/was not available/.test(box.text), `denied notice must name the refused console, got "${box.text}"`);
+});
+
 /** THEN the navigation does/does not contain a {testid} entry — the role-gating
  *  invariant at the UI level. Looks up by the stable data-testid the nav renders. */
 Then('the navigation has a {string} entry', async function (testid) {
