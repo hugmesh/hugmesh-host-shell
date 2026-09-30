@@ -289,17 +289,18 @@ describe('federation route guards', () => {
       expect(run(gamesGuard)).toBeTrue();
     });
 
-    it('DENIES a plain user WITHOUT ROLE_GAMES (redirect to /login)', () => {
+    it('DENIES a plain user WITHOUT ROLE_GAMES (redirect to the denied landing)', () => {
       session.user = true;
-      expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(gamesGuard)).toEqual(denied());
     });
 
-    it('DENIES a bare moderator WITHOUT ROLE_GAMES (redirect to /login)', () => {
+    it('DENIES a bare moderator WITHOUT ROLE_GAMES (redirect to the denied landing)', () => {
       session.mod = true;
-      expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(gamesGuard)).toEqual(denied());
     });
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
+      session.sessionValue = null;
       expect(run(gamesGuard)).toEqual(router.parseUrl('/login'));
     });
   });
@@ -315,17 +316,18 @@ describe('federation route guards', () => {
       expect(run(gamesAdminGuard)).toBeTrue();
     });
 
-    it('DENIES a bare games member (e2e-gamesonly: ROLE_GAMES alone)', () => {
+    it('DENIES a bare games member (e2e-gamesonly: ROLE_GAMES alone) — the denied landing', () => {
       session.games = true;
-      expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(gamesAdminGuard)).toEqual(denied());
     });
 
-    it('DENIES a bare admin WITHOUT games (e2e-adminonly)', () => {
+    it('DENIES a bare admin WITHOUT games (e2e-adminonly) — the denied landing', () => {
       session.admin = true;
-      expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
+      expect(run(gamesAdminGuard)).toEqual(denied());
     });
 
     it('DENIES an anonymous visitor (redirect to /login)', () => {
+      session.sessionValue = null;
       expect(run(gamesAdminGuard)).toEqual(router.parseUrl('/login'));
     });
   });
