@@ -442,16 +442,21 @@ Guards live in `src/app/guards/` and read `SessionService`:
 - **`gamesGuard`** (Phase 8) — admits `admin`/`superadmin`, or any identity
   holding `ROLE_GAMES` (the entry-point tier only — it does **not** admit games
   admin, see `gamesAdminGuard`). A bare `mod` without `ROLE_GAMES` is not
-  admitted. Gates the local `/games` placeholder route.
+  admitted: signed in, they land on `/home?denied=/games`. Gates the local
+  `/games` placeholder route.
 - **`gamesAdminGuard`** (Phase 8/10) — admits `superadmin` unconditionally, or
   the **derived** `ROLE_GAMES_ADMIN` tier computed client-side as
   `ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)` (mirroring the server-computed role
   materialized by `games-admin-sync-job`). A bare `ROLE_GAMES` or a bare
-  `ROLE_ADMIN`/`ROLE_MOD` alone does **not** earn it. Gates the local
-  `/games/admin` placeholder route. Unlike every other guard here, `gamesGuard`
-  and `gamesAdminGuard` don't go through the shared `roleGuard` factory
-  (`src/app/guards/role-guard.factory.ts`) — each inlines its own predicate —
-  though the redirect contract (allow, or a `/login` `UrlTree`) is identical.
+  `ROLE_ADMIN`/`ROLE_MOD` alone does **not** earn it: signed in, they land on
+  `/home?denied=/games/admin`. Gates the local `/games/admin` placeholder route.
+  Both games guards are built from the shared `roleGuard` factory
+  (`src/app/guards/role-guard.factory.ts`) like the other console mounts and
+  share its redirect contract: a signed-out visitor is sent to `/login`; a
+  signed-in caller who lacks the role lands on `/home?denied=<attempted path>`,
+  where `denied-notice` (`src/app/home/denied-notice.component.ts`) names the
+  refused console. Until issue #88 these two guards answered both failures with
+  `/login`, telling a signed-in moderator they were signed out.
 
 Client-side guards are UX only; the gateway's `gateway_route_access` table +
 `GatewayRouteAccessFilter` and each BFF's role checks are the real authorization
