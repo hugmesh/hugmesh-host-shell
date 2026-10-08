@@ -209,8 +209,8 @@ Then re-run `npm run e2e` / `npm run e2e:integration` as usual.
 `DETECT_CHROMEDRIVER_VERSION=true` is **not** set repo-wide (for example in
 `.npmrc`), because the `Dockerfile` build stage also copies `.npmrc`
 (`COPY package*.json .npmrc ./`) and has no Chrome to detect. That is why this stays
-a documented local command and not a blanket config change. Issue #74 tracks the
-option to revisit that decision.
+a documented local command and not a blanket config change. Issue #74 (closed) has
+the option to revisit that decision.
 
 ## Validate OFFLINE (no cluster, no browser)
 
