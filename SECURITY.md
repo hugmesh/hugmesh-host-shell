@@ -12,7 +12,8 @@ federation bootstrap, the HttpClient bearer seam) here.
 ## Supported Versions
 
 There is no fixed release train. The supported version is the latest commit on
-`main` (the image built and pushed by GitLab CI). Fixes land on `main`; there are
+`main` (the image built and pushed by GitLab CI, or by the manual GHCR release
+workflow, `.github/workflows/release.yml`). Fixes land on `main`; there are
 no backported maintenance branches.
 
 ## Reporting a Vulnerability
@@ -27,7 +28,7 @@ on `main` and the reporter is notified when the fix ships.
 
 ## Known backlog
 
-- **Resolved (PR #108, #109):** the browser previously held an admin-capable
+- **Resolved (commits 410767e and cf53b4c, formerly PR #108 and #109 in the repo's earlier tracker):** the browser previously held an admin-capable
   `bffToken` in `localStorage` and sent it as `Authorization: Bearer`; that
   finding is closed. Today `localStorage`'s `hug.session` entry
   (`SessionService`) carries only identity/role claims (`id`, `label`,
