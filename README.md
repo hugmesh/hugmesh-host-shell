@@ -219,9 +219,11 @@ The theme is derived in ONE place — hugmesh-generator
 `HUG_THEME_CSS`, written to `hug-theme.css` by
 `docker-entrypoint.d/50-hug-theme.sh` at container start, and `<link>`ed from
 `index.html`. This repo does **zero** colour or shape maths; it only *reads*.
-Every read is `var(--sd-X, var(--hug-X, <shipped literal>))` — `--sd-*` is the
-contract name, `--hug-*` is the runtime twin the generator's `css_root` emits
-beside it, and the innermost literal is what an **un-themed deploy** renders.
+Every read ends in a shipped literal, which is what an **un-themed deploy**
+renders. `--sd-*` is the contract name and `--hug-*` is the runtime twin the
+generator's `css_root` emits beside it; a read may name one or both
+(`var(--sd-X, var(--hug-X, <literal>))`). The "PREFIX DOCTRINE" note in
+`src/styles.scss` says which prefix a rule may read.
 A theme that names nothing therefore renders the shipped chrome byte for byte,
 which is the same conservative-schema promise the generator makes on its side.
 `scripts/check-theme-token-contract.sh` (`npm run check:theme-tokens`) polices
@@ -230,9 +232,9 @@ can never be hit.
 
 | Axis | Tokens | What the shell does with them |
 | --- | --- | --- |
-| **Palette / ramps** | `--sd-bg-*`, `--sd-text*`, `--sd-primary*`, `--sd-accent*`, `--sd-*-rgb` | Chrome colours, the animated backdrop's own palette, the `:root` `--hug-*` block every federated remote reaches for. |
+| **Palette / ramps** | `--sd-bg-0`/`-1`/`-2`, `--sd-text`, `--sd-text-muted`, `--sd-accent`, `--sd-accent-soft`, `--sd-border`, `--sd-error`, `--sd-success` (the ten the shell's `:root` block defines), plus `--hug-primary*`, `--hug-*-rgb` and the other `--hug-*` ramps read directly | Chrome colours, the animated backdrop's own palette, the `:root` `--hug-*` block every federated remote reaches for. |
 | **Background effect** | `--sd-bg-effect` | `gradient` \| `none` \| `vanta-fog\|waves\|net\|globe` — see the backdrop bullet above. |
-| **Decor** | `--sd-nav-suffix{,-hover,-active}` | Nav-link suffixes, paired with CSS alt-text syntax so screen readers skip them. |
+| **Decor** | `--hug-nav-suffix{,-hover,-active}` | Nav-link suffixes, paired with CSS alt-text syntax so screen readers skip them. |
 | **Chrome** | `--sd-{header,footer}-{display,height,bg,on,content}` | Hide a surface outright; size it (`compact` 2.5rem / `comfortable` 4rem / `tall` 6rem); paint a flat background with the generator's derived black/white text twin; replace the surface's content with the operator's own text. |
 | **Style** | `--sd-radius{,-sm,-lg}`, `--sd-border-{width,style}`, `--sd-shadow{,-sm}`, `--sd-surface-blur` | The shape of every shared surface: `glass-float` chrome (header/footer/menubar/modal), `card-surface` panels, the `page-host` mixin, the routed-content backpane and help bubbles. **No shipped delivery path reaches this shell yet — see below.** |
 
