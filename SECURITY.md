@@ -3,37 +3,38 @@
 ## Scope
 
 This repository is the brand-agnostic **native-federation host shell** for a
-HugMesh brand. It exposes no feature surface of its own — every page is a
-federated remote, and all authorization is enforced at the gateway and the role
-BFFs. Vulnerabilities in those upstreams should be reported against their own
-repositories; report issues in the host shell (chrome, authgate, route guards,
-federation bootstrap, the HttpClient bearer seam) here.
+HugMesh brand. It has no feature surface of its own: every page is a federated
+remote, and the gateway and the role BFFs enforce all authorization. Report
+vulnerabilities in those upstreams against their own repositories. Report issues in
+the host shell here: chrome, authgate, route guards, federation bootstrap and the
+HttpClient bearer seam.
 
 ## Supported Versions
 
 There is no fixed release train. The supported version is the latest commit on
-`main` (the image built and pushed by GitLab CI, or by the manual GHCR release
-workflow, `.github/workflows/release.yml`). Fixes land on `main`; there are
-no backported maintenance branches.
+`main`: the image built and pushed by GitLab CI, or by the manual GHCR release
+workflow (`.github/workflows/release.yml`). Fixes land on `main`. There are no
+backported maintenance branches.
 
 ## Reporting a Vulnerability
 
-Report suspected vulnerabilities privately to the platform security contact —
-**maguscrowley@gmail.com** — or via a GitHub private security advisory on this
-repository. Please do **not** open a public issue for an unfixed vulnerability.
+Report suspected vulnerabilities privately to the platform security contact,
+**maguscrowley@gmail.com**, or through a GitHub private security advisory on this
+repository. Do **not** open a public issue for an unfixed vulnerability.
 
-Include the affected commit/branch, reproduction steps, and the impact you
-observed. Expect an initial acknowledgement and triage; accepted issues are fixed
-on `main` and the reporter is notified when the fix ships.
+Include the affected commit or branch, reproduction steps and the impact you
+observed. You will get an initial acknowledgement and triage. Accepted issues are
+fixed on `main`, and the reporter is notified when the fix ships.
 
 ## Known backlog
 
-- **Resolved (commits 410767e and cf53b4c, formerly PR #108 and #109 in the repo's earlier tracker):** the browser previously held an admin-capable
-  `bffToken` in `localStorage` and sent it as `Authorization: Bearer`; that
-  finding is closed. Today `localStorage`'s `hug.session` entry
-  (`SessionService`) carries only identity/role claims (`id`, `label`,
-  `provider`, `roles`, `registrationComplete`, `status`) — **no token field of
-  any kind** — and `bearerInterceptor` attaches no `Authorization` header at
-  all; it only sets `withCredentials: true` so the HttpOnly `bff_` session
-  cookie rides along, with the gateway minting the upstream bearer
-  server-side. See the README's "Auth model" section for the full picture.
+- **Resolved** (commits 410767e and cf53b4c; formerly PR #108 and #109 in the
+  repo's earlier tracker). The browser used to hold an admin-capable `bffToken` in
+  `localStorage` and send it as `Authorization: Bearer`. That finding is closed.
+  Today the `hug.session` entry in `localStorage` (`SessionService`) carries only
+  identity and role claims (`id`, `label`, `provider`, `roles`,
+  `registrationComplete`, `status`) and **no token field of any kind**.
+  `bearerInterceptor` attaches no `Authorization` header. It only sets
+  `withCredentials: true`, so the HttpOnly `bff_` session cookie rides along, and
+  the gateway mints the upstream bearer server-side. The README's "Auth model"
+  section has the full picture.
