@@ -133,8 +133,8 @@ The class names and endpoints below were re-checked against `origin/main` on
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 
-- ✅ **shipped:** auth-core extracted + published — `main` is at **2.5.1** (admin-bff
-  pins 2.5.0, user-bff 2.4.2; account/session/MFA + the full custody seams: `BffSession`
+- ✅ **shipped:** auth-core extracted + published — `main` is at **2.5.1**, which
+  admin-bff and user-bff both pin (account/session/MFA + the full custody seams: `BffSession`
   custody columns + `stampCustody`/`clearCustody`); admin-bff **adopted auth-core**;
   admin-bff **`/bff/internal` account/session API** (ships inert behind
   `InternalTokenWebFilter`); the gateway is live with raw-API security proven and the

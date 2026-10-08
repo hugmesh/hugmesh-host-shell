@@ -92,8 +92,8 @@ prod.
 **Ecosystem baseline.** The Java services this host calls (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**.
 They build on the shared Maven artifacts `hugmesh-parent` (metapom 2.8.0),
-`hugmesh-commons` (2.1.0) and `hugmesh-auth-core` (2.5.1 on `main`; admin-bff
-pins 2.5.0, user-bff 2.4.2). Spring Cloud Gateway 5.0 moved route config to
+`hugmesh-commons` (2.1.0) and `hugmesh-auth-core` (2.5.1 on `main`; admin-bff and
+user-bff pin 2.5.1 too). Spring Cloud Gateway 5.0 moved route config to
 `spring.cloud.gateway.server.webflux.routes`; the legacy
 `spring.cloud.gateway.routes` prefix silently binds nothing. All gateways and
 generator route templates were corrected, so the prod federation manifest's
