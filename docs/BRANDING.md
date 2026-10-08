@@ -18,8 +18,9 @@ The fleet deliberately runs **two** accent families. They are not a conflict to
 the `--hug-*` purple contract. Gold leaking into a remote (skip-links, iframe link
 colors) is drift, not brand. The `--hug-*` token set is defined here and mirrored
 verbatim across the fleet; its origin/audit is
-`hugmesh.games/frontend/src/styles.scss` (decision `024-wcag-palette-audit.md`,
-per-token contrast ratios documented).
+`hugmesh-games/frontend/src/styles.scss` (decision
+`docs/wiki/decisions/024-wcag-palette-audit.md` in that repo, per-token contrast
+ratios documented).
 
 ## Typography
 
@@ -29,7 +30,9 @@ per-token contrast ratios documented).
   defect).
 - `$font-fancy: 'More Sugar', $font-sans` — the display/wordmark face, wired via
   the `@font-face` in `styles.scss` from `src/assets/MoreSugar-Thin.ttf` (shipped
-  + preloaded in `index.html`). Used only by the host `h1` wordmark.
+  + preloaded in `index.html`). Used by the host `h1` wordmark and by the
+  paragraphs of the public home page (`src/app/home/home.component.scss`,
+  `src/app/home/links/links.component.scss`).
 
 ## Marks & titles
 
@@ -38,6 +41,9 @@ per-token contrast ratios documented).
 - **Logo:** there is **no** logo image. The brand mark is the text-only `h1`
   wordmark "HugMesh" with a neon glow
   (`src/app/header/header.component.*`).
-- **Production tab title:** "HugMesh" (`src/index.html`). Remotes that
-  are production-served use "HugMesh &lt;Surface&gt;" (no `(remote)` suffix).
+- **Production tab title:** "HugMesh" (`src/index.html`). In production this host
+  owns the tab title. A remote's own dev-shell `index.html` uses "HugMesh
+  &lt;Surface&gt; (remote)"; its comment calls the suffix "the sanctioned dev-shell
+  convention" (`hugmesh-admin-ui` `src/index.html`). `hugmesh-login-ui` carries no
+  suffix ("HugMesh Login").
 - **In-page brand strings** use the domain form `hugmesh.net`.
