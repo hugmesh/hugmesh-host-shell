@@ -7,9 +7,10 @@ runner (`nightwatch.conf.js`).
 
 ## Framework deviation from the platform convention (KNOWN, TRACKED)
 
-Every other HugMesh repo's e2e suite (`admin-ui`, `mod-ui`, `mastodon-ui`,
+The e2e suites of the other HugMesh UI repos (`admin-ui`, `mod-ui`, `mastodon-ui`,
 `matrix-ui`, `user-ui`, `wiki-ui`, `tube-ui`, `owncast-ui`, `login-ui`,
-`hugmesh.games`) runs **Playwright + playwright-bdd**: `.feature` files
+`forum-ui`, `character-studio-ui`, `superadmin-service-catalog-ui`,
+`hugmesh.games`) run **Playwright + playwright-bdd**: `.feature` files
 compiled by `bddgen` into generated Playwright specs, with a `not @cluster`
 tag filter in `playwright.config.ts` gating live-stack-only scenarios out of
 the default/offline run, and a CI `e2e:bdd`-style job that proves the suite
@@ -35,16 +36,18 @@ scoped migration plan.
   run. Five whole features carry the tag at the `Feature:` level
   (`role-routing.feature`, `role-home-content.feature`,
   `home-announcements.feature`, `appeal-redirect.feature`,
-  `home-services-cards.feature`); a sixth (`role-authgate.feature`) documents
-  the split inline without itself carrying scenarios that need it.
+  `home-services-cards.feature`). Three more features tag single scenarios
+  (`role-games.feature`, `role-service-grants.feature`,
+  `role-change-midsession.feature`). A ninth, `role-authgate.feature`, documents
+  the split inline without carrying scenarios that need it.
 - **`@skip`** is Nightwatch/Cucumber's existing manual-skip convention
   (defined in the base filter, `not @skip and not @cluster`, though nothing
   currently carries it — reserved for a scenario that needs to be temporarily
   disabled without deleting it).
-- `@bff-status-mock` / `@capabilities-mock` are **not** live/offline gates —
+- `@bff-status-mock` / `@capabilities-mock` / `@session-mock` are **not** live/offline gates —
   they're local-only "this scenario registers a network-level HTTP mock, run
   the After-hook restore" markers (`status-gate.feature`,
-  `role-registration.feature`), orthogonal to the cluster split.
+  `role-registration.feature`, `role-change-midsession.feature`), orthogonal to the cluster split.
 - The filter lives in `nightwatch.conf.js` (`test_runner.options.tags`), the
   Nightwatch/Cucumber equivalent of playwright-bdd's `defineBddConfig({
   tags })`. `npm run e2e` runs the default (`not @skip and not @cluster`)
@@ -79,21 +82,21 @@ npm ci
 # Default (offline) subset — mirrors what `npm run e2e` executes:
 npx cucumber-js e2e/features --require e2e/step_definitions \
   --tags 'not @skip and not @cluster' --dry-run --format summary
-# => 33 scenarios (33 skipped), 294 steps (294 skipped)
+# => 52 scenarios (52 skipped), 457 steps (457 skipped)
 
 # Whole suite, no filter — proves every .feature file compiles:
 npx cucumber-js e2e/features --require e2e/step_definitions \
   --dry-run --format summary
-# => 56 scenarios (56 skipped), 451 steps (451 skipped)
+# => 83 scenarios (83 skipped), 678 steps (678 skipped)
 
 # @cluster-only subset — mirrors `npm run e2e:integration` (--tag cluster):
 npx cucumber-js e2e/features --require e2e/step_definitions \
   --tags '@cluster' --dry-run --format summary
-# => 23 scenarios (23 skipped), 157 steps (157 skipped)
+# => 31 scenarios (31 skipped), 221 steps (221 skipped)
 ```
 
-33 + 23 = 56, confirming the tag partition is exhaustive and every scenario
-in every feature file parses and resolves cleanly (re-verified 2026-07-16;
+52 + 31 = 83, confirming the tag partition is exhaustive and every scenario
+in every feature file parses and resolves cleanly (re-verified 2026-10-07;
 these counts grow as new scenarios land — e.g. the account-status
 appeal-gate and role-matrix waves — so re-run the commands above rather than
 trusting these numbers indefinitely). This `--dry-run` command
@@ -118,7 +121,7 @@ Scoped as an actionable follow-up (not attempted here):
    Playwright's `use: { ... }` + `devices['Desktop Chrome']`; screenshots/
    video/trace map to `screenshot`/`video`/`trace` (see any migrated repo's
    config for the exact shape this platform standardizes on).
-3. **Rewrite `e2e/step_definitions/role.steps.js` step definitions** from
+3. **Rewrite the step definitions** (`e2e/step_definitions/*.steps.js`) from
    Nightwatch's `browser.*` chainable API (`browser.waitForElementVisible`,
    `browser.click`, `browser.assert.*`) to Playwright's `page.*` /
    `expect(page.locator(...))` API. This is the bulk of the migration effort
@@ -146,7 +149,7 @@ Scoped as an actionable follow-up (not attempted here):
 
 Estimated effort: comparable to authoring a *fresh* e2e harness for this repo
 (step 3 dominates), not a config-only swap — this repo's suite is nontrivial
-(50 scenarios today). Track as its own workstream; do not fold into future
+(83 scenarios today). Track as its own workstream; do not fold into future
 tag-convention or CI-hygiene passes.
 
 ## Run
@@ -156,6 +159,8 @@ npm install
 npm run e2e              # default (offline) subset — not @skip and not @cluster
 npm run e2e:integration  # @cluster subset — needs the federation remotes served
                           # from their own dev servers (fe-gateway integrated env)
+npm run e2e:nginx        # builds the image and runs the nightwatch `nginx` env
+                          # against it on :8081 (scripts/e2e-nginx.sh; needs docker)
 ```
 
 ### If `npm run e2e` fails with "session not created" (issue #74)
@@ -181,7 +186,7 @@ image just installed, ignoring the version pinned in `package.json`. A local
 pin. **This is the one place that has no browser-matching step.**
 
 Measured 2026-09-18 on this box (node v26.8.1 / npm 11.19.0, Chrome
-151.0.7922.169, `chromedriver` pinned `^153.0.0`):
+151.0.7922.169, `chromedriver` then pinned `^153.0.0`; `package.json` now pins `^154.0.1`):
 
 ```bash
 $ npm ci
