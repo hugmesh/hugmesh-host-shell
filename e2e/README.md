@@ -10,7 +10,7 @@ runner (`nightwatch.conf.js`).
 The e2e suites of the other HugMesh UI repos (`admin-ui`, `mod-ui`, `mastodon-ui`,
 `matrix-ui`, `user-ui`, `wiki-ui`, `tube-ui`, `owncast-ui`, `login-ui`,
 `forum-ui`, `character-studio-ui`, `superadmin-service-catalog-ui`,
-`hugmesh.games`) run **Playwright + playwright-bdd**: `.feature` files
+`hugmesh-games`) run **Playwright + playwright-bdd**: `.feature` files
 compiled by `bddgen` into generated Playwright specs, with a `not @cluster`
 tag filter in `playwright.config.ts` gating live-stack-only scenarios out of
 the default/offline run, and a CI `e2e:bdd`-style job that proves the suite
@@ -44,10 +44,13 @@ scoped migration plan.
   (defined in the base filter, `not @skip and not @cluster`, though nothing
   currently carries it — reserved for a scenario that needs to be temporarily
   disabled without deleting it).
-- `@bff-status-mock` / `@capabilities-mock` / `@session-mock` are **not** live/offline gates —
-  they're local-only "this scenario registers a network-level HTTP mock, run
-  the After-hook restore" markers (`status-gate.feature`,
-  `role-registration.feature`, `role-change-midsession.feature`), orthogonal to the cluster split.
+- `@bff-status-mock`, `@capabilities-mock`, `@session-mock`, `@announcements-mock`
+  and `@notifications-mock` are **not** live/offline gates. They mark a scenario that
+  registers a network-level HTTP mock, so the After-hook restores the default. They
+  appear in `status-gate.feature`, `home-services-cards.feature`,
+  `role-registration.feature`, `role-change-midsession.feature`,
+  `home-announcements.feature` and `notifications-bell-toast.feature`, and are
+  orthogonal to the cluster split.
 - The filter lives in `nightwatch.conf.js` (`test_runner.options.tags`), the
   Nightwatch/Cucumber equivalent of playwright-bdd's `defineBddConfig({
   tags })`. `npm run e2e` runs the default (`not @skip and not @cluster`)
