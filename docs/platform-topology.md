@@ -4,7 +4,7 @@ hugmesh.net ships as part of the platform's multi-tier topology:
 a platform gateway in front, Casdoor as the OAuth2 issuer, Cassandra for the
 gateway's revocation + URL-registry cache, and the Angular **native-federation
 host shell** (this repo) as the user-facing front door served behind the
-gateway. As of `main` this repo is itself a federation **host** mounting eleven
+gateway. As of `main` this repo is itself a federation **host** mounting thirteen
 remotes (see the [README](../README.md)) — it is no longer a monolithic
 single-page app.
 
@@ -13,8 +13,9 @@ an opaque `bff_` session — it never sees a Casdoor JWT. **user-bff** owns the
 login/OIDC endpoints and does the server-side code→token exchange; **admin-bff**
 owns the account/session **data** (and the encrypted-at-rest custody JWT); the
 gateway swaps the opaque `bff_` → an internal custody JWT pre-security, just
-before resource-server validation. The whole ensemble **ships dark** behind
-default-off flags, so a default deployment is byte-identical to today's. The
+before resource-server validation. The code **ships dark**: every flag in the
+ensemble defaults to off, so a default deployment is byte-identical to one without
+it. A deployment may switch the flags on. The
 [Auth flow](#auth-flow--bff-custody) section below is the canonical picture; this
 host only ever handles the opaque `bff_` (see the [README](../README.md) auth
 notes for the host-side handling).
@@ -27,7 +28,7 @@ flowchart TB
   browser --> gw
   subgraph gw["hugmesh-gateway / be-gateway :8080"]
     direction TB
-    g1["BffJwtExchangeWebFilter<br/>(bff_ to custody JWT, pre-security, fail-closed)"]
+    g1["BffCookieToBearerWebFilter + BffJwtExchangeWebFilter<br/>(bff_ cookie to bff_ Bearer, then bff_ to custody JWT, pre-security, fail-closed)"]
     g2["OAuth2 resource server (validates the swapped-in Casdoor JWT)"]
     g3["Cassandra-cached revocation list"]
     g4["Cassandra-cached URL registry"]
@@ -53,9 +54,12 @@ flowchart TB
 > client + JWT resource server for a self-contained demo.) The host actually
 > calls the role-BFF surface (`/bff/me`, `/bff/announcements/home`,
 > `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), and
-> the per-service `/bff/{wiki,tube,owncast}/**`) and the public federation API
-> (`/api/federation/{manifest,capabilities}`), always attaching the opaque `bff_`
-> as the Bearer (swapped to the custody JWT at the gateway).
+> the per-service `/bff/{wiki,tube,owncast}/**`) and the federation API
+> (`/api/federation/{manifest,capabilities}`). Every call carries the HttpOnly
+> `bff_` session cookie (`withCredentials` / `credentials: 'include'`) and **no**
+> `Authorization` header. The gateway's `BffCookieToBearerWebFilter` turns the
+> cookie into a `bff_` Bearer, and `BffJwtExchangeWebFilter` swaps that for the
+> custody JWT.
 
 ## Auth flow — BFF custody
 
@@ -83,7 +87,8 @@ sequenceDiagram
     UB->>AB: /bff/internal custody/stamp (encrypt) =&gt; stored in bff_session.*_enc
     UB-->>B: Set-Cookie bff_ (opaque) - browser NEVER sees the JWT
     Note over B,GW: subsequent requests carry the opaque bff_
-    B->>GW: Authorization Bearer bff_ (any /api or /bff route)
+    B->>GW: any /api or /bff route, bff_ session cookie (no Authorization header)
+    Note over GW: BffCookieToBearerWebFilter builds the bff_ Bearer from the cookie
     GW->>AB: /bff/internal/session/exchange (mTLS + X-Internal-Token)
     AB-->>GW: custody JWT (lazy-refresh near expiry, fail-closed)
     Note over GW: rewrite Authorization Bearer custody-jwt, THEN resource-server JWT validation + route-access/revocation/MFA
@@ -92,18 +97,20 @@ sequenceDiagram
 
 Invariants to hold onto:
 
-- The **browser holds only the opaque `bff_`** (in `localStorage` or an httpOnly
-  cookie) — it must never be treated as, or decoded as, a JWT.
+- The **browser holds only the opaque `bff_`**, in an HttpOnly cookie. The host's
+  `hug.session` mirror in `localStorage` carries identity and role claims and no
+  token. Nothing may treat the `bff_` as a JWT or decode it.
 - The **custody JWT is encrypted at rest** (AES-256-GCM via `BffCustodyCipher`) in
   `bff_session.*_enc` in admin-bff-db; the two BFF databases are mutually denied at
   the NetworkPolicy layer (user-bff reaches account/session data only over
   admin-bff `/bff/internal`, gated by mTLS + `X-Internal-Token`).
 - The **gateway swap is pre-security and fail-closed**: any exchange error ⇒ 401,
   and the raw `bff_` is never forwarded downstream.
-- The whole ensemble **ships dark** behind default-off flags
-  (`app.bff.oidc.enabled`, `app.bff.custody-key`, `app.session.cookie.enabled`,
-  `hugmesh.gateway.bff-exchange.enabled`, `__HUG_OIDC_ENABLED__`), so a default
-  deployment is byte-identical to today's.
+- The code **ships dark**: these flags default to off
+  (`app.bff.oidc.enabled`, `app.bff.custody-key` (blank by default),
+  `app.session.cookie.enabled`, `hugmesh.gateway.bff-exchange.enabled`,
+  `__HUG_OIDC_ENABLED__`), so a default deployment is byte-identical to one without
+  the ensemble. A deployment may switch them on.
 
 Component ownership: **hugmesh-auth-core** (shared jar) holds the stateful auth
 stack (`AccountStore`/`BffSession`, `OidcExchangeClient`, `BffCustodyCipher`,
@@ -119,13 +126,17 @@ username/password form + `POST /bff/login`.
 
 ### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-07-22)
 
+The class names and endpoints below were re-checked against `origin/main` on
+2026-10-07. The PR numbers of the earlier text are dropped: in admin-bff, #113 and
+#114 now name unrelated PRs merged on 2026-09-30.
+
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
 open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 
-- ✅ **shipped:** auth-core extracted + published — now at **2.4.0** (account/session/MFA +
-  the full custody seams: `BffSession` custody columns + `stampCustody`/`clearCustody`);
-  admin-bff **adopted auth-core** (PR #111, behavior-preserving, 1517 tests green);
-  admin-bff **`/bff/internal` account/session API** (PR #113, ships inert behind
+- ✅ **shipped:** auth-core extracted + published — `main` is at **2.5.1** (admin-bff
+  pins 2.5.0, user-bff 2.4.2; account/session/MFA + the full custody seams: `BffSession`
+  custody columns + `stampCustody`/`clearCustody`); admin-bff **adopted auth-core**;
+  admin-bff **`/bff/internal` account/session API** (ships inert behind
   `InternalTokenWebFilter`); the gateway is live with raw-API security proven and the
   SCG-5 route-namespace bug fixed.
 - ✅ **shipped (the SSO BFF-custody flow has since merged, all dark behind default-off
@@ -138,11 +149,12 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
   removed browser Casdoor OIDC + PKCE + `/login/callback` redirect — the browser
   never sees Casdoor; user-bff drives PKCE/state + the internal `/api/login` +
   exchange server-side); admin-bff **custody tail** (Liquibase band-180 `bff_session` custody
-  columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`, PR #114
-  auth-core 2.1.0 → since advanced to 2.4.0).
+  columns + `/bff/internal/custody/stamp` + `/bff/internal/session/exchange`;
+  auth-core 2.1.0, since advanced to 2.5.1).
 - ✅ **shipped:** generator **#156** (`app-user-bff` Casdoor OIDC client +
   PUBLIC `/bff/auth/callback` route seed — the callback route has since been retired
-  in favour of the native `/bff/login` model above) — merged 2026-06-20.
+  in favour of the native `/bff/login` model above) — merged 2026-06-20
+  (generator commit 912524b8).
 - 🔭 **planned / next:** a cross-repo **NetworkPolicy egress peer**
   user-bff → admin-bff internal `:8080`; **SSO end-to-end live e2e** (kind +
   Playwright, proving the browser holds only `bff_`).
@@ -154,7 +166,7 @@ open branch/PR, not yet merged · **🔭 planned** = design-complete, no code.
 | Gateway instance name | `hugmesh-id-gateway` |
 | Cassandra keyspace | `hugmesh_gateway` |
 | Casdoor organization | `hugmesh` |
-| Frontend stack | Angular native-federation host + 11 remotes (this repo) |
+| Frontend stack | Angular native-federation host + 13 remotes (this repo) |
 | Browser-held credential | opaque `bff_` session only — never a Casdoor JWT |
 | Token custody | user-bff exchanges code→token; admin-bff-db holds the encrypted custody JWT (`bff_session.*_enc`); gateway swaps `bff_`→JWT pre-security |
 | Identity-layer responsibility | domain-scoped `superadmin > admin > mod > user` cascade |
@@ -174,16 +186,19 @@ demo instance `hugmesh-id-gateway`).
 The platform's authoritative identity model is the domain-scoped least-privilege
 cascade **`superadmin > admin > mod > user`**, enforced at the gateway and the
 role BFFs (issuer-keyed `DOMAIN_<x>`) with per-domain namespace + mTLS isolation as
-the cross-domain boundary. This host's `SessionService` recognises exactly those
-roles (`isSuperadmin`/`isAdmin`/`isMod` + the baseline user; `role()` precedence
-`admin > mod > user` drives the role-home redirect), plus per-service sub-roles
-like `ROLE_WIKI`/`ROLE_TUBE`/`ROLE_OWNCAST`.
+the cross-domain boundary. This host's `SessionService` recognises those
+roles (`isSuperadmin`/`isAdmin`/`isMod` + the baseline user). `isMod` is also true for
+`admin` and `superadmin`. It also reads per-service sub-roles
+like `ROLE_WIKI`/`ROLE_TUBE`/`ROLE_OWNCAST`/`ROLE_GAMES`. `role()` (precedence
+`admin > mod > user`) now serves only as the signed-in check: the default route
+sends every signed-in user to `/user`, and the consoles sit one click away in the menu.
 
 ### Cross-stack role-join: `game-master → games admin` (optional games service)
 
 The games studio is a **separate, optional, opt-in** service — **off by default**
 in the build, enabled with `--enable-games` / `ENABLE_GAMES=true` (generator
-PR #112), and the `games.<domain>` subdomain is only baked when games is enabled.
+`brand.conf.example`), and the `games.<domain>` subdomain is only baked when games
+is enabled (`build-rpi5-stage4.sh`).
 It is not part of the default build.
 
 When games **is** enabled, a domain `admin`/`superadmin` who additionally holds the
@@ -226,7 +241,7 @@ root + key and emits the per-service intermediates signed by it.
 > This section is historical. The repo originally shipped a single nginx serving
 > the Angular bundle on port 8080 with **no auth gate**, fronted by the gateway. That
 > migration is **done**: on `main` the host has real route guards
-> (`adminGuard`/`modGuard`/`userGuard`/`registeredGuard`/`wikiGuard`/`tubeGuard`/`owncastGuard`),
+> (`adminGuard`/`modGuard`/`userGuard`/`registeredGuard`/`forumGuard`/`wikiGuard`/`tubeGuard`/`owncastGuard`/`gamesGuard`/`gamesAdminGuard`),
 > calls the role BFFs (`/bff/me`, `/bff/announcements/home`,
 > `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), per-service `/bff/{wiki,tube,owncast}/**`) and the
 > public federation API
