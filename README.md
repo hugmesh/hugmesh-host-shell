@@ -6,11 +6,11 @@ chrome (header / menu / footer / background, the accessible skip-link and the
 shared profile modal), the authgate, the universal navigation, and the
 role-home routing. It **exposes nothing** of its own feature surface — every
 page under it is a separate repo loaded at runtime as a **native-federation
-remote**. ✅ On `main` it mounts **eleven** remotes via the data-driven
+remote**. ✅ On `main` it mounts **thirteen** remotes via the data-driven
 `REMOTE_ROUTES` table: login, user, mod, admin, api-docs, matrix, mastodon, plus
 the **optional** services wiki, forum, tube and owncast (tube/owncast are
 default-off and GPU-gated; all four grey out via federation install-state when
-absent).
+absent), plus the two character remotes, character-studio and character-forge.
 
 In the platform's two service tiers this sits in the **architecture tier**
 (core, always present) alongside the gateways, Casdoor + PKI, and the
@@ -24,44 +24,52 @@ remotes.
 
 ✅ Shipped on `main` today:
 
-- **Eleven remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven
+- **Thirteen remotes** mounted via the data-driven `REMOTE_ROUTES` table — seven
   core (login/user/mod/admin/api-docs/matrix/mastodon) always present, four
   optional (wiki/forum/tube/owncast) that grey out via federation install-state
-  when the service is absent.
+  when the service is absent, and two character remotes
+  (character-studio/character-forge) behind `registeredGuard`.
 - **Dynamic-first federation** — `resolveFederationSource()` reads the DB-driven
   manifest `GET /api/federation/manifest` and unions it over the bundled static
   floor, falling back to the static manifest on any failure so the shell always
-  boots (PR #78).
+  boots (commit 5a542bc; "PR #78" in the repo's earlier tracker). The remotes are
+  then **deferred**: `bootFederation()` passes `initFederation` an empty eager set
+  (`EAGER_REMOTES`) and parks every remote's `remoteEntry.json` URL.
+  `federationLoader` (`src/app/federation/remote-loader.ts`) fetches an entry the
+  first time a route guard admits the user to it, so a logged-out boot does not
+  request the gated remotes.
 - **Authgate + role-home routing + universal nav + profile modal**, plus the
   **home announcements banner** (sandboxed `srcdoc` iframe, dismiss-once),
   **capabilities / graceful-degrade** install-state grey-out, the **home-services
   launcher**, the **account-status appeal-gate** banner, and the **notification
-  bell** with an unread-count badge in the menu's account region (PR #101), plus
+  bell** with an unread-count badge in the header's control cluster (commit eb0fbf0; "PR #101" in the earlier tracker), plus
   a **real-time SSE notification toast** consuming
   `/bff/user/notifications/events` for push delivery alongside the bell's poll.
 - A single `bearerInterceptor` Bearer/credentials seam and an accessibility
   baseline (skip-link, ARIA menubar, modal-dialog contract).
-- **HTTP security headers + strong nonce-CSP** on the SPA's nginx (PR #100, PR
-  #110) — emitted with `always` so they cover error responses too:
+- **HTTP security headers + strong nonce-CSP** on the SPA's nginx (commits ddca7b1
+  and 90e1608; "PR #100" and "PR #110" in the earlier tracker) — emitted with `always` so they cover error responses too:
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: strict-origin-when-cross-origin`, HSTS
   (`max-age=31536000; includeSubDomains`), and a strict nonce-based
-  `Content-Security-Policy` (`script-src 'self' 'nonce-$cspnonce' blob:`, no
-  `'unsafe-inline'`/`'unsafe-hashes'`) — `angular.json`'s prod build disables
+  `Content-Security-Policy` (`script-src 'self' 'nonce-$cspnonce' blob: 'wasm-unsafe-eval'`, no
+  `'unsafe-inline'`/`'unsafe-hashes'`; `media-src 'self' blob:`) — `angular.json`'s prod build disables
   `inlineCritical` so no inline `<style>`/`onload=` critical-CSS preloader ships,
   and `nginx.conf` rewrites every `<script` tag with a fresh per-request nonce
   (`sub_filter`) that es-module-shims propagates onto the dynamic remote-entry
   scripts it injects, so module-federation bootstrap keeps working under the
-  strict policy. `style-src` still keeps `'unsafe-inline'` (Angular's inline
-  component styles); COEP/COOP/CORP and a stricter Permissions-Policy remain
+  strict policy. `'wasm-unsafe-eval'` allows WebAssembly compilation only, not
+  `eval()`; the character-forge remote's Godot web export needs it, because the
+  document's policy governs every mounted remote. `style-src` still keeps
+  `'unsafe-inline'` (Angular's inline component styles); COEP/COOP/CORP and a stricter Permissions-Policy remain
   deferred.
 - ✅ **Real-time notification toast** — `NotificationToastService` opens a
   cookie-auth SSE stream to `/bff/user/notifications/events` (authenticated
   users only, via `effect()` in `AppComponent`). Up to 3 toast cards appear at
-  fixed bottom-right, each auto-dismissed after 4 s, with `aria-live="polite"`
+  fixed at the top, inline-end corner (upper right in LTR), each auto-dismissed after 4 s, with `aria-live="polite"`
   region. Uses native `fetch({credentials:'include'})+ReadableStream+TextDecoder`
   (not `EventSource`) so the HttpOnly `bff_` session cookie is sent — the
-  browser holds no bearer token at all post-cookie-migration (PR #104).
+  browser holds no bearer token at all post-cookie-migration (commit ffa160a; "PR #104" in the earlier tracker).
   **Bug fix (notifications-v1):** the SSE line parser originally required an
   exact `"data: "` prefix (with a space); Spring WebFlux's
   `ServerSentEventHttpMessageWriter` (verified against the exact
@@ -69,17 +77,18 @@ remotes.
   space before the JSON payload, so the toast never fired against a live
   user-bff despite reading as fully shipped. Now parses SSE fields per spec
   (split on first colon, strip at most one optional leading space).
-- ✅ **Session hydrate-on-bootstrap** (PR #143) — `SessionService.hydrate()` GETs
+- ✅ **Session hydrate-on-bootstrap** (commit a93d885; "PR #143" in the earlier tracker) — `SessionService.hydrate()` GETs
   the authoritative `/bff/session` on construction and again on every
-  same-document `snap-session-change` broadcast, refreshing the **in-memory**
+  same-document `hug-session-change` broadcast, refreshing the **in-memory**
   session signal only (never the `localStorage` mirror, never a rebroadcast —
   login-ui owns the persisted mirror; a host write would ping-pong). This closes
   the gap where a role granted/revoked **mid-session** — or a true cookie-only
   session with no mirror at all — wouldn't show up in the host's nav/guards
   until a re-login. Any hydrate failure (network error, non-2xx incl. `401`, an
-  unusable body) falls back to the existing `localStorage` read, so an
-  e2e/mock-stack-seeded session is never clobbered.
-- ✅ **Games entry-point + derived Games Admin** (Phase 8/10, PR #120) — `/games`
+  unusable body — including a 200 whose `roles` array is missing) falls back to the
+  existing `localStorage` read, so an e2e/mock-stack-seeded session is never
+  clobbered. An empty `roles` array is honoured as a revocation.
+- ✅ **Games entry-point + derived Games Admin** (Phase 8/10, commit f0b74d2; "PR #120" in the earlier tracker) — `/games`
   and `/games/admin` are host-owned, **guarded local placeholder** routes, not
   yet federated remotes: `gamesGuard` admits any `ROLE_GAMES` holder (plus
   admin/superadmin) to the entry-point; `gamesAdminGuard` admits only the
@@ -124,8 +133,8 @@ localStorage-token design; httpOnly-cookie custody is the shipped model.)
 **Ecosystem baseline.** The Java services this host talks to (gateways, federation
 API, role BFFs) run **Spring Boot 4.0.7 / Spring Cloud 2025.1.2** on **Java 25 LTS**,
 built on the shared Maven artifacts `hugmesh-parent` (metapom 2.8.0),
-`hugmesh-commons` (2.1.0) and `hugmesh-auth-core` (2.4.0, consumed by
-user-bff + admin-bff). Spring Cloud
+`hugmesh-commons` (2.1.0) and `hugmesh-auth-core` (2.5.1 on `main`; admin-bff
+pins 2.5.0, user-bff 2.4.2). Spring Cloud
 Gateway 5.0 moved route config to `spring.cloud.gateway.server.webflux.routes`
 (the legacy `spring.cloud.gateway.routes` prefix silently binds nothing); all
 gateways + generator route templates were corrected, so the prod federation
@@ -137,7 +146,9 @@ manifest's gateway-served remote paths bind as intended.
   unguarded routes (`src/app/about/`, `src/app/home/`) and build/render fine,
   but no nav link anywhere points at either — the menu's "Home" entry routes to
   `/` (the authgate/role-home redirect), not `/home`, and nothing links `/about`
-  at all; both are reachable only by typing the URL directly. `AboutComponent`
+  at all; both are reachable only by typing the URL directly, except that
+  `/home?denied=<path>` is also where a signed-in user lands after a role guard
+  refuses them (the `denied-notice` component explains the refusal). `AboutComponent`
   now renders real HugMesh platform copy (the old "Example Question?" /
   "Example Paragraph" placeholder text is gone); only the missing-nav-link part
   of this gap remains, which is a product/content call (wiring a visible link
@@ -186,8 +197,14 @@ manifest's gateway-served remote paths bind as intended.
   anonymous pre-login caller gets from the `authenticated()` endpoint, or
   network/5xx/parse/empty — it falls back to the **bundled static manifest**
   (`src/assets/federation.manifest{,.prod}.json`) so the shell always boots. The
-  resolved value is fed to `initFederation(...)`, which maps each remote name →
-  `remoteEntry.json` before bootstrap. Routing is **path-based** (no hash) so the
+  resolved map is then split by `bootFederation()`
+  (`src/app/federation/federation-boot.ts`): `EAGER_REMOTES` is empty, so
+  `initFederation({})` runs with no remotes and every remote name →
+  `remoteEntry.json` URL is parked in `remote-loader.ts`. Each remote is initialized
+  on first use by `federationLoader.load(...)`, which every route's `loadChildren`
+  and the profile modal call. A dynamic row whose URL this browser cannot fetch (a
+  cluster-internal address such as `http://admin:8080/...`) is dropped, so it never
+  overrides a working floor entry. Routing is **path-based** (no hash) so the
   host's paths line up with the fe-gateway prefixes and each remote's nginx.
 
 The host keeps the original static marketing pages (`/home`, `/about`) as
@@ -309,6 +326,7 @@ flowchart LR
   fe --> host["hugmesh.net<br/>(this host)"]
   host -->|"loadRemoteModule(...)"| core["login · user · mod · admin<br/>api-docs · matrix · mastodon"]
   host -.->|"loadRemoteModule(...) — optional"| opt["wiki · forum · tube · owncast<br/>(tube/owncast default-off / GPU-gated)"]
+  host -->|"loadRemoteModule(...) — registered users"| chars["character-studio · character-forge"]
   fe --> be["be-gateway (bff_ → JWT swap + gateway_route_access)"]
   be --> ubff["user-bff (Casdoor OIDC token custody/refresh)"]
   be --> bff["role BFFs (/bff/*)"]
@@ -322,15 +340,18 @@ flowchart LR
 The seven core remotes (login/user/mod/admin/api-docs/matrix/mastodon) are always
 mounted; the four optional remotes (wiki/forum/tube/owncast, dashed) are mounted
 but **greyed-out via federation install-state** when the service is not deployed —
-see *Capabilities / graceful degrade* below.
+see *Capabilities / graceful degrade* below. The two character remotes
+(character-studio/character-forge) are mounted behind `registeredGuard`.
 
 - **Gateways:** the host is the fe-gateway `/**` catch-all upstream. Its in-app
   paths (`/login`, `/social/matrix`, `/social/mastodon`, `/admin`, `/mod`,
   `/user`, `/admin/docs`) mirror the gateway path prefixes, and the **prod**
   federation manifest (`federation.manifest.prod.json`) points each remote at
   those same gateway-served paths (`/login/remoteEntry.json`, …). The be-gateway
-  is a pure Casdoor-JWT resource server: a pre-security filter swaps the opaque
-  `bff_` session reference → the internal custody JWT, and `GatewayRouteAccessFilter`
+  is a pure Casdoor-JWT resource server: pre-security filters turn the `bff_` session
+  cookie into a `bff_` Bearer (`BffCookieToBearerWebFilter`) and swap that opaque
+  reference → the internal custody JWT (`BffJwtExchangeWebFilter`; both default
+  off behind `hugmesh.gateway.bff-exchange.enabled`), and `GatewayRouteAccessFilter`
   enforces the data-driven `gateway_route_access` table.
 - **Casdoor / session:** the host does **not** speak OAuth itself, and **never
   holds a Casdoor JWT**. The login remote presents a **native username/password
@@ -345,8 +366,8 @@ see *Capabilities / graceful degrade* below.
   (`src/app/session.service.ts`) reads it, seeded synchronously from that
   mirror (no anonymous flash) then confirmed/refreshed via
   `hydrate()` — a cookie-carrying `GET /bff/session` fired on bootstrap and
-  again on every same-document `snap-session-change` broadcast, so a role
-  granted/revoked **mid-session** is picked up without a re-login (PR #143).
+  again on every same-document `hug-session-change` broadcast, so a role
+  granted/revoked **mid-session** is picked up without a re-login (commit a93d885).
   `hydrate()` updates the in-memory signal only — it never writes the
   `localStorage` mirror and never broadcasts (login-ui owns the persisted
   mirror) — and falls back to the last mirror read on any failure (network
@@ -368,8 +389,11 @@ see *Capabilities / graceful degrade* below.
 - **Federation:** ✅ routes are loaded from remotes via `loadRemoteModule` —
   see `REMOTE_ROUTES` in `src/app/app.routes.ts`, the single declarative table
   of `path → remote name → exposed module → exported routes constant → guard`.
-  The role-home remotes expose `./routes`; the wiki/tube/owncast remotes expose
-  `./Wiki` / `./Tube` / `./Owncast` respectively.
+  The role-home, forum and character remotes expose `./routes`; the wiki/tube/owncast
+  remotes expose `./Wiki` / `./Tube` / `./Owncast` respectively. A remote's manifest
+  key must equal the `name` in its own `remoteEntry.json` (the character remotes are
+  kebab-case, `character-studio` / `character-forge`), or `loadRemoteModule` throws
+  "Remote ... is not initialized" with no failed request to point at (commit e289236).
 - **Multi-tenancy:** this repo is brand-agnostic. Per-brand instances are
   provisioned from a handlebars-rendered repo (ArgoCD-reconciled), each pointed
   at its own gateway / Casdoor issuer / remote manifest. Domain scoping is
@@ -390,12 +414,14 @@ remotes — see the note below the table.
 |---|---|---|---|
 | `/login` | `login` (`hugmesh-login-ui`) | — | public (native username/password (+MFA) login + registration flow — POSTs to `/bff/login`; Casdoor is internal-only, no browser redirect) |
 | `/user` | `user` (`hugmesh-user-ui`) | `userGuard` | any authenticated identity (the USER role-home; also exposes `./profile`) |
-| `/mod` | `mod` (`hugmesh-mod-ui`) | `modGuard` | Casdoor `mod` role |
+| `/mod` | `mod` (`hugmesh-mod-ui`) | `modGuard` | `mod`, `admin` or `superadmin` (`isMod()` includes the admin tier) |
 | `/admin` | `admin` (`hugmesh-admin-ui`) | `adminGuard` | Casdoor `admin` role |
 | `/admin/docs` | `apidocs` (`hugmesh-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
 | `/social/matrix` | `matrix` (`hugmesh-matrix-ui`) | `registeredGuard` | requires full registration |
 | `/social/mastodon` | `mastodon` (`hugmesh-mastodon-ui`) | `registeredGuard` | requires full registration |
 | `/social/forum` | `forum` (`hugmesh-forum-ui`) | `forumGuard` | any authenticated identity — reuses our native federated identity directly, so (unlike matrix/mastodon) no per-service registration is required |
+| `/character-studio` | `character-studio` (`hugmesh-character-studio-ui`) | `registeredGuard` | requires full registration; no per-service role (the gateway admits any `ROLE_USER`) |
+| `/character-forge` | `character-forge` (`hugmesh-character-forge-bff-api` frontend) | `registeredGuard` | requires full registration; no per-service role |
 | `/wiki` | `wiki` (`hugmesh-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
 | `/tube` | `tube` (`hugmesh-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
 | `/owncast` | `owncast` (`hugmesh-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
@@ -412,23 +438,30 @@ entry and add `games` to the federation manifest — see the `TODO(games-ui)` /
 
 Guards live in `src/app/guards/` and read `SessionService`:
 
-- **`roleHomeGuard`** — the default `''` route is a pure **authgate + role
-  redirect**, no component of its own: anonymous → `/login`, otherwise → the
-  signed-in user's role-home (`/admin` ▸ `/mod` ▸ `/user`). Role precedence
-  `admin > mod > user` is computed in `SessionService.role()`.
-- **`adminGuard` / `modGuard`** — gate `/admin` (+ `/admin/docs`) and `/mod` on
-  the matching Casdoor role; everyone else is bounced to `/login`.
+- **`roleHomeGuard`** — the default `''` route is a pure **authgate + redirect**,
+  no component of its own: anonymous → `/login`, suspended/banned →
+  `/login/appeal`, every other signed-in user → `/user` (the member home), whatever
+  the role. The admin and moderation consoles are one click away in the menu
+  (issue #19). `SessionService.role()` (`admin > mod > user`) is read only as the
+  signed-in check.
+- **The shared `roleGuard` factory** (`src/app/guards/role-guard.factory.ts`) builds
+  every guard below except `roleHomeGuard`. An anonymous visitor goes to `/login`; a
+  signed-in caller who lacks the role lands on `/home?denied=<attempted path>`,
+  where `denied-notice` names the refused console.
+- **`adminGuard` / `modGuard`** — gate `/admin` (+ `/admin/docs`) on the `admin`
+  role and `/mod` on `isMod()` (`mod`, `admin` or `superadmin`).
 - **`userGuard`** — every authenticated identity is a baseline `ROLE_USER`, so
   this only blocks anonymous visitors.
-- **`registeredGuard`** — Matrix/Mastodon are usable only after the login
-  remote mints the per-service tokens (`registrationComplete === true`).
+- **`registeredGuard`** — Matrix, Mastodon and the two character remotes are
+  usable only after the login remote mints the per-service tokens
+  (`registrationComplete === true`).
 - **`forumGuard`** — gates `/social/forum` on any **authenticated** identity
   (not `registeredGuard`): the forum reuses our native federated identity
   directly, so there is no per-service registration step to complete first —
   matching the home-services `forum` card (slug-gated only, no
   `requiresRegistration` / `requiresRole`).
 - **`wikiGuard`** — admits `admin`/`superadmin`, or a `mod` who also holds the
-  per-service `ROLE_WIKI`; everyone else is bounced to `/login`. The wiki
+  per-service `ROLE_WIKI`; everyone else is refused. The wiki
   remote's own child guards then enforce the per-view `WIKI_READ`/`WRITE`/`MANAGE`
   boundary, and the BFF (`/bff/wiki/**` → `ROLE_WIKI`) is the real authorization.
 - **`tubeGuard`** — admits `admin`/`superadmin`, or any identity holding
@@ -450,23 +483,30 @@ Guards live in `src/app/guards/` and read `SessionService`:
   materialized by `games-admin-sync-job`). A bare `ROLE_GAMES` or a bare
   `ROLE_ADMIN`/`ROLE_MOD` alone does **not** earn it: signed in, they land on
   `/home?denied=/games/admin`. Gates the local `/games/admin` placeholder route.
-  Both games guards are built from the shared `roleGuard` factory
-  (`src/app/guards/role-guard.factory.ts`) like the other console mounts and
-  share its redirect contract: a signed-out visitor is sent to `/login`; a
-  signed-in caller who lacks the role lands on `/home?denied=<attempted path>`,
-  where `denied-notice` (`src/app/home/denied-notice.component.ts`) names the
-  refused console. Until issue #88 these two guards answered both failures with
-  `/login`, telling a signed-in moderator they were signed out.
+  Both games guards use the shared `roleGuard` factory and its redirect contract
+  (`denied-notice` is `src/app/home/denied-notice.component.ts`). Until issue #88
+  these two guards answered both failures with `/login`, telling a signed-in
+  moderator they were signed out.
 
 Client-side guards are UX only; the gateway's `gateway_route_access` table +
 `GatewayRouteAccessFilter` and each BFF's role checks are the real authorization
 boundary.
 
 The **menu** (`src/app/menu/menu.component.ts`) mirrors these gates in the
-chrome: a universal `Home | Mastodon | Matrix` menubar (Mastodon/Matrix
-visible-but-disabled until fully registered) plus a profile dropdown whose
-**Admin**, **API docs** and **Moderation** entries show only for the matching
-role. The **profile modal** (`src/app/profile-modal/`) lazy-loads the user
+chrome. The menubar lists `Home`, then — for signed-in users — `Mastodon`, `Matrix`
+and `Forum` (visible-but-disabled, with a reason, until installed and, for
+Mastodon/Matrix, until fully registered), then `Admin` and `Moderation` for the
+matching role. While an admin or mod console is the active route, a submenu under
+the bar lists that console's sections. A reload button sits beside the menubar and
+refreshes the current view. The bar unmounts on the login page when nobody is
+signed in; on the signed-in home (`/user`) the menu renders service cards in its place.
+The header's control cluster (`src/app/header/header-controls.component.*`) holds the
+animation toggle, a **menubar-mode toggle** (`static`, the default, or `auto`, which
+shows the bar only while announcements or unread notifications exist; stored under
+`hug.shell.menubar`), the notification bell, and the profile dropdown. The dropdown
+shows **Profile**, then **Admin**, **API docs**, **Moderation**, **Wiki**, **Owncast**,
+**Tube**, **Games Admin**, **Character Studio** and **Character Forge** where the
+session passes each gate, then **Sign out**. The **profile modal** (`src/app/profile-modal/`) lazy-loads the user
 remote's `./profile` editor via `loadRemoteModule('user', './profile')` and
 applies the locked accessible-dialog contract (focus move/restore, focus trap,
 Escape/backdrop dismiss).
@@ -482,7 +522,7 @@ cross-cutting surface:
 - **Home announcements banner** (`src/app/announcements/`) — the logged-in home
   top banner. `AnnouncementsService` GETs the same-origin admin-bff endpoint
   **`/bff/announcements/home`** (routed `/bff/*` → BFF by the id-gateway, with
-  the opaque `bff_` session cookie/Bearer), renders only active, home-targeted
+  the HttpOnly `bff_` session cookie), renders only active, home-targeted
   announcements in server-supplied priority order, and supports **dismiss-once**
   (persisted to `localStorage`). Each announcement's server-sanitized `body_html`
   is rendered inside a **sandboxed null-origin `srcdoc` iframe** (no
@@ -493,8 +533,8 @@ cross-cutting surface:
   `GET /api/federation/capabilities` (works anonymously; an unknown/failed read
   reports "nothing installed" rather than a dead link). The single predicate
   `installed(slug)` is consumed by the menu and the home-services cards so that
-  absent/disabled **optional** services (matrix/mastodon/forum/games/tube/owncast/
-  wiki) are **greyed-out with explain-why helptext**, never silently hidden.
+  absent/disabled **optional** services (matrix/mastodon/forum in the menu;
+  matrix/mastodon/forum/games/tube/owncast in the home-services cards) are **greyed-out with explain-why helptext**, never silently hidden.
 - **Home-services launcher** ✅ (`src/app/home-services/`) — a data-driven,
   role + install-state-gated launcher-card grid mounted on the home page
   (`<div home-services>`). The `CARD_CATALOG` covers the optional services
@@ -518,9 +558,9 @@ cross-cutting surface:
   **shipped** on the login remote, rendering appeal instructions + a `mailto:`
   resolved from the permitAll admin-bff `GET /bff/public/appeal-contact`.
   `AccountStatusService` also syncs the `/bff/me` status into the shared
-  `snap.session` (`SnapSession.status`), and `roleHomeGuard` short-circuits a
+  `hug.session` (`SnapSession.status`), and `roleHomeGuard` short-circuits a
   suspended/banned session to `/login/appeal` BEFORE the role-home redirect.
-- **Notification bell** ✅ (`src/app/bell/`) — the menu's account region shows a
+- **Notification bell** ✅ (`src/app/bell/`) — the header's control cluster shows a
   bell button (authenticated users only) with an unread-count badge.
   `BellNotificationsService` polls the same-origin BFF endpoint
   **`/bff/user/notifications`** every 60 s (from `timer(0, 60_000)`, fail-soft to
@@ -534,7 +574,9 @@ cross-cutting surface:
   (`credentials: 'include'`) server-sent-events stream to
   **`/bff/user/notifications/events`** when logged in (via an `effect()` watching
   `session.loggedIn()`) and renders a capped (3), auto-dismissing (4 s),
-  `aria-live="polite"` toast queue as each `data:` frame arrives. Uses native
+  `aria-live="polite"` toast queue as each `data:` frame arrives. It re-publishes
+  each frame on `window` as a `hug:sse-notification` event, so mounted remotes need
+  not open their own streams. Uses native
   `fetch()`+`ReadableStream`+`TextDecoder` rather than `EventSource` — the
   HttpOnly `bff_` session cookie is what authenticates, and `EventSource` offers
   no way to guarantee `credentials: 'include'` semantics consistent with this
@@ -554,12 +596,13 @@ cross-cutting surface:
 ## Build, deploy, CI
 
 - **Local dev:** `npm run start-dev` (`ng serve`). The dev federation manifest
-  (`federation.manifest.json`) points each remote at a `localhost:420x` port;
-  run the remotes you need alongside the host.
+  (`federation.manifest.json`) lists seven remotes (login, matrix, mastodon, admin,
+  mod, user, apidocs) at `localhost:420x` ports; run the remotes you need alongside
+  the host. The other remotes come from the dynamic manifest or the prod manifest.
 - **Full stack:** `docker compose up -d` brings up the
   **hugmesh-id-gateway** (Spring Cloud Gateway 5 — Casdoor-JWT OAuth2
-  resource server with the `bff_` → custody-JWT pre-security swap and the
-  `gateway_route_access` route gate) in front of this frontend, plus **Casdoor**
+  resource server with the `gateway_route_access` route gate; the compose file sets
+  no `bff-exchange` flag, so the `bff_` → custody-JWT swap stays off there) in front of this frontend, plus **Casdoor**
   (issuer) and the gateway's backing store for its revocation / URL-registry /
   resource-access state. The frontend is not exposed directly — the gateway is
   the public entry point. See
@@ -572,18 +615,24 @@ cross-cutting surface:
   in-cluster GitLab, which builds + pushes this service's image to the
   in-cluster registry on push of the default branch / a tag. **No keys ship in
   the image** — key material is supplied from the operator key-USB at first
-  boot. The image build/deploy pipeline itself stays on GitLab as above, but
-  this repo also runs a real **GitHub Actions** workflow now:
+  boot. This repo also runs two **GitHub Actions** workflows:
   [`.github/workflows/coverage.yml`](.github/workflows/coverage.yml) ("Code
-  Coverage") runs `npm run-script coverage` on push/PR to `main`/`release/*`
-  and publishes JUnit results via `EnricoMi/publish-unit-test-result-action`.
+  Coverage") runs on push/PR to `main`/`release/*`: the theme-token contract gate,
+  the native-federation single-copy gate, `npm run-script coverage`, the Karma
+  viewport gate and the production build, then publishes JUnit results via
+  `EnricoMi/publish-unit-test-result-action`.
+  [`.github/workflows/release.yml`](.github/workflows/release.yml) ("Release") is
+  manual (`workflow_dispatch`): it builds the image and pushes it to
+  `ghcr.io/hugmesh/hugmesh-host-shell` under the given tag (default: the short
+  commit SHA) and `latest`.
 
 | Script | What |
 |---|---|
 | `npm run start-dev` | `ng serve` dev server |
 | `npm run build` | production bundle (`public/hugmesh.net/browser`) |
 | `npm test` / `npm run coverage` | Karma/Jasmine unit tests (+ coverage) |
-| `npm run e2e` | Nightwatch e2e (role authgate / nav / profile-modal suites) |
+| `npm run e2e` / `e2e:integration` / `e2e:nginx` | Nightwatch e2e: the offline subset / the `@cluster` subset / against the built image (see [`e2e/README.md`](e2e/README.md)) |
+| `npm run check:theme-tokens` / `check:karma-viewport` | the theme-token contract gate / the Karma viewport gate |
 | `npm run dockerBuild` / `dockerRun` | build + run the container image |
 
 ---
@@ -592,21 +641,25 @@ cross-cutting surface:
 
 ```
 src/app/
-  app.routes.ts            REMOTE_ROUTES table (11 remotes) + authgate/role-home + federationLoader
+  app.routes.ts            REMOTE_ROUTES table (13 remotes) + authgate/role-home + federationLoader (re-export)
   session.service.ts       hug.session reader (id/roles/registrationComplete/status — identity claims, no token field); role precedence (admin>mod>user) + registration gate
-  guards/                  roleHome · admin · mod · user · registration · wiki · tube · owncast
+  guards/                  roleHome · admin · mod · user · registration · forum · wiki · tube · owncast · games · games-admin (+ role-guard.factory)
   federation/federation-bootstrap.ts  dynamic-first /api/federation/manifest + static-floor union/fallback
+  federation/federation-boot.ts       bootFederation(): split the manifest, EAGER_REMOTES is empty
+  federation/remote-loader.ts         federationLoader: initializes a deferred remote on first use
   http/bearer.interceptor.ts          withCredentials always, no Authorization header (HttpOnly bff_ cookie seam; gateway swaps cookie → JWT server-side)
   capabilities/            CapabilitiesService — public /api/federation/capabilities install-state (grey-out)
   home-services/           data-driven launcher-card catalog (CardState: enabled/absent/role/registration)
   account-status/          StatusGateComponent — /bff/me suspended/banned appeal-gate banner (fail-open)
   bell/                    BellNotificationsService — /bff/user/notifications 60s poll → unread-count badge
   notification-toast.service.ts / .component.ts   NotificationToastService — cookie-auth SSE /bff/user/notifications/events, capped (3) auto-dismiss (4s) aria-live toast queue
-  menu/                    universal nav + role-gated profile dropdown (a11y menubar) + notification bell
+  menu/                    menubar (a11y), admin/mod section submenu, reload button, menubar-mode service
   profile-modal/           host modal mounting the user remote's ./profile editor
   announcements/           /bff/announcements/home banner (sandboxed srcdoc, dismiss-once)
-  header/ footer/ background/ home/ about/   chrome + public marketing pages
-src/main.ts                resolveFederationSource() → initFederation(source) → ./bootstrap
+  header/                  wordmark + header-controls (animation and menubar-mode toggles, bell, profile dropdown)
+  chrome/                  chrome-token reads (--sd-header-* / --sd-footer-*)
+  footer/ background/ home/ about/   chrome + public marketing pages
+src/main.ts                bootFederation() (resolve manifest → park remotes → initFederation({})) → ./bootstrap
 src/assets/federation.manifest{,.prod}.json  static FLOOR + fallback (remote name → remoteEntry URL)
 federation.config.js + federation-base.js    host federation config (consumer; shared-deps surface)
 ```
@@ -617,7 +670,8 @@ Gateways `hugmesh-gateway` / `hugmesh-pki-gateway` (Casdoor-JWT resource
 servers, `bff_` → JWT swap + `gateway_route_access`) · identity **Casdoor** ·
 federation `hugmesh-federation-api` + `hugmesh-remote-fragment` · the
 remotes `hugmesh-{login,user,mod,admin}-ui`, `hugmesh-{matrix,mastodon,forum}-ui`,
-`hugmesh-{wiki,tube,owncast}-ui`, `hugmesh-api-docs` · role BFFs
+`hugmesh-{wiki,tube,owncast}-ui`, `hugmesh-api-docs`, `hugmesh-character-studio-ui`,
+`hugmesh-character-forge-bff-api` (serves the character-forge frontend) · role BFFs
 `hugmesh-{user,mod,admin,wiki}-bff-api` (**user-bff** owns the Casdoor OIDC
 code→token exchange + per-session JWT custody/refresh; login/session/account
 logic is being relocated admin-bff → user-bff) · shared Maven artifacts
@@ -650,17 +704,24 @@ today.
   notification bell (`/bff/user/notifications` unread-count badge);
   external-channel prefs/silencing are future.
 - 🚧 **Workload Console (in-flight).** A podman/OpenShift-like
-  pod-management + live-log + exec federated admin-ui module that would appear as
-  a future remote/route resolved through this host's dynamic manifest. **Not in
-  `REMOTE_ROUTES` today.**
+  pod-management + live-log + exec console. It lives inside the admin remote
+  (`/admin/workloads`, behind `workloadConsoleGuard` in hugmesh-admin-ui
+  `src/app/admin.routes.ts`), not as a remote of its own. **Not in `REMOTE_ROUTES`**,
+  and this host's admin submenu leaves it out on purpose until a server probe
+  confirms it.
 - 🔭 **Desktop app governance (design + queued).** SSO-enforced sudo + admin-curated
-  Plasma Discover store + user install-requests + in-UI SSH terminal; any
-  host-side launcher entry is future.
+  Plasma Discover store + user install-requests + in-UI SSH terminal. The admin
+  remote already routes `/admin/desktop` and the host's admin submenu lists
+  "Desktop governance"; how much of the rest exists is unverified here.
 - 🔭 **Encrypted versioned backups (design + queued).** Per-domain + superadmin
-  Velero + kopia/restic backups with step-up-gated restore.
+  Velero + kopia/restic backups with step-up-gated restore. The admin remote has
+  `/admin/backup` and `/admin/backups` routes; the restore flow is unverified here.
 - 🔭 **Egress VPN / per-node attached storage / device-license registry
   (design + queued).** WireGuard/OpenVPN .conf drop-in egress; admin-attached
-  per-node storage; per-device SSH operate-licenses.
+  per-node storage; per-device SSH operate-licenses. The admin remote already
+  routes `/admin/egress-vpn` (superadmin), `/admin/node-storage` and
+  `/admin/device-licenses` (superadmin); how much of the back end exists is
+  unverified here.
 - 🔭 **A/V via coturn / TURN.** Matrix/Owncast audio-video is currently LAN-only
   (no TURN/SFU); a coturn relay optional-service is roadmap.
 - 🚧 **Superadmin app-store — TAILNET-ONLY federated remotes.** The data layer is
