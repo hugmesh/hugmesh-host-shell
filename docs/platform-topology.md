@@ -124,10 +124,11 @@ Component ownership:
   route seed.
 - **login-ui** owns the native username/password form and `POST /bff/login`.
 
-### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-10-07)
+### SSO progress (✅ shipped · 🚧 in-flight · 🔭 planned, as of 2026-07-22)
 
-The class names and endpoints below were re-checked against `origin/main` on
-2026-10-07. The 🔭 items were not re-checked. The PR numbers of the earlier text are
+The heading date is the date of the original list. The class names and endpoints
+below were re-checked against `origin/main` on 2026-10-07. The 🔭 items were not
+re-checked. The PR numbers of the earlier text are
 dropped: in admin-bff, #113 and #114 now name unrelated PRs merged on 2026-09-30.
 
 State convention: **✅ shipped** = merged to `main` · **🚧 in-flight** = code on an
