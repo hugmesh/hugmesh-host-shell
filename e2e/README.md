@@ -1,49 +1,45 @@
 # hugmesh.net — e2e (Nightwatch 3 + Cucumber)
 
-Gherkin-readable e2e harness for the **host shell** (the top-level federation
-container that mounts the role-home / social remotes). `e2e/features` +
-`e2e/step_definitions`, driven by Nightwatch 3's built-in Cucumber test
-runner (`nightwatch.conf.js`).
+A Gherkin e2e harness for the **host shell**, the top-level federation container
+that mounts the role-home and social remotes. It lives in `e2e/features` and
+`e2e/step_definitions`, and Nightwatch 3's built-in Cucumber runner drives it
+(`nightwatch.conf.js`).
 
 ## Framework deviation from the platform convention (KNOWN, TRACKED)
 
 The e2e suites of the other HugMesh UI repos (`admin-ui`, `mod-ui`, `mastodon-ui`,
 `matrix-ui`, `user-ui`, `wiki-ui`, `tube-ui`, `owncast-ui`, `login-ui`,
 `forum-ui`, `character-studio-ui`, `superadmin-service-catalog-ui`,
-`hugmesh-games`) run **Playwright + playwright-bdd**: `.feature` files
-compiled by `bddgen` into generated Playwright specs, with a `not @cluster`
-tag filter in `playwright.config.ts` gating live-stack-only scenarios out of
-the default/offline run, and a CI `e2e:bdd`-style job that proves the suite
-**compiles + discovers** (`bddgen` + `playwright test --list`) without ever
-needing a live cluster.
+`hugmesh-games`) run **Playwright + playwright-bdd**. `bddgen` compiles the `.feature` files into
+generated Playwright specs. A `not @cluster` tag filter in `playwright.config.ts`
+keeps live-stack-only scenarios out of the default (offline) run. A CI
+`e2e:bdd`-style job proves the suite **compiles and is discoverable** (`bddgen` +
+`playwright test --list`) without a live cluster.
 
 This repo predates that convention and still runs **Nightwatch 3 +
-`@cucumber/cucumber`**: the same Gherkin-first shape (feature files, step
-definitions, a tag-based live/offline split), but a different toolchain,
-runner, and CI compile-proof mechanism. This is an intentional, tracked
-deviation — not an oversight — and is **out of scope to fix by a full
-framework migration in this workstream** (too large a change to land
-alongside a tag-convention pass). What follows is the as-is mapping plus the
-scoped migration plan.
+`@cucumber/cucumber`**. The shape is the same (feature files, step definitions, a
+tag-based live/offline split), but the toolchain, the runner and the CI
+compile-proof differ. The deviation is intentional and tracked. A full framework
+migration is **out of scope for this workstream**: it is too large to land
+alongside a tag-convention pass. What follows is the as-is mapping and the scoped
+migration plan.
 
 ### What Nightwatch+Cucumber gates live-stack-only scenarios with today
 
-- **`@cluster`** (renamed from `@integration` in this pass — same semantics,
-  aligned vocabulary with the platform-wide tag) marks every scenario that
-  needs the federation REMOTES served from their own dev servers / nginx at
-  the manifest URLs (ports 4203-4206) plus a host server with a real SPA
-  fallback — i.e. an integrated/live environment, not just a mocked host-only
-  run. Five whole features carry the tag at the `Feature:` level
+- **`@cluster`** (renamed from `@integration` to match the platform-wide tag; same
+  semantics) marks every scenario that needs the federation REMOTES served from
+  their own dev servers or nginx at the manifest URLs (ports 4203-4206), plus a host
+  server with a real SPA fallback. That is an integrated, live environment, not a
+  mocked host-only run. Five whole features carry the tag at the `Feature:` level
   (`role-routing.feature`, `role-home-content.feature`,
   `home-announcements.feature`, `appeal-redirect.feature`,
   `home-services-cards.feature`). Three more features tag single scenarios
   (`role-games.feature`, `role-service-grants.feature`,
   `role-change-midsession.feature`). A ninth, `role-authgate.feature`, documents
   the split inline without carrying scenarios that need it.
-- **`@skip`** is Nightwatch/Cucumber's existing manual-skip convention
-  (defined in the base filter, `not @skip and not @cluster`, though nothing
-  currently carries it — reserved for a scenario that needs to be temporarily
-  disabled without deleting it).
+- **`@skip`** is the manual-skip convention of Nightwatch and Cucumber. It is part
+  of the base filter, `not @skip and not @cluster`. Nothing carries it today. Use
+  it to disable a scenario for a while without deleting it.
 - `@bff-status-mock`, `@capabilities-mock`, `@session-mock`, `@announcements-mock`
   and `@notifications-mock` are **not** live/offline gates. They mark a scenario that
   registers a network-level HTTP mock, so the After-hook restores the default. They
@@ -51,34 +47,31 @@ scoped migration plan.
   `role-registration.feature`, `role-change-midsession.feature`,
   `home-announcements.feature` and `notifications-bell-toast.feature`, and are
   orthogonal to the cluster split.
-- The filter lives in `nightwatch.conf.js` (`test_runner.options.tags`), the
-  Nightwatch/Cucumber equivalent of playwright-bdd's `defineBddConfig({
-  tags })`. `npm run e2e` runs the default (`not @skip and not @cluster`)
-  offline subset; `npm run e2e:integration` overrides with `--tag cluster` to
-  run (or, offline, dry-run-parse) the live-stack-only set.
-- CI (`.gitlab-ci.yml` `e2e:host` job) always runs the default `npm run e2e`
-  subset — host-only, no served remotes — exactly mirroring the platform's
-  "offline set runs in CI, `@cluster`/live set is opt-in against a real
-  deployment" posture, just without a dedicated compile-only job (see below).
+- The filter lives in `nightwatch.conf.js` (`test_runner.options.tags`). It does
+  what playwright-bdd's `defineBddConfig({ tags })` does. `npm run e2e` runs the
+  default offline subset (`not @skip and not @cluster`). `npm run e2e:integration`
+  overrides it with `--tag cluster` to run the live-stack-only set (or, offline,
+  to parse it with a dry run).
+- The CI `e2e:host` job (`.gitlab-ci.yml`) always runs the default `npm run e2e`
+  subset: host-only, no served remotes. That matches the platform posture: the
+  offline set runs in CI, and the `@cluster` set is opt-in against a real
+  deployment. This repo has no dedicated compile-only job (see below).
 
 ### The compile-proof gap
 
-The platform convention's CI job proves the *whole* suite (including the
-`@cluster` set) compiles and is discoverable, without executing anything
-live (`bddgen` + `playwright test --list`). This repo's `e2e:host` CI job
-does not have an equivalent step — it only *runs* the default (non-cluster)
-subset against a real headless Chrome + built app; the `@cluster` scenarios
-are compile-checked incidentally (Cucumber's `require` pass loads every step
-definition file regardless of which scenarios execute) but there is no
-explicit proof step and no artifact showing the `@cluster` set parses/every
-step resolves.
+The platform convention's CI job proves the *whole* suite, `@cluster` set
+included, compiles and is discoverable without running anything live (`bddgen` +
+`playwright test --list`). This repo's `e2e:host` job has no such step. It only
+*runs* the default (non-cluster) subset against a real headless Chrome and a built
+app. The `@cluster` scenarios get a side-effect check: Cucumber's `require` pass
+loads every step definition file whatever scenarios run. But no step proves it, and
+no artifact shows that the `@cluster` set parses and every step resolves.
 
-A local, framework-native equivalent exists and should be added as a CI step
-in the real migration (or as a smaller near-term fix): `@cucumber/cucumber`'s
-own CLI supports `--dry-run`, which parses every `.feature`, resolves every
-step against `step_definitions`, and reports undefined/ambiguous steps —
-with **no browser, no chromedriver, no built app** required. Verified during
-this pass:
+A local equivalent exists in the framework itself. It should become a CI step, in
+the real migration or sooner. The `@cucumber/cucumber` CLI supports `--dry-run`,
+which parses every `.feature`, resolves every step against `step_definitions` and
+reports undefined or ambiguous steps. It needs **no browser, no chromedriver and no
+built app**. Run on 2026-10-07:
 
 ```bash
 npm ci
@@ -98,16 +91,13 @@ npx cucumber-js e2e/features --require e2e/step_definitions \
 # => 31 scenarios (31 skipped), 221 steps (221 skipped)
 ```
 
-52 + 31 = 83, confirming the tag partition is exhaustive and every scenario
-in every feature file parses and resolves cleanly (re-verified 2026-10-07;
-these counts grow as new scenarios land — e.g. the account-status
-appeal-gate and role-matrix waves — so re-run the commands above rather than
-trusting these numbers indefinitely). This `--dry-run` command
-is a candidate follow-up CI step (a `e2e:host:dry-run` job with no
-`hugmesh-x86` runner / docker / Chrome dependency) but was not wired into
-`.gitlab-ci.yml` in this pass — CI changes beyond the tag rename are left to
-the migration follow-up below so this workstream stays a scoped tag-vocabulary
-fix, not a CI redesign.
+52 + 31 = 83. The tag partition is exhaustive, and every scenario in every feature
+file parses and resolves. The counts grow as scenarios land, so re-run the commands
+above instead of trusting these numbers. The `--dry-run` command is a candidate CI
+step: an `e2e:host:dry-run` job with no `hugmesh-x86` runner, docker or Chrome
+dependency. It is not wired into `.gitlab-ci.yml`. CI changes beyond the tag rename
+wait for the migration follow-up below, so this workstream stays a tag-vocabulary
+fix and not a CI redesign.
 
 ### What a real migration to playwright-bdd would require
 
@@ -150,9 +140,9 @@ Scoped as an actionable follow-up (not attempted here):
    verified working end-to-end against a real deployment (not before — the
    Nightwatch suite must stay green until its replacement is proven).
 
-Estimated effort: comparable to authoring a *fresh* e2e harness for this repo
-(step 3 dominates), not a config-only swap — this repo's suite is nontrivial
-(83 scenarios today). Track as its own workstream; do not fold into future
+Estimated effort: about the same as writing a *fresh* e2e harness for this repo,
+with step 3 the bulk of it. This is not a config-only swap, and the suite is large
+(83 scenarios today). Track it as its own workstream. Do not fold it into future
 tag-convention or CI-hygiene passes.
 
 ## Run
@@ -168,28 +158,26 @@ npm run e2e:nginx        # builds the image and runs the nightwatch `nginx` env
 
 ### If `npm run e2e` fails with "session not created" (issue #74)
 
-`package.json`'s `chromedriver` devDependency pins a specific driver version,
-and by default `npm install`/`npm ci` install exactly that pin regardless of
-which Chrome is on the machine. A chromedriver **major** bump (dependabot
-does these routinely) can then be ahead of — or behind — whatever
-`google-chrome-stable` you actually have installed, and Nightwatch's `chrome`
-env (`server_path: ''`, i.e. "use whatever `node_modules/chromedriver`
-resolved to") launches that mismatched driver. The session then fails
-immediately:
+`package.json` pins a `chromedriver` devDependency, and `npm install` and `npm ci`
+install exactly that pin whatever Chrome is on the machine. A chromedriver **major**
+bump (dependabot makes these routinely) can land ahead of, or behind, your installed
+`google-chrome-stable`. Nightwatch's `chrome` env (`server_path: ''`, meaning "use
+whatever `node_modules/chromedriver` resolved to") then launches the mismatched
+driver, and the session fails at once:
 
 ```
 session not created: This version of ChromeDriver only supports Chrome version 153
 ```
 
-**GitLab CI never hits this** because `.gitlab-ci.yml`'s `e2e:host` job runs
-`DETECT_CHROMEDRIVER_VERSION=true npm ci`, which makes the `chromedriver`
-package's own install step re-resolve the driver against the Chrome the CI
-image just installed, ignoring the version pinned in `package.json`. A local
-`npm install`/`npm ci` does not set that env var, so it always takes the bare
-pin. **This is the one place that has no browser-matching step.**
+**GitLab CI never hits this.** Its `e2e:host` job runs
+`DETECT_CHROMEDRIVER_VERSION=true npm ci`, so the `chromedriver` package's own
+install step re-resolves the driver against the Chrome the CI image just installed
+and ignores the pin in `package.json`. A local `npm install` or `npm ci` does not
+set that variable, so it always takes the bare pin. **This is the one place with no
+browser-matching step.**
 
-Measured 2026-09-18 on this box (node v26.8.1 / npm 11.19.0, Chrome
-151.0.7922.169, `chromedriver` then pinned `^153.0.0`; `package.json` now pins `^154.0.1`):
+Measured 2026-09-18 on this box (node v26.8.1 / npm 11.19.0, Chrome 151.0.7922.169;
+`chromedriver` was pinned `^153.0.0` then, and `package.json` now pins `^154.0.1`):
 
 ```bash
 $ npm ci
@@ -218,12 +206,11 @@ DETECT_CHROMEDRIVER_VERSION=true npm rebuild chromedriver
 
 Then re-run `npm run e2e` / `npm run e2e:integration` as usual.
 
-`DETECT_CHROMEDRIVER_VERSION=true` is **not** set repo-wide (e.g. in
-`.npmrc`) because `.npmrc` is also copied into the `Dockerfile` build stage
-(`COPY package*.json .npmrc ./`), which has no Chrome installed to detect
-against — that risk is exactly why this stays a documented local command
-rather than a blanket config change; see issue #74 for the option to revisit
-that decision.
+`DETECT_CHROMEDRIVER_VERSION=true` is **not** set repo-wide (for example in
+`.npmrc`), because the `Dockerfile` build stage also copies `.npmrc`
+(`COPY package*.json .npmrc ./`) and has no Chrome to detect. That is why this stays
+a documented local command and not a blanket config change. Issue #74 tracks the
+option to revisit that decision.
 
 ## Validate OFFLINE (no cluster, no browser)
 
