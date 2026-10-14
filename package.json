@@ -65,7 +65,7 @@
     "cucumber": "^6.0.7",
     "cucumber-html-reporter": "^7.2.0",
     "cucumber-pretty": "^6.0.1",
-    "geckodriver": "^7.0.0",
+    "geckodriver": "^8.0.0",
     "gh-pages": "^6.3.0",
     "handlebars": "^4.7.9",
     "istanbul-lib-instrument": "^6.0.3",
