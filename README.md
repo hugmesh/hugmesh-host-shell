@@ -659,8 +659,9 @@ the admin remote already routes part of an item, it says so.
 - 🚧 **Workload Console (in-flight).** A podman/OpenShift-like pod-management,
   live-log and exec console. It lives inside the admin remote (`/admin/workloads`,
   behind `workloadConsoleGuard` in hugmesh-admin-ui `src/app/admin.routes.ts`), not as
-  a remote of its own. It is **not in `REMOTE_ROUTES`**, and this host's admin
-  submenu leaves it out on purpose until a server probe confirms it.
+  a remote of its own. It is **not in `REMOTE_ROUTES`**. This host's admin submenu
+  lists a "Workload console" entry only after `GET /bff/admin/workloads/capability`
+  answers 200 for the signed-in admin; a 404 or any other failure keeps it out.
 - 🔭 **Desktop app governance (design + queued).** SSO-enforced sudo, an
   admin-curated Plasma Discover store, user install-requests and an in-UI SSH
   terminal. The admin remote already routes `/admin/desktop` and the host's admin
