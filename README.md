@@ -669,14 +669,26 @@ the admin remote already routes part of an item, it says so.
 - 🔭 **Encrypted versioned backups (design + queued).** Per-domain and superadmin
   Velero + kopia/restic backups with step-up-gated restore. The admin remote has
   `/admin/backup` and `/admin/backups` routes; the restore flow is unverified here.
-- 🔭 **Egress VPN / per-node attached storage / device-license registry
-  (design + queued).** WireGuard/OpenVPN .conf drop-in egress, admin-attached
-  per-node storage, and per-device SSH operate-licenses. The admin remote already
-  routes `/admin/egress-vpn` (superadmin), `/admin/node-storage` and
-  `/admin/device-licenses` (superadmin); how much of the back end exists is
-  unverified here.
-- 🔭 **A/V via coturn / TURN.** Matrix and Owncast audio-video is LAN-only today (no
-  TURN/SFU). A coturn relay as an optional service is roadmap.
+- ✅ **Egress VPN and per-node attached storage (shipped, default-off).** The
+  WireGuard/OpenVPN .conf drop-in egress landed in two halves: the admin BFF persists
+  the posted config as the Secret the node agent reads (hugmesh-admin-bff-api PR #18),
+  and `hugmesh-generator` carries the node side (`docs/EGRESS-VPN.md`). Admin-attached
+  per-node storage landed in `hugmesh-generator` (commits `e8850c9c`, `ea059902`;
+  `docs/NODE-STORAGE.md`). Both ship off in a default build. This host's admin submenu
+  routes them: "Egress VPN" (`/admin/egress-vpn`, superadmin) and "Node storage"
+  (`/admin/node-storage`) in `src/app/menu/menu.component.ts`. Tracked in
+  hugmesh-admin-bff-api#10.
+- 🚧 **Device-license registry — live headscale push (partly shipped).** The
+  per-device SSH operate-license registry and its signed export are shipped in the
+  admin BFF, and "Device licenses" (`/admin/device-licenses`, superadmin) is routed by
+  `src/app/menu/menu.component.ts`. Still open: the live headscale ACL push and the
+  canonical-fingerprint question, which need a live control node
+  (hugmesh-admin-bff-api#7).
+- 🚧 **A/V via coturn / TURN (relay shipped, group calls open).** A coturn TURN/STUN
+  relay exists as an optional, default-off service in `hugmesh-generator`
+  (commit `6ca52bc7`; `docs/COTURN.md`), so a default build is still LAN-only for
+  Matrix and Owncast audio-video. Group-call SFU (MatrixRTC / Element Call /
+  LiveKit-class) does not exist yet: hugmesh-admin-bff-api#98.
 - 🚧 **Superadmin app-store — TAILNET-ONLY federated remotes.** The data layer is on
   `main` (in the admin-bff); the infra legs are in flight. Future app-store remotes
   would be registered in the federation registry and resolved by this host's
