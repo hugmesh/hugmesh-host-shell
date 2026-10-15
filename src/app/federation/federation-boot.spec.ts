@@ -10,6 +10,7 @@ import {
   setDeferredRemotes,
 } from './remote-loader';
 import type { RemotesMap } from './federation-bootstrap';
+import PROD_MANIFEST from '../../assets/federation.manifest.prod.json';
 
 /**
  * THE REGRESSION THESE GUARD. A logged-out boot used to fetch every gated
@@ -23,22 +24,17 @@ import type { RemotesMap } from './federation-bootstrap';
  * route guard has actually admitted the user to it.
  */
 
-/** The real 13-remote prod manifest shape (src/assets/federation.manifest.prod.json). */
-const FULL_MANIFEST: RemotesMap = {
-  login: '/login/remoteEntry.json',
-  matrix: '/social/matrix/remoteEntry.json',
-  mastodon: '/social/mastodon/remoteEntry.json',
-  admin: '/admin/remoteEntry.json',
-  mod: '/mod/remoteEntry.json',
-  user: '/user/remoteEntry.json',
-  apidocs: '/api-docs/remoteEntry.json',
-  forum: '/social/forum/remoteEntry.json',
-  wiki: '/wiki/remoteEntry.json',
-  owncast: '/owncast/remoteEntry.json',
-  tube: '/tube/remoteEntry.json',
-  'character-studio': '/character-studio/remoteEntry.json',
-  'character-forge': '/character-forge/remoteEntry.json',
-};
+/**
+ * The real prod manifest — READ FROM THE FILE, not transcribed. This used to be a
+ * hand-copied literal commented "the real ... manifest shape", which meant the
+ * repo held two copies of the same 13 rows and nothing compared them: the fixture
+ * could drift from `src/assets/federation.manifest.prod.json` and this suite stayed
+ * green while asserting it spoke for production. The login row of that file is
+ * additionally pinned by federation-manifest-contract.spec.ts, because decision 35
+ * has four consumer repos hardcoding it.
+ */
+const FULL_MANIFEST: RemotesMap = PROD_MANIFEST;
+
 
 /** The remotes the fe-gateway gates — every one of these 401'd on a logged-out boot. */
 const GATED = [
