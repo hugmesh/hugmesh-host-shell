@@ -1,10 +1,13 @@
 import { computed, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
 import { MenuComponent } from './menu.component';
 import { MENU_BAR_MODE_KEY } from './menu-bar-mode.service';
+import { WORKLOAD_CAPABILITY_ENDPOINT } from './workload-console-probe.service';
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
@@ -70,6 +73,8 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
     await TestBed.configureTestingModule({
       imports: [MenuComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         provideRouter([
           // Componentless stand-ins for the real mounts, so navigateByUrl
           // resolves without an outlet. Child paths cover the "inside the
@@ -235,13 +240,72 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
       expect(domains.getAttribute('href')).toBe('/admin/superadmin/domains');
     });
 
-    it('the HIDDEN-tier workload console is never surfaced, even to a superadmin', async () => {
-      session.isSuperadmin.set(true);
-      await goto('/admin');
-      // The remote only reveals it after a server-confirmed capability probe;
-      // the host must never advertise it from a static list.
-      expect(byTestid('subnav-admin-workloads')).toBeNull();
-      expect(el.textContent).not.toContain('Workload console');
+    describe('HIDDEN-tier workload console (server capability probe)', () => {
+      const http = () => TestBed.inject(HttpTestingController);
+      const settle = async () => { await fixture.whenStable(); fixture.detectChanges(); };
+
+      it('stays dark until the probe answers, even for a superadmin', async () => {
+        session.isSuperadmin.set(true);
+        await goto('/admin');
+        const req = http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT);
+        expect(req.request.method).toBe('GET');
+        expect(byTestid('subnav-admin-workloads')).toBeNull();
+        expect(el.textContent).not.toContain('Workload console');
+        req.flush({ enabled: true });
+        await settle();
+      });
+
+      it('stays dark when the server answers 404 (no grant, or the feature is off)', async () => {
+        session.isSuperadmin.set(true);
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush('', { status: 404, statusText: 'Not Found' });
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeNull();
+        expect(el.textContent).not.toContain('Workload console');
+      });
+
+      it('stays dark on a network failure', async () => {
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).error(new ProgressEvent('error'));
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeNull();
+      });
+
+      it('appears under the admin sections once the probe answers 200', async () => {
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush({ enabled: true, readOnly: true });
+        await settle();
+        const link = byTestid('subnav-admin-workloads') as HTMLAnchorElement;
+        expect(link).toBeTruthy();
+        expect(link.getAttribute('href')).toBe('/admin/workloads');
+        expect(link.textContent).toContain('Workload console');
+      });
+
+      it('goes dark when the session stops being an admin and stays dark until a fresh probe answers', async () => {
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush({ enabled: true });
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeTruthy();
+
+        session.isAdmin.set(false);
+        fixture.detectChanges();
+        await settle();
+        session.isAdmin.set(true);
+        fixture.detectChanges();
+        await settle();
+        const again = http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT);
+        expect(byTestid('subnav-admin-workloads'))
+          .withContext('the earlier 200 must not outlive the earlier admin session').toBeNull();
+        again.flush('', { status: 404, statusText: 'Not Found' });
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeNull();
+      });
+
+      it('is never probed for a session that is not an admin', async () => {
+        session.isAdmin.set(false);
+        await goto('/about');
+        http().expectNone(WORKLOAD_CAPABILITY_ENDPOINT);
+      });
     });
 
     it('inside /mod: the moderation sections render, and the admin ones do not', async () => {
