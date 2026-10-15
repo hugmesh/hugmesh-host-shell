@@ -1,10 +1,13 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { SessionService } from '../session.service';
+import { CanActivateFn } from '@angular/router';
+import { roleGuard } from './role-guard.factory';
 
 /** Gate the GAMES-ADMIN mount (Phase 8/10, route 'games/admin') on the DERIVED
- *  ROLE_GAMES_ADMIN tier. Mirrors the wiki/tube/owncast guards: allow vs the
- *  exact /login redirect (a UrlTree).
+ *  ROLE_GAMES_ADMIN tier. Built from roleGuard like every other console mount,
+ *  so the two failures get their two destinations: an ANONYMOUS visitor is sent
+ *  to /login, and a SIGNED-IN caller who lacks the derived role lands on
+ *  /home?denied=/games/admin, where denied-notice explains the refusal. (Issue
+ *  #88: this guard used to answer both with /login, telling a signed-in admin
+ *  without games — or a games member without admin — that they were signed out.)
  *
  *  GAMES-ADMIN cascade: {@link SessionService.isGamesAdmin} already encodes the
  *  server-computed intersection ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD) — a bare
@@ -17,11 +20,6 @@ import { SessionService } from '../session.service';
  *  authorization; this guard keeps the unauthorized out of the host shell's
  *  games-admin mount so it is never a dead link for a holder, nor reachable by a
  *  non-holder. */
-export const gamesAdminGuard: CanActivateFn = () => {
-  const session = inject(SessionService);
-  const router = inject(Router);
-  if (session.isGamesAdmin() || session.isSuperadmin()) {
-    return true;
-  }
-  return router.parseUrl('/login');
-};
+export const gamesAdminGuard: CanActivateFn = roleGuard(
+  (session) => session.isGamesAdmin() || session.isSuperadmin(),
+);
