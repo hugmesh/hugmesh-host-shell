@@ -11,6 +11,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
@@ -22,6 +23,7 @@ import { BellNotificationsService } from '../bell/bell-notifications.service';
 import { ViewReloadService } from '../view-reload.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
 import { MenuBarModeService } from './menu-bar-mode.service';
+import { WorkloadConsoleProbeService } from './workload-console-probe.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -124,6 +126,7 @@ export class MenuComponent {
   private readonly doc = inject(DOCUMENT);
   private readonly router = inject(Router);
   private readonly capabilities = inject(CapabilitiesService);
+  private readonly workloadProbe = inject(WorkloadConsoleProbeService);
   private readonly bellNotifications = inject(BellNotificationsService);
   /** The shell-wide RELOAD control. Lives HERE (one control in the chrome) rather
    *  than per-remote, so every federated view is refreshed the same way and a
@@ -200,9 +203,10 @@ export class MenuComponent {
    *   - `fleetOnly` ('My fleet', tier fleet_admin/admin/superadmin): NO gate —
    *     this submenu only renders inside /admin, whose adminGuard viewers
    *     (role 'admin') all satisfy the fleet tier already;
-   *   - the HIDDEN tier ('Workload console') is deliberately ABSENT: the remote
-   *     surfaces it only after a server-confirmed capability probe (404 = stays
-   *     dark), and this host must never reveal a dark feature from a static list.
+   *   - the HIDDEN tier ('Workload console') is listed ONLY while this host's own
+   *     server-confirmed capability probe (WorkloadConsoleProbeService) has
+   *     succeeded (404 or any error = stays dark), so a dark feature is never
+   *     revealed from a static list.
    *  PLUS the host's own /admin/docs mount (the admin-only API-docs remote — a
    *  section of the admin surface from the host's perspective, same route the
    *  profile dropdown's 'API docs' entry uses). */
@@ -239,6 +243,8 @@ export class MenuComponent {
     { label: 'Desktop governance', route: '/admin/desktop', testid: 'subnav-admin-desktop' },
     { label: 'Egress VPN', route: '/admin/egress-vpn', testid: 'subnav-admin-egress-vpn', show: () => this.session.isSuperadmin() },
     { label: 'Domains', route: '/admin/superadmin/domains', testid: 'subnav-admin-domains', show: () => this.session.isSuperadmin() },
+    // HIDDEN tier: offered only once the capability probe succeeded.
+    { label: 'Workload console', route: '/admin/workloads', testid: 'subnav-admin-workloads', show: () => this.workloadProbe.available() },
     // Host mount, not an AdminComponent.allMenu row (see the doc above).
     { label: 'API docs', route: '/admin/docs', testid: 'subnav-admin-docs' },
   ];
@@ -424,6 +430,17 @@ export class MenuComponent {
     // home-services cards reuse the same fetch). Fire-and-forget: a failed/empty
     // load greys every optional service rather than breaking the shell.
     void this.capabilities.load();
+
+    // The HIDDEN-tier Workload console entry: probe the server for every signed-in
+    // admin, and go dark again the moment the session stops being one. Only the
+    // session signals are tracked; the probe runs untracked.
+    effect(() => {
+      const admin = this.session.loggedIn() && this.session.isAdmin();
+      untracked(() => {
+        if (admin) void this.workloadProbe.probe();
+        else this.workloadProbe.reset();
+      });
+    });
 
     // AUTO mode decides visibility from announcement PRESENCE, so it must load
     // the shared list itself — the home banner's own load only runs when the
