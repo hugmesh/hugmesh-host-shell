@@ -76,6 +76,27 @@ e2e:host:
       - e2e/integration-tests-report/
     expire_in: 1 week
 
+# -----------------------------------------------------------------------------
+# Runtime dependency gate (issue #72). Fails the pipeline when `npm audit
+# --omit=dev` reports a moderate-or-worse advisory, and when the lockfile holds
+# a runtime package below its patched floor. Both read only package-lock.json,
+# so nothing is installed; the live audit needs the registry and exits 2 (a
+# failure, not a pass) when it cannot reach it. Dev-only advisories (the e2e
+# toolchain) are NOT gated here; see scripts/check-runtime-audit.mjs.
+# -----------------------------------------------------------------------------
+check:runtime-audit:
+  stage: test
+  tags: [hugmesh-x86, privileged]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - >
+      docker run --rm -v "$PWD:/work" -w /work node:24 bash -c '
+      set -euo pipefail;
+      node --test scripts/check-runtime-audit.test.mjs scripts/runtime-lock-floors.test.mjs;
+      node scripts/check-runtime-audit.mjs'
+
 build:image:
   stage: build
   tags: [hugmesh-x86, privileged]
