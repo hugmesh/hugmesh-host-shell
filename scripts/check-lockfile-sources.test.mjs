@@ -21,9 +21,10 @@ const readJson = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8'));
 const KEY = 'node_modules/download';
 const GIT_SSH = 'git+ssh://git@github.com/garg3133/download.git#a58658fbae679bf632c4acc1c44eb1ff614d84cc';
 
-function run({ lock = readJson('package-lock.json'), pkg = readJson('package.json'), lockText, pkgText } = {}) {
+function run({ lock = readJson('package-lock.json'), pkg = readJson('package.json'), lockText, pkgText, extra = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-sources-'));
   try {
+    for (const [f, text] of Object.entries(extra)) fs.writeFileSync(path.join(dir, f), text);
     if (lockText !== null) fs.writeFileSync(path.join(dir, 'package-lock.json'), lockText ?? JSON.stringify(lock));
     if (pkgText !== null) fs.writeFileSync(path.join(dir, 'package.json'), pkgText ?? JSON.stringify(pkg));
     const r = spawnSync(process.execPath, [SCRIPT], { cwd: dir, encoding: 'utf8' });
@@ -130,12 +131,90 @@ test('two strong hashes are accepted -> exit 0', () => {
   assert.equal(r.status, 0, r.out);
 });
 
-test('a link entry and a bundled entry carry no resolved/integrity by design -> exit 0', () => {
+// Round 2: `inBundle` / `link` used to exempt an entry from the resolved and
+// integrity checks. npm still installs such an entry from its `resolved` source
+// (measured with a git+file package: npm 11.16.0 `npm ci --ignore-scripts`
+// installed it; npm 12.2.0 `npm ci --allow-git=all` also ran its prepare and
+// postinstall), so one added key carried the original exploit through.
+test('the round-2 exploit: git resolved, no integrity, "inBundle": true -> exit 1, names it', () => {
+  const r = withEntry({ version: '14.0.0', resolved: GIT_SSH, inBundle: true, dev: true });
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.out.includes(`${KEY}: has a \`inBundle\` key`), r.out);
+  assert.ok(r.out.includes(`${KEY}: resolved uses git+ssh:`), r.out);
+});
+
+for (const [name, entry] of [
+  ['git+file resolved, inBundle', { version: '1.0.0', resolved: 'git+file:///tmp/evil-src#a58658fbae679bf632c4acc1c44eb1ff614d84cc', inBundle: true }],
+  ['git+ssh resolved, link: true', { version: '14.0.0', resolved: GIT_SSH, link: true }],
+  ['link to a path', { resolved: 'packages/some-link', link: true }],
+  ['bundled with no resolved', { version: '1.0.0', inBundle: true }],
+  ['inBundle as a truthy string', { version: '1.0.0', resolved: GIT_SSH, inBundle: 'yes' }],
+  ['link as a truthy number', { version: '1.0.0', resolved: GIT_SSH, link: 1 }],
+  ['registry + integrity but inBundle', registry({ inBundle: true })],
+  ['registry + integrity but link: false', registry({ link: false })],
+]) {
+  test(`an entry carrying link/inBundle (${name}) -> exit 1, never exempt`, () => {
+    const r = withEntry(entry);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, new RegExp(`${KEY}: has a \`(link|inBundle)\` key`));
+  });
+}
+
+test('the same link/inBundle rejection applies under a nested node_modules path', () => {
+  const r = withEntry({ version: '1.0.0', resolved: GIT_SSH, inBundle: true }, 'node_modules/a/node_modules/bundled');
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.out.includes('node_modules/a/node_modules/bundled: has a `inBundle` key'), r.out);
+});
+
+for (const [name, entry] of [
+  ['null', null],
+  ['a string', GIT_SSH],
+  ['an array', [GIT_SSH]],
+  ['a number', 1],
+  ['true', true],
+]) {
+  test(`a packages entry that is ${name} -> exit 1`, () => {
+    const r = withEntry(entry);
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`${KEY}: entry is not a JSON object`), r.out);
+  });
+}
+
+// Round 2: npm 11 prefers npm-shrinkwrap.json over package-lock.json, and the
+// e2e:host job mounts the whole checkout. A clean package-lock.json next to a
+// shrinkwrap carrying the git entry used to pass this check (measured: npm
+// 11.16.0 `npm ci` then installed the git package and ran its prepare).
+const shrinkwrapWithGit = () => {
+  const sw = readJson('package-lock.json');
+  sw.packages[KEY] = { version: '14.0.0', resolved: GIT_SSH, dev: true };
+  return JSON.stringify(sw);
+};
+test('the round-2 shrinkwrap exploit: clean package-lock.json + npm-shrinkwrap.json with git -> exit 1', () => {
+  const r = run({ extra: { 'npm-shrinkwrap.json': shrinkwrapWithGit() } });
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /\.\/npm-shrinkwrap\.json exists/);
+});
+
+for (const [name, file, text] of [
+  ['an exact copy of the clean lockfile', 'npm-shrinkwrap.json', null],
+  ['empty', 'npm-shrinkwrap.json', ''],
+  ['upper-case name', 'NPM-SHRINKWRAP.JSON', null],
+  ['mixed-case name', 'Npm-Shrinkwrap.json', null],
+]) {
+  test(`any npm-shrinkwrap.json (${name}) -> exit 1`, () => {
+    const body = text ?? fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8');
+    const r = run({ extra: { [file]: body } });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`./${file} exists`), r.out);
+  });
+}
+
+test('the committed tree has no npm-shrinkwrap.json and no link/inBundle entries', () => {
+  assert.ok(!fs.readdirSync(ROOT).some((f) => f.toLowerCase() === 'npm-shrinkwrap.json'));
   const lock = readJson('package-lock.json');
-  lock.packages['node_modules/some-link'] = { resolved: 'packages/some-link', link: true };
-  lock.packages['node_modules/a/node_modules/bundled'] = { version: '1.0.0', inBundle: true };
-  const r = run({ lock });
-  assert.equal(r.status, 0, r.out);
+  for (const [k, e] of Object.entries(lock.packages)) {
+    assert.ok(!Object.hasOwn(e, 'link') && !Object.hasOwn(e, 'inBundle'), k);
+  }
 });
 
 for (const [name, spec] of [
