@@ -113,9 +113,12 @@ RUN node scripts/check-lockfile-sources.mjs
 # `NaN < 11` is FALSE, so the naive comparison would have waved an unreadable
 # npm through. An empty `npm -v` was already caught (it parses to 0). A
 # prerelease of the bound, "11.3.0-pre", still passes -- deliberate.
+# --registry on the command line beats a `registry=` in .npmrc or the
+# environment, so the registry URLs in the lockfile are fetched from the
+# registry they name (the check above refuses such an .npmrc as well).
 RUN node -v && npm -v && \
     node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(!Number.isInteger(p[0])||p[0]<11||(p[0]===11&&!(p[1]>=3))){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
-    npm ci --ignore-scripts
+    npm ci --ignore-scripts --registry=https://registry.npmjs.org/
 
 #### copy things
 COPY . .

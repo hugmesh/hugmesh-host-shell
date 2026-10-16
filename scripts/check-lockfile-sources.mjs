@@ -2,9 +2,12 @@
 /**
  * check-lockfile-sources.mjs
  *
- * Every package the install fetches must come from the npm registry AND carry an
- * integrity hash. Anything else is rejected, and an entry this script cannot
- * classify is rejected too (fail CLOSED).
+ * Every locked package must name the npm registry AND carry an integrity hash,
+ * and nothing the repo controls may point npm at a different place to fetch
+ * that registry URL from (./.npmrc, checks 6 and 7). Anything else is rejected,
+ * and an entry or config line this script cannot classify is rejected too (fail
+ * CLOSED). The hash alone proves nothing here: whoever edits the lockfile also
+ * writes the hash, so it only has to match their own tarball.
  *
  * WHY. The lockfile used to record
  *   node_modules/download -> git+ssh://git@github.com/garg3133/download.git#<sha>
@@ -36,10 +39,29 @@
  *   5. there is no npm-shrinkwrap.json (any letter case) in the directory. npm
  *      11 PREFERS it over package-lock.json (measured: npm 11.16.0 `npm ci`
  *      installed a git package from a shrinkwrap while package-lock.json was
- *      clean), and this script reads only package-lock.json.
+ *      clean), and this script reads only package-lock.json;
+ *   6. ./.npmrc (the project config npm reads before `npm ci`, and which the
+ *      Dockerfile copies in) holds nothing but blank lines, comment lines and
+ *      `legacy-peer-deps=true`. It is an ALLOWLIST, not a list of bad keys:
+ *      `registry=http://127.0.0.1:<port>/` alone made npm fetch
+ *      https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz from that host
+ *      instead (npm's default replace-registry-host=npmjs rewrites it), and a
+ *      lockfile whose integrity was the attacker's own tarball installed it
+ *      (measured, npm 12.2.0, round 3). Quoted keys, proxies, CAs, strict-ssl,
+ *      scoped registries, ${VAR} values and keys this script has never heard of
+ *      are all refused the same way. A missing .npmrc is fine; one that exists
+ *      but cannot be read exits 2;
+ *   7. no npm_config_* / NPM_CONFIG_* environment variable (any case, `-` or
+ *      `_`) sets registry, <scope>:registry, replace-registry-host, proxy,
+ *      http-proxy, https-proxy, strict-ssl, ca or cafile to anything but npm's
+ *      default. The environment comes from the Dockerfile and the CI job, not
+ *      from .npmrc, so this is a named list; the install lines ALSO pass
+ *      --registry=https://registry.npmjs.org/ on the command line, which
+ *      overrides both .npmrc and the environment for the top-level registry.
  *
  * Lockfile and package.json only, node built-ins only: it runs before `npm ci`
- * with no node_modules at all. Reads ./package-lock.json and ./package.json.
+ * with no node_modules at all. Reads ./package-lock.json, ./package.json,
+ * ./.npmrc and the environment.
  * Run locally with:  node scripts/check-lockfile-sources.mjs
  * Its RED tests:     node --test scripts/check-lockfile-sources.test.mjs
  */
@@ -119,6 +141,58 @@ function* overrideSpecs(node, where) {
   }
 }
 
+// The ONLY lines ./.npmrc may hold. Anything else, however spelled, is refused.
+const NPMRC_ALLOWED = [/^\s*$/, /^\s*[#;]/, /^[ \t]*legacy-peer-deps[ \t]*=[ \t]*true[ \t]*$/];
+
+function npmrcProblems() {
+  let text;
+  try {
+    text = fs.readFileSync('.npmrc', 'utf8');
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    fail(`./.npmrc exists but cannot be read (${e.code ?? e.message}); it can redirect every fetch, so it must be checked`);
+  }
+  const problems = [];
+  // Split exactly as npm's ini parser does, on EITHER \r or \n: splitting on \n
+  // alone would read "# note\rregistry=..." as one comment line, while npm reads
+  // the registry line after the bare carriage return.
+  text.split('\n').forEach((physical, i) => {
+    for (const line of physical.split('\r')) {
+      if (NPMRC_ALLOWED.some((re) => re.test(line))) continue;
+      problems.push(`./.npmrc line ${i + 1}: ${JSON.stringify(line.slice(0, 80))} is not allowed; only \`legacy-peer-deps=true\`, comments and blank lines are (a registry, proxy, CA or any other setting there can make npm fetch the registry URLs in the lockfile from somewhere else)`);
+    }
+  });
+  return problems;
+}
+
+// npm config keys that change WHERE a registry tarball is fetched from, or
+// whether TLS is verified, with the value npm uses when they are unset.
+const ENV_DEFAULTS = {
+  'registry': ['https://registry.npmjs.org/', 'https://registry.npmjs.org'],
+  'replace-registry-host': ['npmjs'],
+  'proxy': [''],
+  'http-proxy': [''],
+  'https-proxy': [''],
+  'strict-ssl': ['', 'true'],
+  'ca': [''],
+  'cafile': [''],
+};
+
+function envProblems(env) {
+  const problems = [];
+  for (const [name, value] of Object.entries(env)) {
+    const m = /^npm_config_(.+)$/i.exec(name);
+    if (!m) continue;
+    const key = m[1].toLowerCase().replace(/_/g, '-');
+    const allowed = key.endsWith(':registry') ? [] : ENV_DEFAULTS[key];
+    if (!allowed) continue;
+    if (!allowed.includes(String(value).trim())) {
+      problems.push(`environment ${name}=${JSON.stringify(String(value).slice(0, 80))} changes where npm fetches from (or whether it checks TLS); unset it`);
+    }
+  }
+  return problems;
+}
+
 function findProblems(lock, pkg) {
   const problems = [];
   const packages = lock?.packages;
@@ -168,10 +242,11 @@ for (const f of here) {
     problems.push(`./${f} exists; npm 11 installs from it INSTEAD of package-lock.json, and only package-lock.json is checked. Delete it.`);
   }
 }
+problems.push(...npmrcProblems(), ...envProblems(process.env));
 if (problems.length) {
   console.error(`FAIL: ${problems.length} dependency source problem(s); every install must come from the npm registry with an integrity hash:`);
   for (const p of problems) console.error(`  ${p}`);
   process.exit(1);
 }
 const n = Object.keys(lock.packages).length - 1;
-console.log(`OK: ${n} locked packages, all resolved from the npm registry with integrity; no git, URL or path specs; no npm-shrinkwrap.json.`);
+console.log(`OK: ${n} locked packages, all resolved from the npm registry with integrity; no git, URL or path specs; no npm-shrinkwrap.json; no registry, proxy or TLS override in ./.npmrc or the environment.`);

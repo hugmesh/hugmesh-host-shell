@@ -21,13 +21,13 @@ const readJson = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8'));
 const KEY = 'node_modules/download';
 const GIT_SSH = 'git+ssh://git@github.com/garg3133/download.git#a58658fbae679bf632c4acc1c44eb1ff614d84cc';
 
-function run({ lock = readJson('package-lock.json'), pkg = readJson('package.json'), lockText, pkgText, extra = {} } = {}) {
+function run({ lock = readJson('package-lock.json'), pkg = readJson('package.json'), lockText, pkgText, extra = {}, env = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-sources-'));
   try {
     for (const [f, text] of Object.entries(extra)) fs.writeFileSync(path.join(dir, f), text);
     if (lockText !== null) fs.writeFileSync(path.join(dir, 'package-lock.json'), lockText ?? JSON.stringify(lock));
     if (pkgText !== null) fs.writeFileSync(path.join(dir, 'package.json'), pkgText ?? JSON.stringify(pkg));
-    const r = spawnSync(process.execPath, [SCRIPT], { cwd: dir, encoding: 'utf8' });
+    const r = spawnSync(process.execPath, [SCRIPT], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env } });
     return { status: r.status, out: `${r.stdout}${r.stderr}` };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -317,6 +317,123 @@ test('a lockfile with no `packages` map (lockfileVersion 1) -> exit 1, not 0', (
   assert.match(r.out, /no `packages` map/);
 });
 
+// ---- Round 3: the project .npmrc can send every registry URL somewhere else ----
+//
+// Measured with npm 12.2.0: a lockfile entry resolved to
+// https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz, integrity = the sha512
+// of an attacker tarball, and `.npmrc` = `registry=http://127.0.0.1:<port>/`.
+// The round-2 gate printed OK and exited 0; `npm ci` fetched
+// /isarray/-/isarray-2.0.5.tgz from 127.0.0.1 and installed it.
+const COMMITTED_NPMRC = fs.readFileSync(path.join(ROOT, '.npmrc'), 'utf8');
+const withNpmrc = (text) => run({ extra: { '.npmrc': text } });
+
+test('round-3 exploit: `.npmrc` registry=http://127.0.0.1:48117/ with a clean lockfile -> exit 1, names it', () => {
+  const r = withNpmrc('registry=http://127.0.0.1:48117/\n');
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /\.\/\.npmrc line 1: "registry=http:\/\/127\.0\.0\.1:48117\/" is not allowed/);
+});
+
+test('the committed .npmrc passes -> exit 0', () => {
+  const r = withNpmrc(COMMITTED_NPMRC);
+  assert.equal(r.status, 0, r.out);
+});
+
+test('the committed .npmrc holds only legacy-peer-deps=true (plus comments/blank lines)', () => {
+  const live = COMMITTED_NPMRC.split(/[\r\n]/).filter((l) => l.trim() !== '' && !/^\s*[#;]/.test(l));
+  assert.deepEqual(live, ['legacy-peer-deps=true']);
+});
+
+test('no .npmrc at all -> exit 0', () => {
+  assert.equal(run().status, 0);
+});
+
+test('comments, blank lines, CRLF and spaces around = are accepted -> exit 0', () => {
+  const r = withNpmrc('# project npm config\r\n; another comment\r\n\r\n  legacy-peer-deps = true  \r\n');
+  assert.equal(r.status, 0, r.out);
+});
+
+for (const [name, text] of [
+  ['registry with spaces and quotes', 'legacy-peer-deps=true\nregistry = "http://127.0.0.1:48117/"\n'],
+  ['registry pointing at the real registry over http', 'registry=http://registry.npmjs.org/\n'],
+  ['registry in upper case', 'REGISTRY=http://127.0.0.1:48117/\n'],
+  ['scoped registry', '@angular:registry=http://127.0.0.1:48117/\n'],
+  ['replace-registry-host', 'replace-registry-host=always\n'],
+  ['https-proxy', 'https-proxy=http://127.0.0.1:48117/\n'],
+  ['proxy', 'proxy=http://127.0.0.1:48117/\n'],
+  ['strict-ssl off', 'strict-ssl=false\n'],
+  ['custom CA', 'ca="-----BEGIN CERTIFICATE-----"\n'],
+  ['cafile', 'cafile=./evil-ca.pem\n'],
+  ['cache in the checkout', 'cache=./.npm-cache\n'],
+  ['an ini section', '[registry]\n'],
+  ['an unknown key', 'some-future-setting=1\n'],
+  ['allowed key with an env interpolation', 'legacy-peer-deps=${X}\n'],
+  ['allowed key with a different value', 'legacy-peer-deps=false\n'],
+  ['allowed key, then a trailing setting', 'legacy-peer-deps=true registry=http://127.0.0.1:48117/\n'],
+  ['bad line with no trailing newline', 'legacy-peer-deps=true\nregistry=http://127.0.0.1:48117/'],
+  ['bare CR hides a line after a comment', '# note\rregistry=http://127.0.0.1:48117/\n'],
+  ['bare CR after the allowed line', 'legacy-peer-deps=true\rregistry=http://127.0.0.1:48117/\n'],
+]) {
+  test(`.npmrc spelling refused: ${name} -> exit 1`, () => {
+    const r = withNpmrc(text);
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /\.\/\.npmrc line \d+: .* is not allowed/);
+  });
+}
+
+test('a .npmrc that exists but cannot be read (a directory) -> exit 2, not 0', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-sources-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify(readJson('package-lock.json')));
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(readJson('package.json')));
+    fs.mkdirSync(path.join(dir, '.npmrc'));
+    const r = spawnSync(process.execPath, [SCRIPT], { cwd: dir, encoding: 'utf8' });
+    assert.equal(r.status, 2, `${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /\.npmrc exists but cannot be read/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+for (const [name, value] of [
+  ['npm_config_registry', 'http://127.0.0.1:48117/'],
+  ['NPM_CONFIG_REGISTRY', 'http://127.0.0.1:48117/'],
+  ['npm_config_@angular:registry', 'http://127.0.0.1:48117/'],
+  ['npm_config_replace_registry_host', 'always'],
+  ['npm_config_https_proxy', 'http://127.0.0.1:48117/'],
+  ['npm_config_proxy', 'http://127.0.0.1:48117/'],
+  ['npm_config_strict_ssl', 'false'],
+  ['npm_config_cafile', '/work/evil-ca.pem'],
+  ['npm_config_ca', 'x'],
+]) {
+  test(`environment refused: ${name}=${value} -> exit 1`, () => {
+    const r = run({ env: { [name]: value } });
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /environment .* changes where npm fetches from/);
+  });
+}
+
+test('environment at npm defaults (as `npm run` exports them) is accepted -> exit 0', () => {
+  const r = run({ env: {
+    npm_config_registry: 'https://registry.npmjs.org/',
+    npm_config_noproxy: '',
+    npm_config_strict_ssl: 'true',
+    npm_config_replace_registry_host: 'npmjs',
+    npm_config_legacy_peer_deps: 'true',
+    npm_config_cache: '/home/someone/.npm',
+  } });
+  assert.equal(r.status, 0, r.out);
+});
+
+test('.gitlab-ci.yml: e2e:host runs the check, then npm ci with an explicit --registry', () => {
+  const ci = fs.readFileSync(path.join(ROOT, '.gitlab-ci.yml'), 'utf8');
+  const check = ci.indexOf('node scripts/check-lockfile-sources.mjs');
+  const install = ci.search(/\bnpm ci\b[^;\n]*--registry=https:\/\/registry\.npmjs\.org\/[;\s]/);
+  assert.ok(check >= 0 && install > check, `check ${check} then npm ci --registry ${install}`);
+  for (const m of ci.matchAll(/^[^#\n]*\bnpm (ci|install|i)\b[^\n]*/gm)) {
+    assert.match(m[0], /--registry=https:\/\/registry\.npmjs\.org\//, m[0]);
+  }
+});
+
 // The Dockerfile is the shipped build. These pin the four things the fix changed
 // there, so a later edit that quietly restores one fails here.
 const DOCKERFILE = fs.readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
@@ -331,6 +448,11 @@ test('Dockerfile: the build stage base image is pinned by sha256 digest', () => 
 test('Dockerfile: no global npm install of a CLI (unpinned, unlocked)', () => {
   assert.doesNotMatch(dockerInstructions, /\bnpm\s+(install|i|add)\s+(-g|--global)\b/);
   assert.doesNotMatch(dockerInstructions, /\bnpm\s+(install|i|add)\b.*\s(-g|--global)\b/);
+});
+
+test('Dockerfile: npm ci names the registry on the command line, over any .npmrc or env', () => {
+  assert.match(dockerInstructions, /\bnpm ci --ignore-scripts --registry=https:\/\/registry\.npmjs\.org\/(\s|$)/);
+  assert.doesNotMatch(dockerInstructions, /\bnpm ci\b(?![^\n]*--registry=https:\/\/registry\.npmjs\.org\/)/);
 });
 
 test('Dockerfile: dependencies install with `npm ci --ignore-scripts`, never bare install', () => {

@@ -57,7 +57,7 @@ e2e:host:
       wget -qO /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb;
       apt-get install -y -qq /tmp/chrome.deb >/dev/null;
       node scripts/check-lockfile-sources.mjs;
-      DETECT_CHROMEDRIVER_VERSION=true npm ci --no-audit --no-fund;
+      DETECT_CHROMEDRIVER_VERSION=true npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/;
       npm run build;
       node server.js & SERVER_PID=$!;
       for i in $(seq 1 30); do wget -qO /dev/null http://localhost:8080/ && break || sleep 1; done;
