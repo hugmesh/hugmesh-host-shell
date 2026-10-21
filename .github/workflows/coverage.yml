@@ -88,6 +88,15 @@ jobs:
         run: node scripts/check-nf-single-copy.mjs
       - name: native-federation single-copy gate self-test
         run: node --test scripts/check-nf-single-copy.test.mjs
+      # Release version gate. scripts/release-version.sh is the guard
+      # release.yml runs before it publishes an image; its test also runs it
+      # against this repo's own package.json and package-lock.json, so a PR
+      # that leaves the two version fields of the lock disagreeing with
+      # package.json (or sets a version no image tag can carry) fails here,
+      # not on the day someone pushes the v<version> tag. bash + python3 only,
+      # so it runs before `npm ci`.
+      - name: Release version gate
+        run: bash scripts/release-version.test.sh
       # `npm ci`, NOT `npm install`: this job must test the tree the merge
       # actually produces, not a fresh re-resolve of it.
       # (An earlier revision of this comment justified that with "this job is the

@@ -11,10 +11,13 @@ HttpClient bearer seam.
 
 ## Supported Versions
 
-There is no fixed release train. The supported version is the latest commit on
-`main`: the image built and pushed by GitLab CI, or by the manual GHCR release
-workflow (`.github/workflows/release.yml`). Fixes land on `main`. There are no
-backported maintenance branches.
+There is no fixed release train, and nothing has reached a final release: the
+current version is a beta (`package.json`, today `0.3.0-beta.1`). The supported
+version is the latest commit on `main`: the image built and pushed by GitLab CI,
+or the `ghcr.io/hugmesh/hugmesh-host-shell:main` image that the GHCR release
+workflow (`.github/workflows/release.yml`) pushes on every push to `main`. Tagged
+betas (`:<version>`, `:beta`) are snapshots of `main` and get no separate fixes.
+Fixes land on `main`. There are no backported maintenance branches.
 
 ## Reporting a Vulnerability
 

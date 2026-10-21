@@ -1,6 +1,6 @@
 {
   "name": "@hugmesh/host-shell",
-  "version": "1.0.0",
+  "version": "0.3.0-beta.1",
   "scripts": {
     "ng": "ng",
     "start-dev": "ng serve",
@@ -13,6 +13,7 @@
     "check:theme-tokens": "bash scripts/check-theme-token-contract.sh",
     "check:runtime-audit": "node scripts/check-runtime-audit.mjs",
     "check:karma-viewport": "node scripts/check-karma-viewport.mjs",
+    "test:release-version": "bash scripts/release-version.test.sh",
     "coverage": "ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI",
     "e2e": "nightwatch  -r ./e2e/html-reporter.js nightwatch.conf.js -e chrome",
     "e2e:test": "./node_modules/.bin/nightwatch --env 'chrome' --config './nightwatch.conf.js'",

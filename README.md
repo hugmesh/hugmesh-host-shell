@@ -573,13 +573,11 @@ Remotes do almost everything. The host owns only the cross-cutting surface:
   workflows also run:
   [`.github/workflows/coverage.yml`](.github/workflows/coverage.yml) ("Code
   Coverage") runs on push and PR to `main`/`release/*`. It runs the theme-token
-  contract gate, the native-federation single-copy gate, `npm run-script coverage`,
-  the Karma viewport gate and the production build, then publishes JUnit results with
-  `EnricoMi/publish-unit-test-result-action`.
-  [`.github/workflows/release.yml`](.github/workflows/release.yml) ("Release") is
-  manual (`workflow_dispatch`). It builds the image and pushes it to
-  `ghcr.io/hugmesh/hugmesh-host-shell` under the given tag (default: the short commit
-  SHA) and under `latest`.
+  contract gate, the native-federation single-copy gate, the release version gate,
+  `npm run-script coverage`, the Karma viewport gate and the production build, then
+  publishes JUnit results with `EnricoMi/publish-unit-test-result-action`.
+  [`.github/workflows/release.yml`](.github/workflows/release.yml) ("Release")
+  publishes `ghcr.io/hugmesh/hugmesh-host-shell`; see [Releasing](#releasing).
 
 | Script | What |
 |---|---|
@@ -590,6 +588,33 @@ Remotes do almost everything. The host owns only the cross-cutting surface:
 | `npm run check:theme-tokens` / `check:karma-viewport` | the theme-token contract gate / the Karma viewport gate |
 | `npm run check:runtime-audit` | first walks the runtime tree from `package.json` and fails if `package-lock.json` flags any of it dev or names a version its tarball is not (offline, `scripts/runtime-lock.mjs`); then fails on a moderate-or-worse `npm audit --omit=dev` advisory (needs the registry; exits 2 offline). Offline floor tests: `node --test scripts/runtime-lock-floors.test.mjs` |
 | `npm run dockerBuild` / `dockerRun` | build + run the container image |
+| `npm run test:release-version` | tests `scripts/release-version.sh`, the release version guard (see [Releasing](#releasing)) |
+
+### Releasing
+
+The version lives in `package.json` (and `package-lock.json`, whose two version
+fields must match it). Today it is a beta, `MAJOR.MINOR.PATCH-beta.N`
+(`0.3.0-beta.1`). `.github/workflows/release.yml` publishes the image:
+
+- A push to `main` pushes `:main` and `:sha-<12 hex>`.
+- Pushing the tag `v<version>` (for example `v0.3.0-beta.1`, on a commit on `main`)
+  pushes `:<version>`, `:beta` and `:sha-<12 hex>`, and creates a GitHub Release
+  marked prerelease and not latest. A version tag that already exists in the registry
+  is never overwritten: raise `N` instead.
+- A manual run (`workflow_dispatch`) on `main` is a main build; on a `v<version>` tag
+  it re-runs that release.
+- `:latest` is never pushed for a beta.
+
+`scripts/release-version.sh` is the guard: it refuses a tag that does not match the
+version, a lock file that disagrees, a SNAPSHOT, `+build` metadata, any ref other than
+`main` or a `v` tag, and any pull-request run. `npm run test:release-version` tests it,
+including against this repo's own files.
+
+Release jobs run on the runner named by the `RUNS_ON_PUBLISH` repository variable (a
+JSON array such as `["self-hosted","Linux","X64"]`) only for a push to `main`, a `v`
+tag or a manual run on either; everything else, and everything when the variable is
+unset, runs on hosted `ubuntu-latest`. The Code Coverage workflow, which runs on pull
+requests, always uses hosted `ubuntu-latest`.
 
 ---
 
