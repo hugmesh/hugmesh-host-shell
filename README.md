@@ -588,6 +588,7 @@ Remotes do almost everything. The host owns only the cross-cutting surface:
 | `npm test` / `npm run coverage` | Karma/Jasmine unit tests (+ coverage) |
 | `npm run e2e` / `e2e:integration` / `e2e:nginx` | Nightwatch e2e: the offline subset / the `@cluster` subset / against the built image (see [`e2e/README.md`](e2e/README.md)) |
 | `npm run check:theme-tokens` / `check:karma-viewport` | the theme-token contract gate / the Karma viewport gate |
+| `npm run check:runtime-audit` | fails on a moderate-or-worse `npm audit --omit=dev` advisory (needs the registry; exits 2 offline). Offline floor tests: `node --test scripts/runtime-lock-floors.test.mjs` |
 | `npm run dockerBuild` / `dockerRun` | build + run the container image |
 
 ---
