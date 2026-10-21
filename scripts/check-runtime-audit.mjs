@@ -17,15 +17,141 @@
  * --json`, which asks the registry. If that cannot be done (offline, bad
  * output) it exits 2: an audit that could not run is not a clean audit.
  *
- *   node scripts/check-runtime-audit.mjs                 live audit
+ * OFFLINE MODE. npm in offline mode (`npm_config_offline=true`, or
+ * `offline=true` in a project, user or global .npmrc) does not ask the
+ * registry at all and prints a well-formed report with NO vulnerabilities,
+ * which reads exactly like a clean tree. Two defences, because the report
+ * body alone cannot tell the two apart:
+ *   1. npm is spawned with the settings that decide this given on the
+ *      command line (NPM_FLAGS below). npm ranks command-line flags above
+ *      environment variables and .npmrc files, so that ambient config does
+ *      not turn them off.
+ *   2. A positive control. Before the real audit, the same command with the
+ *      same environment and the same project .npmrc audits a throwaway
+ *      lockfile that pins packages with published advisories (CANARY). If
+ *      that comes back without a moderate-or-worse finding, the audit is not
+ *      really running (offline by a setting not listed here, a registry
+ *      or mirror that answers empty), and the script exits 2.
+ *
+ * LOCKFILE HONESTY. npm audit --omit=dev takes the lockfile's word for which
+ * entries are dev and which version each one is. `npm ci` checks neither: it
+ * installs every entry's `resolved` tarball. So before any audit, the live
+ * mode walks the runtime tree from package.json itself (scripts/
+ * runtime-lock.mjs) and exits 1 if an entry on it is flagged dev, or names a
+ * version its tarball is not, or is not a plain registry package. --report
+ * mode reads a saved audit and skips this; CI never passes --report.
+ *
+ *   node scripts/check-runtime-audit.mjs                 lockfile check + live audit
  *   node scripts/check-runtime-audit.mjs --report f.json audit JSON from a file
  * Its tests:  node --test scripts/check-runtime-audit.test.mjs
  */
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { lockProblems, readProject } from './runtime-lock.mjs';
 
 const RANK = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
 const THRESHOLD = 'moderate';
+
+// Command-line flags outrank npm_config_* and .npmrc. Each one closes a
+// setting that would let the audit skip the registry or audit nothing.
+const NPM_FLAGS = [
+  'audit',
+  '--package-lock-only',
+  '--omit=dev',
+  '--json',
+  '--offline=false',
+  '--prefer-offline=false',
+  '--audit=true',
+  '--dry-run=false',
+  '--registry=https://registry.npmjs.org/',
+];
+
+// Positive control: versions with published advisories.
+// proxy-addr 2.0.7: GHSA-jqcg-44mw-7w3h (critical, the #72 runtime finding).
+// minimist 1.2.5: CVE-2021-44906 (critical prototype pollution).
+const CANARY = { 'proxy-addr': '2.0.7', minimist: '1.2.5' };
+
+function runNpm(cwd) {
+  const r = spawnSync('npm', NPM_FLAGS, {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (r.error) {
+    console.error(`ERROR: could not run npm audit: ${r.error.message}`);
+    process.exit(2);
+  }
+  // npm audit exits 1 when it FINDS advisories, so the exit code says nothing
+  // about whether it ran; the JSON body does.
+  return r.stdout;
+}
+
+function canaryAudit() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-audit-canary-'));
+  try {
+    const pkg = { name: 'runtime-audit-canary', version: '0.0.0', private: true, dependencies: CANARY };
+    const lock = {
+      name: pkg.name,
+      version: pkg.version,
+      lockfileVersion: 3,
+      requires: true,
+      packages: { '': { name: pkg.name, version: pkg.version, dependencies: CANARY } },
+    };
+    for (const [name, version] of Object.entries(CANARY)) {
+      lock.packages[`node_modules/${name}`] = {
+        version,
+        resolved: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
+      };
+    }
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg));
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify(lock));
+    // The project's own .npmrc applies to the real audit, so it applies here.
+    const npmrc = path.join(process.cwd(), '.npmrc');
+    if (fs.existsSync(npmrc)) fs.copyFileSync(npmrc, path.join(dir, '.npmrc'));
+    let rep;
+    try {
+      rep = JSON.parse(runNpm(dir));
+    } catch (err) {
+      console.error(`ERROR: npm audit of the canary lockfile did not produce JSON (offline?): ${err.message}`);
+      process.exit(2);
+    }
+    const hits = Object.keys(CANARY).filter((n) => {
+      const v = rep?.vulnerabilities?.[n];
+      return v && (RANK[v.severity] ?? RANK.critical) >= RANK[THRESHOLD];
+    });
+    if (hits.length === 0) {
+      console.error(
+        'ERROR: npm audit reported nothing for a canary lockfile with known advisories ' +
+          `(${Object.entries(CANARY).map(([n, v]) => `${n}@${v}`).join(', ')}); ` +
+          'the audit is not reaching the advisory database (offline mode, or a registry that answers empty).',
+      );
+      process.exit(2);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function lockCheck(dir) {
+  let proj;
+  try {
+    proj = readProject(dir);
+  } catch (err) {
+    console.error(`ERROR: cannot read package.json and package-lock.json: ${err.message}`);
+    process.exit(2);
+  }
+  const problems = lockProblems(proj.pkgJson, proj.lock, { peers: proj.peers });
+  if (problems.length === 0) return;
+  console.error(
+    `FAIL: package-lock.json does not describe what npm ci installs on the runtime path (${problems.length} problem(s)); ` +
+      'npm audit reads the lockfile, so it cannot be trusted until this is fixed:',
+  );
+  for (const p of problems) console.error(`  ${p}`);
+  console.error('Regenerate with `npm install --package-lock-only --ignore-scripts`, then commit package-lock.json.');
+  process.exit(1);
+}
 
 function readReport() {
   const i = process.argv.indexOf('--report');
@@ -38,18 +164,9 @@ function readReport() {
       process.exit(2);
     }
   }
-  const r = spawnSync(
-    'npm',
-    ['audit', '--package-lock-only', '--omit=dev', '--json'],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
-  );
-  if (r.error) {
-    console.error(`ERROR: could not run npm audit: ${r.error.message}`);
-    process.exit(2);
-  }
-  // npm audit exits 1 when it FINDS advisories, so the exit code says nothing
-  // about whether it ran; the JSON body does.
-  return r.stdout;
+  lockCheck(process.cwd());
+  canaryAudit();
+  return runNpm(process.cwd());
 }
 
 let report;
@@ -62,6 +179,13 @@ try {
 if (report.error || typeof report.vulnerabilities !== 'object' || report.vulnerabilities === null) {
   const why = report.error ? `${report.error.code}: ${report.error.summary}` : 'no "vulnerabilities" map';
   console.error(`ERROR: npm audit did not complete: ${why}`);
+  process.exit(2);
+}
+// Structural check: the lockfile was actually read. (This does NOT detect
+// offline mode, whose report still counts the lockfile's dependencies.)
+const deps = report.metadata?.dependencies?.total;
+if (typeof deps !== 'number' || deps <= 0) {
+  console.error('ERROR: npm audit report counts no dependencies (metadata.dependencies.total); the lockfile was not audited.');
   process.exit(2);
 }
 
