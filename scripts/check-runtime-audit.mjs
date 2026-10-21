@@ -33,7 +33,15 @@
  *      really running (offline by a setting not listed here, a registry
  *      or mirror that answers empty), and the script exits 2.
  *
- *   node scripts/check-runtime-audit.mjs                 live audit
+ * LOCKFILE HONESTY. npm audit --omit=dev takes the lockfile's word for which
+ * entries are dev and which version each one is. `npm ci` checks neither: it
+ * installs every entry's `resolved` tarball. So before any audit, the live
+ * mode walks the runtime tree from package.json itself (scripts/
+ * runtime-lock.mjs) and exits 1 if an entry on it is flagged dev, or names a
+ * version its tarball is not, or is not a plain registry package. --report
+ * mode reads a saved audit and skips this; CI never passes --report.
+ *
+ *   node scripts/check-runtime-audit.mjs                 lockfile check + live audit
  *   node scripts/check-runtime-audit.mjs --report f.json audit JSON from a file
  * Its tests:  node --test scripts/check-runtime-audit.test.mjs
  */
@@ -41,6 +49,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { lockProblems, readProject } from './runtime-lock.mjs';
 
 const RANK = { info: 0, low: 1, moderate: 2, high: 3, critical: 4 };
 const THRESHOLD = 'moderate';
@@ -125,6 +134,25 @@ function canaryAudit() {
   }
 }
 
+function lockCheck(dir) {
+  let proj;
+  try {
+    proj = readProject(dir);
+  } catch (err) {
+    console.error(`ERROR: cannot read package.json and package-lock.json: ${err.message}`);
+    process.exit(2);
+  }
+  const problems = lockProblems(proj.pkgJson, proj.lock, { peers: proj.peers });
+  if (problems.length === 0) return;
+  console.error(
+    `FAIL: package-lock.json does not describe what npm ci installs on the runtime path (${problems.length} problem(s)); ` +
+      'npm audit reads the lockfile, so it cannot be trusted until this is fixed:',
+  );
+  for (const p of problems) console.error(`  ${p}`);
+  console.error('Regenerate with `npm install --package-lock-only --ignore-scripts`, then commit package-lock.json.');
+  process.exit(1);
+}
+
 function readReport() {
   const i = process.argv.indexOf('--report');
   if (i !== -1) {
@@ -136,6 +164,7 @@ function readReport() {
       process.exit(2);
     }
   }
+  lockCheck(process.cwd());
   canaryAudit();
   return runNpm(process.cwd());
 }

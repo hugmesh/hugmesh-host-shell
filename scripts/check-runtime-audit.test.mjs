@@ -96,9 +96,12 @@ function vulnerableProject(extraNpmrc = '') {
       requires: true,
       packages: {
         '': { name: 'p', version: '0.0.0', dependencies: deps },
+        // A complete, honest entry, so the lockfile check passes and the
+        // audit is what these cases exercise.
         'node_modules/proxy-addr': {
           version: '2.0.7',
           resolved: 'https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz',
+          integrity: 'sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==',
         },
       },
     }),
@@ -111,7 +114,8 @@ function vulnerableProject(extraNpmrc = '') {
 // `offline` the way npm does (command line, then env, then project .npmrc,
 // then the userconfig file) and, when offline, prints the empty report real
 // npm prints. Online it reports proxy-addr@2.0.7 and minimist@1.2.5 when the
-// lockfile in its cwd pins them. MODE=empty makes it answer `{}` whatever the
+// lockfile in its cwd pins them, skipping entries flagged dev under
+// --omit=dev as real npm does. MODE=empty makes it answer `{}` whatever the
 // flags say, like a mirror without the advisory endpoint.
 const FAKE_NPM = `#!/usr/bin/env node
 const fs = require('node:fs');
@@ -128,7 +132,8 @@ const vulnerabilities = {};
 const known = { 'proxy-addr': '2.0.7', minimist: '1.2.5' };
 if (!offline && process.env.FAKE_NPM_MODE !== 'empty') {
   for (const [n, v] of Object.entries(known)) {
-    if (lock.packages?.['node_modules/' + n]?.version === v) {
+    const e = lock.packages?.['node_modules/' + n];
+    if (e?.version === v && !(args.includes('--omit=dev') && e.dev)) {
       vulnerabilities[n] = { name: n, severity: 'critical', range: '<=' + v, via: [{ title: n + ' advisory' }] };
     }
   }
@@ -178,6 +183,7 @@ for (const [label, make] of OFFLINE_SPELLINGS) {
     try {
       const r = withFakeNpm((PATH) => runIn(dir, { ...env, PATH }));
       assert.equal(r.status, 1, `expected FAIL (1), got ${r.status}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /runtime package\(s\) with a moderate-or-worse advisory/);
       assert.match(r.stderr, /proxy-addr/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -219,4 +225,92 @@ test('the committed lockfile has no moderate-or-worse runtime advisory', (t) => 
   const r = spawnSync('node', [SCRIPT], { cwd: ROOT, encoding: 'utf8' });
   if (r.status === 2) return t.skip(`registry unreachable: ${r.stderr.trim()}`);
   assert.equal(r.status, 0, r.stderr);
+});
+
+// ---------------------------------------------------------------------------
+// Round 3: a lockfile that lies about itself. npm audit --omit=dev believes
+// the lock's `dev` flags and `version` fields; npm ci installs every entry's
+// tarball whatever they say. The stand-in npm above models that belief, so
+// these cases show the script refusing the lock before any audit runs.
+function projectFrom(pkg, lock) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-audit-lie-'));
+  fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg));
+  fs.writeFileSync(path.join(dir, 'package-lock.json'), JSON.stringify(lock));
+  fs.writeFileSync(path.join(dir, '.npmrc'), fs.readFileSync(path.join(ROOT, '.npmrc')));
+  return dir;
+}
+const PROXY_ADDR_207 = {
+  version: '2.0.7',
+  resolved: 'https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz',
+  integrity: 'sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==',
+  license: 'MIT',
+  dependencies: { forwarded: '0.2.0', 'ipaddr.js': '1.9.1' },
+  engines: { node: '>= 0.10' },
+};
+
+test('EXPLOIT: the committed lock with a dev-flagged proxy-addr 2.0.7 and a non-dev decoy exits 1', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'));
+  lock.packages['node_modules/karma/node_modules/proxy-addr'] = { ...lock.packages['node_modules/proxy-addr'] };
+  lock.packages['node_modules/proxy-addr'] = { ...PROXY_ADDR_207, dev: true };
+  const dir = projectFrom(pkg, lock);
+  try {
+    const r = withFakeNpm((PATH) => runIn(dir, { PATH }));
+    assert.equal(r.status, 1, `the lying lock passed: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /node_modules\/proxy-addr \(express > proxy-addr\) is on the runtime path but flagged "dev": true/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('EXPLOIT: version 2.0.8 over the 2.0.7 tarball exits 1 (npm ci would install 2.0.7)', () => {
+  const deps = { 'proxy-addr': '^2.0.8' };
+  const lock = {
+    name: 'p', version: '0.0.0', lockfileVersion: 3, requires: true,
+    packages: {
+      '': { name: 'p', version: '0.0.0', dependencies: deps },
+      'node_modules/proxy-addr': { ...PROXY_ADDR_207, version: '2.0.8', dependencies: undefined },
+    },
+  };
+  const dir = projectFrom({ name: 'p', version: '0.0.0', private: true, dependencies: deps }, lock);
+  try {
+    const r = withFakeNpm((PATH) => runIn(dir, { PATH }));
+    assert.equal(r.status, 1, `the lying lock passed: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /says proxy-addr@2\.0\.8 but resolves to .*proxy-addr-2\.0\.7\.tgz/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an honest lock with a patched runtime tree still passes (the check is not a blanket refusal)', () => {
+  const deps = { 'proxy-addr': '^2.0.8' };
+  const lock = {
+    name: 'p', version: '0.0.0', lockfileVersion: 3, requires: true,
+    packages: {
+      '': { name: 'p', version: '0.0.0', dependencies: deps },
+      'node_modules/proxy-addr': {
+        version: '2.0.8',
+        resolved: 'https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.8.tgz',
+        integrity: 'sha512-AAAA',
+      },
+    },
+  };
+  const dir = projectFrom({ name: 'p', version: '0.0.0', private: true, dependencies: deps }, lock);
+  try {
+    const r = withFakeNpm((PATH) => runIn(dir, { PATH }));
+    assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a project with no lockfile exits 2, not 0', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-audit-nolock-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'p', version: '0.0.0' }));
+    const r = withFakeNpm((PATH) => runIn(dir, { PATH }));
+    assert.equal(r.status, 2, `${r.stdout}${r.stderr}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
