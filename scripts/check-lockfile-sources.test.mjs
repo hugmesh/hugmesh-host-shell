@@ -40,9 +40,13 @@ const withEntry = (entry, key = KEY) => {
   return run({ lock });
 };
 const SHA512 = 'sha512-' + 'A'.repeat(86) + '==';
-const registry = (extra = {}) => ({
+// A clean registry entry for package `name`: its resolved URL is that package's
+// own tarball, so a test that adds it under node_modules/<name> fails ONLY for
+// the one thing that test mutates.
+const tarball = (name, version) => `https://registry.npmjs.org/${name}/-/${name.split('/').pop()}-${version}.tgz`;
+const registry = (extra = {}, name = 'download') => ({
   version: '14.0.0',
-  resolved: 'https://registry.npmjs.org/download/-/download-14.0.0.tgz',
+  resolved: tarball(name, '14.0.0'),
   integrity: SHA512,
   dev: true,
   ...extra,
@@ -235,7 +239,7 @@ for (const [name, spec] of [
 ]) {
   test(`a locked dependency spec ${name} -> exit 1`, () => {
     const lock = readJson('package-lock.json');
-    lock.packages['node_modules/some-pkg'] = registry({ dependencies: { download: spec } });
+    lock.packages['node_modules/some-pkg'] = registry({ dependencies: { download: spec } }, 'some-pkg');
     const r = run({ lock });
     assert.equal(r.status, 1, r.out);
     assert.ok(r.out.includes('node_modules/some-pkg dependencies.download: '), r.out);
@@ -277,21 +281,21 @@ test('a git spec in package.json overrides, flat and nested -> exit 1', () => {
 test('plain registry ranges, tags and npm: aliases are accepted -> exit 0', () => {
   const lock = readJson('package-lock.json');
   lock.packages['node_modules/some-pkg'] = registry({
-    dependencies: { a: '^1.2.3', b: '>=1 <2 || 3.x', c: 'latest', d: '*', e: 'npm:@scope/real@^2.0.0', f: 'npm:real@1.0.0' },
-  });
+    dependencies: { a: '^1.2.3', b: '>=1 <2 || 3.x', c: 'latest', d: '*', e: 'npm:@scope/real@^2.0.0', f: 'npm:real@1.0.0', g: '~1.2.3', h: '1.2.3 - 2.x', i: '' },
+  }, 'some-pkg');
   const r = run({ lock });
   assert.equal(r.status, 0, r.out);
 });
 
 test('every problem is reported, not just the first', () => {
   const lock = readJson('package-lock.json');
-  lock.packages['node_modules/x1'] = registry({ resolved: GIT_SSH });
-  lock.packages['node_modules/x2'] = registry({ integrity: undefined });
+  lock.packages['node_modules/x1'] = registry({ resolved: GIT_SSH }, 'x1');
+  lock.packages['node_modules/x2'] = registry({ integrity: undefined }, 'x2');
   const r = run({ lock });
   assert.equal(r.status, 1, r.out);
   assert.match(r.out, /2 dependency source problem/);
   assert.ok(r.out.includes('node_modules/x1: '), r.out);
-  assert.ok(r.out.includes('node_modules/x2: '), r.out);
+  assert.ok(r.out.includes('node_modules/x2: has no integrity hash'), r.out);
 });
 
 // Fail CLOSED: a lockfile this script cannot read must never read as "clean".
@@ -468,3 +472,185 @@ test('Dockerfile: the lockfile source check runs BEFORE npm ci, and its script i
   assert.ok(copy >= 0 && check >= 0 && ci >= 0, 'all three present');
   assert.ok(copy < check && check < ci, `order: copy ${copy} < check ${check} < npm ci ${ci}`);
 });
+
+// ---- Round 4: a registry URL that is not the entry's OWN tarball ----
+//
+// Measured (npm 11.16.0 and 12.2.0): node_modules/isarray with `resolved` set to
+// is-number's tarball and is-number's real integrity. The round-3 gate checked
+// only the scheme, userinfo, port and host, printed OK and exited 0; `npm ci
+// --ignore-scripts --registry=https://registry.npmjs.org/` then installed
+// is-number's code as `isarray`. Anyone can publish to npm, so this is the
+// original exploit (code the attacker chose, under a trusted name, with a hash
+// the attacker wrote) moved onto the allowed host.
+const IS_NUMBER_TGZ = 'https://registry.npmjs.org/is-number/-/is-number-7.0.0.tgz';
+const IS_NUMBER_SHA = 'sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==';
+
+test('round-4 exploit on the REAL lockfile: isarray resolved to is-number\'s tarball (two-line edit) -> exit 1, names it', () => {
+  const lock = readJson('package-lock.json');
+  const e = lock.packages['node_modules/isarray'];
+  assert.ok(e && e.version === '2.0.5', 'precondition: the committed lockfile locks isarray@2.0.5');
+  e.resolved = IS_NUMBER_TGZ;
+  e.integrity = IS_NUMBER_SHA;
+  const r = run({ lock });
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.out.includes("node_modules/isarray: resolved is not isarray@2.0.5's own registry tarball"), r.out);
+});
+
+test('round-4 exploit, minimal project: { isarray: 2.0.5 } locked to is-number -> exit 1', () => {
+  const pkg = { name: 'x', version: '1.0.0', dependencies: { isarray: '2.0.5' } };
+  const lock = {
+    name: 'x', version: '1.0.0', lockfileVersion: 3, requires: true,
+    packages: {
+      '': { name: 'x', version: '1.0.0', dependencies: { isarray: '2.0.5' } },
+      'node_modules/isarray': { version: '2.0.5', resolved: IS_NUMBER_TGZ, integrity: IS_NUMBER_SHA },
+    },
+  };
+  const r = run({ lock, pkg });
+  assert.equal(r.status, 1, r.out);
+  assert.match(r.out, /node_modules\/isarray: resolved is not isarray@2\.0\.5's own registry tarball/);
+  // ...and the same project with isarray's real tarball passes, so the rule is
+  // about the substitution, not the shape of the fixture.
+  lock.packages['node_modules/isarray'].resolved = 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz';
+  assert.equal(run({ lock, pkg }).status, 0);
+});
+
+for (const [name, key, version, resolved] of [
+  ['an unscoped entry pointing at a scoped tarball', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/@types/node/-/node-26.6.5.tgz'],
+  ['a scoped entry pointing at an unscoped tarball', 'node_modules/@types/node', '26.6.5', IS_NUMBER_TGZ],
+  ['a scoped entry pointing at another scope', 'node_modules/@types/node', '26.6.5', 'https://registry.npmjs.org/@evil/node/-/node-26.6.5.tgz'],
+  ['a scoped entry with the scope dropped', 'node_modules/@types/node', '26.6.5', 'https://registry.npmjs.org/node/-/node-26.6.5.tgz'],
+  ['right package, different version than the entry says', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-1.0.0.tgz'],
+  ['right tarball name under another package path', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/evil/-/isarray-2.0.5.tgz'],
+  ['query string on the right tarball', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz?x=1'],
+  ['fragment on the right tarball', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz#x'],
+  ['dot segments that normalise elsewhere', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/../../is-number/-/is-number-7.0.0.tgz'],
+  ['dot segments that normalise to the right path', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/evil/../isarray/-/isarray-2.0.5.tgz'],
+  ['percent-escaped name', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarr%61y/-/isarray-2.0.5.tgz'],
+  ['encoded scope slash', 'node_modules/@types/node', '26.6.5', 'https://registry.npmjs.org/@types%2fnode/-/node-26.6.5.tgz'],
+  ['backslashes', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray\\-\\isarray-2.0.5.tgz'],
+  ['packument instead of tarball', 'node_modules/isarray', '2.0.5', 'https://registry.npmjs.org/isarray'],
+  ['a key that is not node_modules/<name>', 'lib/isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz'],
+  ['a key with a trailing slash', 'node_modules/isarray/', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz'],
+  ['a key with a dot segment', 'node_modules/./isarray', '2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz'],
+  ['an upper-case package name', 'node_modules/IsArray', '2.0.5', 'https://registry.npmjs.org/IsArray/-/IsArray-2.0.5.tgz'],
+  ['a version that is a range, not a version', 'node_modules/isarray', '^2.0.5', 'https://registry.npmjs.org/isarray/-/isarray-^2.0.5.tgz'],
+  // The text equals "<registry>/isarray/-/isarray-" + version + ".tgz" exactly,
+  // and a URL parser normalises it to is-number's tarball.
+  ['a version carrying a path', 'node_modules/isarray', '2.0.5/../../../is-number/-/is-number-7.0.0', 'https://registry.npmjs.org/isarray/-/isarray-2.0.5/../../../is-number/-/is-number-7.0.0.tgz'],
+  ['no version at all', 'node_modules/isarray', undefined, 'https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz'],
+  ['a dist-tag as the version, with a URL built from it', 'node_modules/isarray', 'latest', 'https://registry.npmjs.org/isarray/-/isarray-latest.tgz'],
+]) {
+  test(`round 4, resolved not the entry's own tarball: ${name} -> exit 1`, () => {
+    const lock = readJson('package-lock.json');
+    delete lock.packages['node_modules/isarray'];
+    lock.packages[key] = { version, resolved, integrity: SHA512, dev: true };
+    const r = run({ lock });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`${key}: `), r.out);
+  });
+}
+
+for (const [name, key, version] of [
+  ['an unscoped package', 'node_modules/isarray', '2.0.5'],
+  ['a scoped package', 'node_modules/@types/node', '26.6.5'],
+  ['a nested scoped package', 'node_modules/@angular/cli/node_modules/@angular-devkit/core', '22.2.3'],
+  ['a prerelease version', 'node_modules/isarray', '3.0.0-rc.1'],
+]) {
+  test(`round 4, the entry's own tarball is accepted: ${name} -> exit 0`, () => {
+    const lock = readJson('package-lock.json');
+    lock.packages[key] = { version, resolved: tarball(key.split('node_modules/').pop(), version), integrity: SHA512, dev: true };
+    const r = run({ lock });
+    assert.equal(r.status, 0, r.out);
+  });
+}
+
+test('every committed lock entry resolves to its own name@version tarball', () => {
+  const lock = readJson('package-lock.json');
+  for (const [k, e] of Object.entries(lock.packages)) {
+    if (k === '') continue;
+    assert.equal(e.resolved, tarball(k.split('node_modules/').pop(), e.version), k);
+  }
+});
+
+// npm 12 lockfileVersion 4 `patched` (measured: package.json patchedDependencies
+// + a `patched: {integrity, path}` lock key; `npm ci --ignore-scripts` exited 0
+// and require('isarray')([]) returned the repo's patched code). The round-3 gate
+// accepted the unknown key. Every key outside the plain-registry set is refused.
+for (const [name, extra] of [
+  ['npm 12 `patched`', { patched: { integrity: SHA512, path: 'patches/isarray.patch' } }],
+  ['an alias `name`', { name: 'is-number' }],
+  ['`hasShrinkwrap`', { hasShrinkwrap: true }],
+  ['`bundleDependencies`', { bundleDependencies: ['x'] }],
+  ['`extraneous`', { extraneous: true }],
+  ['a key npm has not invented yet', { overlay: 'patches/x' }],
+]) {
+  test(`an entry carrying ${name} -> exit 1`, () => {
+    const lock = readJson('package-lock.json');
+    Object.assign(lock.packages['node_modules/isarray'], extra);
+    const r = run({ lock });
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /node_modules\/isarray: has key\(s\) `[^`]+` that a plain registry entry does not carry/);
+  });
+}
+
+for (const v of [4, 1, '3', undefined]) {
+  test(`lockfileVersion ${JSON.stringify(v)} -> exit 1`, () => {
+    const lock = readJson('package-lock.json');
+    lock.lockfileVersion = v;
+    const r = run({ lock });
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.out, /lockfileVersion .* is not 2 or 3/);
+  });
+}
+
+for (const [field, value] of [
+  ['patchedDependencies', { 'isarray@2.0.5': 'patches/isarray.patch' }],
+  ['packageExtensions', { isarray: { dependencies: { evil: '1.0.0' } } }],
+  ['workspaces', ['packages/*']],
+]) {
+  test(`package.json \`${field}\` -> exit 1`, () => {
+    const pkg = readJson('package.json');
+    pkg[field] = value;
+    const r = run({ pkg });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes(`package.json has \`${field}\``), r.out);
+  });
+}
+
+// npm-package-arg reads all of these as a file or directory with no slash
+// (measured: `.evil-dir` directory, `..evil.tgz` file, `..` and `.` directory;
+// the round-3 gate passed {evil: ".evil-dir"} and overrides {isarray: "..evil.tgz"}).
+for (const [name, spec] of [
+  ['.', '.'],
+  ['..', '..'],
+  ['.evil-dir', '.evil-dir'],
+  ['..evil.tgz', '..evil.tgz'],
+  ['evil.tgz', 'evil.tgz'],
+  ['evil.tar.gz', 'evil.tar.gz'],
+  ['evil.tar', 'evil.tar'],
+  ['upper-case EVIL.TGZ', 'EVIL.TGZ'],
+  ['~/home path', '~/evil'],
+  ['leading backslash', '\\evil'],
+  ['backslash inside', 'evil\\x'],
+  ['npm alias to a tarball file', 'npm:download@evil.tgz'],
+]) {
+  test(`a dependency spec read as a path (${name}) -> exit 1, in package.json, overrides and the lockfile`, () => {
+    let pkg = readJson('package.json');
+    pkg.devDependencies.evil = spec;
+    let r = run({ pkg });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes('package.json devDependencies.evil: '), r.out);
+
+    pkg = readJson('package.json');
+    pkg.overrides.isarray = spec;
+    r = run({ pkg });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes('package.json overrides.isarray: '), r.out);
+
+    const lock = readJson('package-lock.json');
+    lock.packages['node_modules/isarray'].dependencies = { evil: spec };
+    r = run({ lock });
+    assert.equal(r.status, 1, r.out);
+    assert.ok(r.out.includes('node_modules/isarray dependencies.evil: '), r.out);
+  });
+}
