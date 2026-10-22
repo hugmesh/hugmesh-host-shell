@@ -21,9 +21,9 @@ Fixes land on `main`. There are no backported maintenance branches.
 
 ## Reporting a Vulnerability
 
-Report suspected vulnerabilities privately to the platform security contact,
-**maguscrowley@gmail.com**, or through a GitHub private security advisory on this
-repository. Do **not** open a public issue for an unfixed vulnerability.
+Report suspected vulnerabilities privately through a GitHub private security
+advisory on this repository: open the **Security** tab and choose **Report a
+vulnerability**. Do **not** open a public issue for an unfixed vulnerability.
 
 Include the affected commit or branch, reproduction steps and the impact you
 observed. You will get an initial acknowledgement and triage. Accepted issues are
