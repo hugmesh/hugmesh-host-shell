@@ -15,7 +15,15 @@ on:
 
 jobs:
   build_and_test:
-    runs-on: ${{ fromJSON(vars.RUNS_ON || '"ubuntu-latest"') }}
+    # Pull request runs ALWAYS go to hosted ubuntu-latest. Only a push (which
+    # needs write access to this repo) may be sent to vars.RUNS_ON, the
+    # self-hosted runner on the operator's own machine; when RUNS_ON is unset
+    # every run is hosted. This repo is public, so a pull_request run may be a
+    # stranger's code and must never reach that machine. Same rule as
+    # release.yml. This line is not the security boundary against fork PRs (a
+    # fork's PR runs the fork's own copy of this file); the org runner group
+    # setting allows_public_repositories=false is, and must stay that way.
+    runs-on: ${{ fromJSON(github.event_name == 'push' && vars.RUNS_ON || '"ubuntu-latest"') }}
     strategy:
       matrix:
         node-version: [24.x]
@@ -88,6 +96,15 @@ jobs:
         run: node scripts/check-nf-single-copy.mjs
       - name: native-federation single-copy gate self-test
         run: node --test scripts/check-nf-single-copy.test.mjs
+      # Pull request runner gate. Fails if any workflow that runs on
+      # pull_request could send a job to the self-hosted runner (see the
+      # runs-on comment above). Node built-ins only, so it runs before `npm ci`.
+      # It stops an in-org change from re-opening that door; it does not stop a
+      # fork, whose PR runs the fork's own copy of this file.
+      - name: Pull request runner gate
+        run: |
+          node scripts/check-pr-runner.mjs
+          node --test scripts/check-pr-runner.test.mjs
       # Release version gate. scripts/release-version.sh is the guard
       # release.yml runs before it publishes an image; its test also runs it
       # against this repo's own package.json and package-lock.json, so a PR
