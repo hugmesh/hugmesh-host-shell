@@ -80,8 +80,11 @@ e2e:host:
 # -----------------------------------------------------------------------------
 # Runtime dependency gate (issue #72). Fails the pipeline when `npm audit
 # --omit=dev` reports a moderate-or-worse advisory, and when the lockfile holds
-# a runtime package below its patched floor. Both read only package-lock.json,
-# so nothing is installed; the live audit needs the registry and exits 2 (a
+# a runtime package below its patched floor. "Runtime" is walked from
+# package.json, not read from the lockfile's own dev flags, and the audit
+# refuses a lockfile whose runtime entries are flagged dev or name a version
+# their tarball is not (scripts/runtime-lock.mjs). Both read only
+# package-lock.json, so nothing is installed; the live audit needs the registry and exits 2 (a
 # failure, not a pass) when it cannot reach it. Dev-only advisories (the e2e
 # toolchain) are NOT gated here; see scripts/check-runtime-audit.mjs.
 # -----------------------------------------------------------------------------
