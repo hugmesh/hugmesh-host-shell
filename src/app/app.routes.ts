@@ -1,4 +1,5 @@
-import { CanActivateFn, Route, Routes } from '@angular/router';
+import { Route, Routes } from '@angular/router';
+import type { RoleGuardFn } from './guards/role-guard.factory';
 import { federationLoader } from './federation/remote-loader';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
@@ -49,7 +50,9 @@ export interface RemoteRouteSpec {
   readonly remoteName: string;
   readonly exposed: string;
   readonly routesConst: string;
-  readonly canActivate?: readonly CanActivateFn[];
+  /** Applied as BOTH `canMatch` and `canActivate` by {@link remoteRoute}; built
+   *  by roleGuard, so one function serves both hooks. */
+  readonly canActivate?: readonly RoleGuardFn[];
 }
 
 export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
@@ -155,10 +158,24 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
  *  back onto the eager path alone. */
 export { federationLoader };
 
+/** One federated mount. The role guard sits on `canMatch` as well as `canActivate`
+ *  because ORDER IS THE BUG (issue #93): the router resolves `loadChildren` while it
+ *  RECOGNISES the route, which is before any `canActivate` runs. With the guard on
+ *  `canActivate` alone, a signed-in user without the role who navigated in-app to
+ *  /games (or /tube, /owncast, ...) made the shell fetch that remote's
+ *  remoteEntry.json first; the gateway answered 403, native-federation threw, the
+ *  navigation died, and the guard's /home?denied=<path> redirect never ran. The
+ *  user was left on the page they came from with no notice. `canMatch` runs before
+ *  `loadChildren`, and its UrlTree redirects without the remote being requested.
+ *  `canActivate` stays as the activation-time check (it is the hook that sees the
+ *  full RouterStateSnapshot); for an admitted user both pass and the load is
+ *  unchanged. */
 function remoteRoute(spec: RemoteRouteSpec): Route {
   return {
     path: spec.path,
-    ...(spec.canActivate ? { canActivate: [...spec.canActivate] } : {}),
+    ...(spec.canActivate
+      ? { canMatch: [...spec.canActivate], canActivate: [...spec.canActivate] }
+      : {}),
     loadChildren: () =>
       federationLoader
         .load(spec.remoteName, spec.exposed)

@@ -1,5 +1,4 @@
-import { CanActivateFn } from '@angular/router';
-import { roleGuard } from './role-guard.factory';
+import { RoleGuardFn, roleGuard } from './role-guard.factory';
 
 /** Gate the OWNCAST management micro-frontend (the hugmesh-owncast-ui remote
  *  mounted at /owncast, exposing ./routes) on the Owncast access tier. Mirrors the
@@ -15,6 +14,6 @@ import { roleGuard } from './role-guard.factory';
  *  (/bff/owncast/** → ROLE_OWNCAST, /bff/owncast/admin/** → ADMIN|SUPERADMIN) are
  *  the real authorization; this guard keeps the unauthorized out of the remote's UI
  *  shell before a round-trip to the BFF. */
-export const owncastGuard: CanActivateFn = roleGuard(
+export const owncastGuard: RoleGuardFn = roleGuard(
   (session) => session.isAdmin() || session.isSuperadmin() || session.hasRole('OWNCAST'),
 );

@@ -1,5 +1,4 @@
-import { CanActivateFn } from '@angular/router';
-import { roleGuard } from './role-guard.factory';
+import { RoleGuardFn, roleGuard } from './role-guard.factory';
 
 /** Gate the FORUM micro-frontend (the hugmesh-forum-ui remote mounted at
  *  /social/forum, exposing ./routes -> FORUM_ROUTES) on any AUTHENTICATED
@@ -21,4 +20,4 @@ import { roleGuard } from './role-guard.factory';
  *  This is defense-in-depth only: the fe-gateway + admin-bff route-access rows
  *  (/social/forum/** and /bff/forum/**) are the real authorization; this guard
  *  keeps anonymous visitors out of the remote's UI shell and into /login. */
-export const forumGuard: CanActivateFn = roleGuard((session) => session.isUser());
+export const forumGuard: RoleGuardFn = roleGuard((session) => session.isUser());

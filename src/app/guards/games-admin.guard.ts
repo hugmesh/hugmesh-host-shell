@@ -1,5 +1,4 @@
-import { CanActivateFn } from '@angular/router';
-import { roleGuard } from './role-guard.factory';
+import { RoleGuardFn, roleGuard } from './role-guard.factory';
 
 /** Gate the GAMES-ADMIN mount (Phase 8/10, route 'games/admin') on the DERIVED
  *  ROLE_GAMES_ADMIN tier. Built from roleGuard like every other console mount,
@@ -20,6 +19,6 @@ import { roleGuard } from './role-guard.factory';
  *  authorization; this guard keeps the unauthorized out of the host shell's
  *  games-admin mount so it is never a dead link for a holder, nor reachable by a
  *  non-holder. */
-export const gamesAdminGuard: CanActivateFn = roleGuard(
+export const gamesAdminGuard: RoleGuardFn = roleGuard(
   (session) => session.isGamesAdmin() || session.isSuperadmin(),
 );
