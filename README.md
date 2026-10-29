@@ -65,9 +65,10 @@ unrelated PRs in this repo, so each is given as a commit as well (find it with
 - ✅ **Session hydrate-on-bootstrap** (commit a93d885; "PR #143"). Detail is under
   *Where it sits*.
 - ✅ **Games entry-point and derived Games Admin** (Phase 8/10, commit f0b74d2;
-  "PR #120"). `/games` and `/games/admin` are host-owned, guarded **local
-  placeholder** routes, not federated remotes. No `hugmesh-games-ui` remote exists
-  yet; see Roadmap. Gates are under *Routes, role-gates and remotes*.
+  "PR #120"; remote mounts 2026-10-28). `/games` and `/games/admin` mount the
+  single `games` federated remote (`hugmesh-games/games-ui`, exposes `./routes`
+  and `./admin-routes`); the host-local TODO placeholders that stood in for both
+  are gone. Gates are under *Routes, role-gates and remotes*.
 
 **Auth model (current).** The browser never holds a Casdoor JWT. Casdoor is
 **internal-only** and never redirects the browser. login-ui shows a **native
@@ -361,9 +362,9 @@ degrade* below. The two character remotes are mounted behind `registeredGuard`.
 
 Routing is data-driven from `REMOTE_ROUTES` in `src/app/app.routes.ts`. Each
 feature path is its own repo and nginx, mounted by `loadChildren →
-federationLoader.load(remote, './routes')`. Two further paths, `/games` and
-`/games/admin`, are host-owned **local placeholder** routes, not federated remotes;
-see the note below the table.
+federationLoader.load(remote, './routes')`. `/games` and `/games/admin` are two
+mounts of ONE remote (`games`) that exposes two modules; see the note below the
+table.
 
 | Path | Remote | Guard | Gate |
 |---|---|---|---|
@@ -380,19 +381,24 @@ see the note below the table.
 | `/wiki` | `wiki` (`hugmesh-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
 | `/tube` | `tube` (`hugmesh-tube-ui`, exposes `./Tube`) | `tubeGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_TUBE` |
 | `/owncast` | `owncast` (`hugmesh-owncast-ui`, exposes `./Owncast`) | `owncastGuard` | optional, default-off, GPU-gated; `admin`/`superadmin`, or any holder of `ROLE_OWNCAST` (mods with `ROLE_OWNCAST` reach the moderation view) |
-| `/games` | — (local `GamesPlaceholderComponent`, no remote yet) | `gamesGuard` | any holder of `ROLE_GAMES` (plus `admin`/`superadmin`); renders an honest `TODO` placeholder, never a faked games surface |
-| `/games/admin` | — (local `GamesAdminPlaceholderComponent`, no remote yet) | `gamesAdminGuard` | derived `ROLE_GAMES_ADMIN` (`ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`, plus `superadmin`) |
+| `/games/admin` | `games` (`hugmesh-games/games-ui`, exposes `./admin-routes` → `GAMES_ADMIN_ROUTES`) | `gamesAdminGuard` | derived `ROLE_GAMES_ADMIN` (`ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`, plus `superadmin`); listed **before** `/games` so the more specific path wins |
+| `/games` | `games` (`hugmesh-games/games-ui`, exposes `./routes` → `GAMES_ROUTES`) | `gamesGuard` | any holder of `ROLE_GAMES` (plus `admin`/`superadmin`); the member catalog + in-shell play screens |
 
-`/games` and `/games/admin` predate a `hugmesh-games-ui` remote (Phase 8/10, commit
-f0b74d2; "PR #120"). They are real, guarded, tested routes in this host's own bundle,
-as `ModPlaceholderComponent` was for `/mod` before `hugmesh-mod-ui` landed. Both
-render a `TODO` placeholder instead of faking a surface. A bare `ROLE_GAMES` or a
-bare `ROLE_ADMIN` alone does not earn the games admin tier. Both routes appear in the
-profile dropdown ("Games Admin") and the home-services launcher (`games` and
-`games-admin` cards, gated on the shared `games` capability slug). When the games
-remote ships, swap each `loadComponent` for a `loadChildren → loadRemoteModule('games', …)`
-entry and add `games` to the federation manifest. The `TODO(games-ui)` and
-`TODO(games-admin-ui)` comments sit at each placeholder component.
+`/games` and `/games/admin` are two mounts of the **same** `games` remote (cross-repo
+contract 2026-10-28: one native-federation remote named `games`, served under
+`/games/` — `remoteEntry.json` and its chunks never live under `/games/admin/`, so
+the fe-gateway's `/games/admin/**` `ROLE_GAMES_ADMIN` row keeps gating only the
+console HTML path). The static floor carries `games` in both federation manifests
+(`/games/remoteEntry.json` in prod, `localhost:4208` in dev). A bare `ROLE_GAMES` or
+a bare `ROLE_ADMIN` alone does not earn the games admin tier. Both routes appear in
+the menubar (`nav-games`, listed for every signed-in member and greyed with a reason
+for anyone outside the `gamesGuard` tier; `nav-games-admin`, visible only to the
+derived tier or a superadmin), the profile dropdown ("Games" before "Games Admin")
+and the home-services launcher (`games` and `games-admin` cards, gated on the shared
+`games` capability slug). The `games` card's role predicate is the `gamesGuard`
+predicate verbatim (`ROLE_GAMES | admin | superadmin`), so the card can never grey
+out a route the guard admits. The remote talks only to the games BFF at
+`/games/api/**` with the shell's own `bff_session` cookie.
 
 Guards live in `src/app/guards/` and read `SessionService`:
 
@@ -434,13 +440,13 @@ Guards live in `src/app/guards/` and read `SessionService`:
 - **`gamesGuard`** (Phase 8) — admits `admin`/`superadmin`, or any identity holding
   `ROLE_GAMES`. This is the entry-point tier only; it does **not** admit games
   admin. A bare `mod` without `ROLE_GAMES` is refused and lands on
-  `/home?denied=/games`. Gates the local `/games` placeholder.
+  `/home?denied=/games`. Gates the `/games` mount of the `games` remote.
 - **`gamesAdminGuard`** (Phase 8/10) — admits `superadmin` always, or the **derived**
   `ROLE_GAMES_ADMIN` tier, computed client-side as
   `ROLE_GAMES ∩ (ROLE_ADMIN ∪ ROLE_MOD)`. It mirrors the server-computed role that
   `games-admin-sync-job` materializes. A bare `ROLE_GAMES` or a bare
   `ROLE_ADMIN`/`ROLE_MOD` does **not** earn it; they land on `/home?denied=/games/admin`.
-  Gates the local `/games/admin` placeholder.
+  Gates the `/games/admin` mount of the `games` remote.
 
 Client-side guards are UX only. The gateway's `gateway_route_access` table with
 `GatewayRouteAccessFilter`, and each BFF's role checks, are the real authorization

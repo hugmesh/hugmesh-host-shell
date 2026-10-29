@@ -11,5 +11,6 @@
   "owncast": "/owncast/remoteEntry.json",
   "tube": "/tube/remoteEntry.json",
   "character-studio": "/character-studio/remoteEntry.json",
-  "character-forge": "/character-forge/remoteEntry.json"
+  "character-forge": "/character-forge/remoteEntry.json",
+  "games": "/games/remoteEntry.json"
 }

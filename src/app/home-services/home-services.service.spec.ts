@@ -121,9 +121,24 @@ describe('HomeServicesService — card projection', () => {
       expect(card('games-admin').disabledReason).toContain('a games admin');
     });
 
-    it('a bare admin (e2e-adminonly, no ROLE_GAMES) is DENIED both games cards', () => {
+    it('a bare admin (e2e-adminonly, no ROLE_GAMES) gets the ENTRY POINT (as gamesGuard admits) but NOT games-admin', () => {
+      // The card predicate is aligned with gamesGuard (games | admin | superadmin)
+      // — it used to grey a card whose route the guard let the same admin through,
+      // which is exactly the dead-link inconsistency the catalog exists to avoid.
       session$.set(session({ roles: ['admin'] }));
+      expect(card('games').state).toBe('enabled');
+      expect(card('games-admin').state).withContext('derived tier still needs ROLE_GAMES').toBe('role');
+    });
+
+    it('a superadmin gets the entry point (superadmin always reaches the console tier)', () => {
+      session$.set(session({ roles: ['superadmin', 'admin', 'mod', 'user'] }));
+      expect(card('games').state).toBe('enabled');
+    });
+
+    it('a bare mod (no ROLE_GAMES) is DENIED the entry point — gamesGuard refuses a bare mod', () => {
+      session$.set(session({ roles: ['mod', 'user'] }));
       expect(card('games').state).toBe('role');
+      expect(card('games').disabledReason).toContain('a games member');
       expect(card('games-admin').state).toBe('role');
     });
 

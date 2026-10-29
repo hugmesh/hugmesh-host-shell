@@ -28,8 +28,10 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *   wiki     -> hugmesh-wiki-ui      remote 'wiki'     exposes ./Wiki    (WIKI_ROUTES)
  *   tube     -> hugmesh-tube-ui      remote 'tube'     exposes ./Tube    (TUBE_ROUTES)
  *   owncast  -> hugmesh-owncast-ui   remote 'owncast'  exposes ./Owncast (OWNCAST_ROUTES)
+ *   games    -> hugmesh-games/games-ui remote 'games'  exposes ./routes (GAMES_ROUTES)
+ *                                                       AND ./admin-routes (GAMES_ADMIN_ROUTES)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
- * /mod, /user, /admin/docs. Matrix/Mastodon require full registration; Admin and
+ * /mod, /user, /admin/docs, /games, /games/admin. Matrix/Mastodon require full registration; Admin and
  * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
  * the mod role; User is any authenticated identity.
  *
@@ -119,6 +121,26 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // per-service role, so gating tighter here would deny users the backend admits.
   { path: 'character-studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES', canActivate: [registeredGuard] },
   { path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES', canActivate: [registeredGuard] },
+  // GAMES remote (hugmesh-games/games-ui) — CROSS-REPO CONTRACT, games member +
+  // games admin screens (2026-10-28). ONE native-federation remote, federation
+  // name 'games' (the manifest key, this remoteName and the `name` inside the
+  // remote's own remoteEntry.json MUST all be 'games' — see the character-*
+  // note above for why a mismatched key fails only at loadRemoteModule time),
+  // exposing TWO modules:
+  //   './admin-routes' -> GAMES_ADMIN_ROUTES  (src/app/games-admin.routes.ts)
+  //   './routes'       -> GAMES_ROUTES        (src/app/games.routes.ts)
+  // Served under /games/ (remoteEntry.json + chunks live at /games/*, never
+  // under /games/admin/, so the fe-gateway's '/games/admin/**' ROLE_GAMES_ADMIN
+  // row keeps gating only the HTML path). Static floor: federation.manifest*.json
+  // 'games'. Both mounts replaced the host-local TODO placeholders this repo
+  // carried while no games UI existed (README "Routes, role-gates and remotes").
+  //
+  // ORDER MATTERS: 'games/admin' MUST precede 'games' (specific-before-general,
+  // mirroring admin/docs -> admin) or the member mount's loadChildren swallows
+  // the admin path. Guards unchanged: gamesGuard = games|admin|superadmin;
+  // gamesAdminGuard = isGamesAdmin() (games AND (admin OR mod)) | superadmin.
+  { path: 'games/admin', remoteName: 'games', exposed: './admin-routes', routesConst: 'GAMES_ADMIN_ROUTES', canActivate: [gamesAdminGuard] },
+  { path: 'games', remoteName: 'games', exposed: './routes', routesConst: 'GAMES_ROUTES', canActivate: [gamesGuard] },
 ];
 
 /** Resolve a remote's exported routes constant via native-federation.
@@ -157,31 +179,9 @@ export const routes: Routes = [
       import('./about/about.component').then((m) => m.AboutComponent),
   },
 
-  // Phase 8/10 GAMES entry-point + DERIVED games-admin mount. Neither is a
-  // federated remote yet (no games UI repo exists), so these are GUARDED LOCAL
-  // PLACEHOLDERS (see the mod-placeholder precedent this repo used for /mod
-  // before hugmesh-mod-ui landed) — a role-holder reaching either route sees
-  // an honest TODO, never a silent 404 or a faked console. 'games/admin' MUST
-  // precede 'games' (specific-before-general, mirroring admin/docs -> admin).
-  {
-    path: 'games/admin',
-    canActivate: [gamesAdminGuard],
-    loadComponent: () =>
-      import('./games-admin-placeholder/games-admin-placeholder.component').then(
-        (m) => m.GamesAdminPlaceholderComponent,
-      ),
-  },
-  {
-    path: 'games',
-    canActivate: [gamesGuard],
-    loadComponent: () =>
-      import('./games-placeholder/games-placeholder.component').then(
-        (m) => m.GamesPlaceholderComponent,
-      ),
-  },
-
   // Federated remotes (data-driven from REMOTE_ROUTES above). The role-home
-  // remotes (admin/mod/user) and the swappable social remotes all mount here.
+  // remotes (admin/mod/user), the swappable social remotes and the games
+  // member/admin mounts (games/admin before games) all mount here.
   ...REMOTE_ROUTES.map(remoteRoute),
 
   // Default ('') is the AUTHGATE + role-home redirect: anonymous -> /login,

@@ -51,6 +51,12 @@ describe('app.routes federation wiring', () => {
       // (app.routes.ts:105-119). Both expose './routes', like the role-homes.
       jasmine.objectContaining({ path: 'character-studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES' }),
       jasmine.objectContaining({ path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES' }),
+      // The GAMES remote (cross-repo contract 2026-10-28): ONE remote named
+      // 'games' exposing TWO modules — './admin-routes' (GAMES_ADMIN_ROUTES) for
+      // the /games/admin console and './routes' (GAMES_ROUTES) for the member
+      // catalog/play screens. games/admin MUST come first (specific-before-general).
+      jasmine.objectContaining({ path: 'games/admin', remoteName: 'games', exposed: './admin-routes', routesConst: 'GAMES_ADMIN_ROUTES' }),
+      jasmine.objectContaining({ path: 'games', remoteName: 'games', exposed: './routes', routesConst: 'GAMES_ROUTES' }),
     ]);
   });
 
@@ -171,40 +177,58 @@ describe('app.routes federation wiring', () => {
     expect(root?.loadChildren).toBeUndefined();
   });
 
-  it('/games mounts a GUARDED LOCAL PLACEHOLDER behind gamesGuard (no games UI remote yet)', () => {
+  // ── GAMES member + admin mounts (cross-repo contract 2026-10-28) ──────────
+  // Both are REAL remote mounts of the single 'games' remote now; the host-local
+  // TODO placeholders are gone. These pin the contract the deploy assumes: remote
+  // name, the two exposed modules, the two routes constants, the two guards, and
+  // the games/admin-before-games order in BOTH tables.
+
+  it('/games mounts the games remote (./routes -> GAMES_ROUTES) behind gamesGuard, no placeholder', () => {
     const games = routeFor('games');
     expect(games.canActivate).withContext('games entry-point gate').toContain(gamesGuard);
-    expect(games.loadComponent).withContext('local placeholder, not a remote mount').toBeDefined();
-    expect(games.loadChildren).withContext('no games UI remote exists yet').toBeUndefined();
+    expect(games.canActivate ?? []).withContext('member mount is NOT admin-gated').not.toContain(gamesAdminGuard);
+    expect(games.loadChildren).withContext('mounts the games remote via loadChildren').toBeDefined();
+    expect(games.loadComponent).withContext('no longer a local placeholder component').toBeUndefined();
   });
 
-  it('/games loadComponent resolves the GamesPlaceholderComponent', async () => {
-    const { GamesPlaceholderComponent } = await import(
-      './games-placeholder/games-placeholder.component'
-    );
-    const resolved = await (routeFor('games').loadComponent as () => Promise<unknown>)();
-    expect(resolved).toBe(GamesPlaceholderComponent);
+  it('/games loadChildren loads remote \'games\' ./routes and returns GAMES_ROUTES', async () => {
+    const sentinel = ['GAMES_ROUTES_SENTINEL'];
+    const spy = spyOn(federationLoader, 'load').and.resolveTo({ GAMES_ROUTES: sentinel });
+    const resolved = await (routeFor('games').loadChildren as () => Promise<unknown>)();
+    expect(spy).toHaveBeenCalledWith('games', './routes');
+    expect(resolved).toBe(sentinel);
   });
 
-  it('/games/admin mounts a GUARDED LOCAL PLACEHOLDER behind gamesAdminGuard (no games-admin UI remote yet)', () => {
+  it('/games/admin mounts the SAME games remote (./admin-routes -> GAMES_ADMIN_ROUTES) behind gamesAdminGuard', () => {
     const gamesAdmin = routeFor('games/admin');
     expect(gamesAdmin.canActivate).withContext('derived games-admin gate').toContain(gamesAdminGuard);
-    expect(gamesAdmin.loadComponent).withContext('local placeholder, not a remote mount').toBeDefined();
-    expect(gamesAdmin.loadChildren).withContext('no games-admin UI remote exists yet').toBeUndefined();
+    expect(gamesAdmin.canActivate ?? []).withContext('admin mount is not merely games-gated').not.toContain(gamesGuard);
+    expect(gamesAdmin.loadChildren).withContext('mounts the games remote via loadChildren').toBeDefined();
+    expect(gamesAdmin.loadComponent).withContext('no longer a local placeholder component').toBeUndefined();
   });
 
-  it('/games/admin loadComponent resolves the GamesAdminPlaceholderComponent', async () => {
-    const { GamesAdminPlaceholderComponent } = await import(
-      './games-admin-placeholder/games-admin-placeholder.component'
-    );
-    const resolved = await (routeFor('games/admin').loadComponent as () => Promise<unknown>)();
-    expect(resolved).toBe(GamesAdminPlaceholderComponent);
+  it('/games/admin loadChildren loads remote \'games\' ./admin-routes and returns GAMES_ADMIN_ROUTES', async () => {
+    const sentinel = ['GAMES_ADMIN_ROUTES_SENTINEL'];
+    const spy = spyOn(federationLoader, 'load').and.resolveTo({ GAMES_ADMIN_ROUTES: sentinel });
+    const resolved = await (routeFor('games/admin').loadChildren as () => Promise<unknown>)();
+    expect(spy).toHaveBeenCalledWith('games', './admin-routes');
+    expect(resolved).toBe(sentinel);
   });
 
-  it('/games/admin is registered BEFORE /games so the specific path matches first', () => {
+  it('the two games mounts share ONE remote name, so one remoteEntry.json serves both', () => {
+    const rows = REMOTE_ROUTES.filter((r) => r.remoteName === 'games');
+    expect(rows.map((r) => r.path)).toEqual(['games/admin', 'games']);
+    expect(new Set(rows.map((r) => r.exposed)).size).withContext('two distinct exposed modules').toBe(2);
+  });
+
+  it('/games/admin is registered BEFORE /games in REMOTE_ROUTES and in the routes table', () => {
+    const specAdminIdx = REMOTE_ROUTES.findIndex((r) => r.path === 'games/admin');
+    const specGamesIdx = REMOTE_ROUTES.findIndex((r) => r.path === 'games');
+    expect(specAdminIdx).toBeGreaterThanOrEqual(0);
+    expect(specAdminIdx).withContext('games/admin precedes games in REMOTE_ROUTES').toBeLessThan(specGamesIdx);
     const gamesAdminIdx = routes.findIndex((r) => r.path === 'games/admin');
     const gamesIdx = routes.findIndex((r) => r.path === 'games');
     expect(gamesAdminIdx).toBeGreaterThanOrEqual(0);
-    expect(gamesAdminIdx).withContext('games/admin precedes the games placeholder').toBeLessThan(gamesIdx);
+    expect(gamesAdminIdx).withContext('games/admin precedes the games remote mount').toBeLessThan(gamesIdx);
   });
 });

@@ -58,6 +58,20 @@ describe('federation manifest contract — the login remoteEntry consumers hardc
     }
   });
 
+  describe('the games remote row (cross-repo contract 2026-10-28)', () => {
+    // The deploy step assumes these two literals: the games-ui nginx serves
+    // remoteEntry.json under /games/ on the mesh (fe-gateway route games-ui,
+    // Path=/games/**), and the dev workspace serves it from :4208. The key is
+    // the remote's declared federation name — see app.routes.ts REMOTE_ROUTES.
+    it('prod serves `games` at /games/remoteEntry.json (under /games/, never /games/admin/)', () => {
+      expect((PROD_MANIFEST as RemotesMap)['games']).toBe('/games/remoteEntry.json');
+    });
+
+    it('dev serves `games` from the games-ui workspace dev port 4208', () => {
+      expect((DEV_MANIFEST as RemotesMap)['games']).toBe('http://localhost:4208/remoteEntry.json');
+    });
+  });
+
   describe('what this pin CANNOT cover — measured, recorded so it is not mistaken for covered', () => {
     it('DEV serves login somewhere else entirely, so the hardcoded literal degrades under `ng serve`', () => {
       // Not a defect and not a thing to "fix" — the dev manifest is localhost

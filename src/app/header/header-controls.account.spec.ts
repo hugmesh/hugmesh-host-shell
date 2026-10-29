@@ -390,6 +390,63 @@ describe('HeaderControlsComponent — user menu (role-aware)', () => {
     });
   });
 
+  describe('Games member entry (role-gated like gamesGuard: ROLE_GAMES | admin | superadmin)', () => {
+    function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; games: boolean; roles: string[] }> = {}) {
+      stub.loggedIn.set(true);
+      stub.session.set({ label: 'user' });
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.isGames.set(over.games ?? false);
+      stub.roles.set(over.roles ?? []);
+      fixture.detectChanges();
+    }
+
+    it('SHOWN for a bare games member (e2e-gamesonly), as a WAI-ARIA menuitem named Games', () => {
+      login({ games: true, roles: ['user', 'games'] });
+      openProfile();
+      const games = el.querySelector('[data-testid="menu-games"]') as HTMLElement;
+      expect(games).withContext('Games entry visible for a games member').toBeTruthy();
+      expect(games.textContent?.trim()).withContext('accessible name').toBe('Games');
+      expect(games.getAttribute('role')).withContext('WAI-ARIA menuitem').toBe('menuitem');
+      expect(has('menu-games-admin')).withContext('no console for a bare member').toBeFalse();
+    });
+
+    it('SHOWN for a bare admin (e2e-adminonly) — admins reach the entry point', () => {
+      login({ admin: true, roles: ['user', 'admin'] });
+      openProfile();
+      expect(has('menu-games')).toBeTrue();
+    });
+
+    it('SHOWN for a superadmin', () => {
+      login({ superadmin: true });
+      openProfile();
+      expect(has('menu-games')).toBeTrue();
+    });
+
+    it('HIDDEN for a bare mod', () => {
+      login({ mod: true, roles: ['user', 'mod'] });
+      openProfile();
+      expect(has('menu-games')).toBeFalse();
+    });
+
+    it('HIDDEN for a plain user and when signed out', () => {
+      login();
+      openProfile();
+      expect(has('menu-games')).toBeFalse();
+    });
+
+    it('navigates to /games and closes the menu', () => {
+      login({ games: true, roles: ['user', 'games'] });
+      const navSpy = spyOn(TestBed.inject(Router), 'navigateByUrl');
+      openProfile();
+      (el.querySelector('[data-testid="menu-games"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(navSpy).toHaveBeenCalledWith('/games');
+      expect(component.profileOpen()).toBeFalse();
+    });
+  });
+
   describe('Games Admin management entry (role-gated: DERIVED ROLE_GAMES_ADMIN | superadmin)', () => {
     function login(over: Partial<{ admin: boolean; superadmin: boolean; mod: boolean; gamesAdmin: boolean; roles: string[] }> = {}) {
       stub.loggedIn.set(true);
