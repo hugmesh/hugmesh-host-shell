@@ -28,6 +28,7 @@ class CompleteSessionStub {
   isAdmin = () => false;
   isMod = () => false;
   isSuperadmin = () => false;
+  isGames = () => false;
   isGamesAdmin = () => false;
   session = signal<{ label: string } | null>(null);
   hasRole(_role: string) { return false; }

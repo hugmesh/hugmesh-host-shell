@@ -144,6 +144,32 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
       expect(byTestid('home-card-nav-mod')).toBeTruthy();
     });
 
+    it('a plain member gets a DISABLED Games card with the games-member reason, and no Games Admin card', async () => {
+      await goto('/user');
+      const games = byTestid('home-card-nav-games') as HTMLElement;
+      expect(games).withContext('Games is listed like every other service').toBeTruthy();
+      expect(games.tagName).withContext('greyed, not a link').toBe('SPAN');
+      expect(games.getAttribute('aria-disabled')).toBe('true');
+      expect(byTestid('home-card-nav-games-help')?.textContent?.trim()).toBe('Sign in as a games member to open this.');
+      expect(byTestid('home-card-nav-games-admin')).toBeNull();
+    });
+
+    it('a games member gets an ENABLED Games card linking to /games; the derived tier also gets Games Admin', async () => {
+      session.isGames.set(true);
+      await goto('/user');
+      const games = byTestid('home-card-nav-games') as HTMLAnchorElement;
+      expect(games.tagName).toBe('A');
+      expect(games.getAttribute('href')).toBe('/games');
+      expect(byTestid('home-card-nav-games-admin')).withContext('bare member: no console card').toBeNull();
+
+      session.isMod.set(true);
+      session.isGamesAdmin.set(true);
+      fixture.detectChanges();
+      const console = byTestid('home-card-nav-games-admin') as HTMLAnchorElement;
+      expect(console).toBeTruthy();
+      expect(console.getAttribute('href')).toBe('/games/admin');
+    });
+
     it('an enabled card is a real link that navigates to its service', async () => {
       await goto('/user');
       const card = byTestid('home-card-nav-mastodon') as HTMLAnchorElement;

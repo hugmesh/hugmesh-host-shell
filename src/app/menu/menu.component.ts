@@ -297,6 +297,19 @@ export class MenuComponent {
       enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
       disabledReason: () => this.forumDisabledReason(),
     },
+    // GAMES member entry-point (cross-repo contract 2026-10-28): the games
+    // catalog remote mounted at /games. Listed for every signed-in member like
+    // the other services (grey + EXPLAIN, never hide), enabled only when the
+    // 'games' capability is installed AND the session passes the SAME predicate
+    // as gamesGuard (ROLE_GAMES | admin | superadmin) — so a plain user or bare
+    // mod sees a greyed entry with the reason, never a dead link.
+    {
+      label: 'Games', route: '/games', testid: 'nav-games', slug: 'games',
+      description: 'Play together',
+      visible: () => this.serviceListed('games'),
+      enabled: () => this.capabilities.installed('games') && this.canAccessGames(),
+      disabledReason: () => this.gamesDisabledReason(),
+    },
     // ── the role-gated CONSOLES ───────────────────────────────────────────────
     // These existed and worked, but the ONLY way to reach them was to click your
     // own username and find them in the profile dropdown — a place people look
@@ -324,6 +337,20 @@ export class MenuComponent {
       enabled: () => true,
       disabledReason: () => '',
       sections: this.modSections,
+    },
+    // GAMES ADMIN console (/games/admin, the games remote's './admin-routes').
+    // `visible` on the DERIVED tier the profile dropdown and gamesAdminGuard use
+    // — isGamesAdmin() = games AND (admin OR mod), or superadmin — so a bare
+    // games member, a bare admin and a bare mod never see it (same stance as the
+    // Admin/Moderation consoles above). Unlike those two it CAN be greyed: the
+    // console needs the games service installed, so an uninstalled deployment
+    // shows the reason instead of a dead link.
+    {
+      label: 'Games Admin', route: '/games/admin', testid: 'nav-games-admin',
+      description: 'Manage the games namespace',
+      visible: () => this.session.isGamesAdmin() || this.session.isSuperadmin(),
+      enabled: () => this.capabilities.installed('games'),
+      disabledReason: () => 'Games is not available on this deployment.',
     },
   ];
 
@@ -387,6 +414,24 @@ export class MenuComponent {
     }
     if (!this.session.isUser()) {
       return 'Sign in with a member account to use the forum.';
+    }
+    return '';
+  }
+
+  /** The games ENTRY-POINT tier — the gamesGuard predicate verbatim (ROLE_GAMES
+   *  holder, or admin / superadmin). Not isGamesAdmin: that is the console tier. */
+  private canAccessGames(): boolean {
+    return this.session.isGames() || this.session.isAdmin() || this.session.isSuperadmin();
+  }
+
+  /** Games' own reason: install-state dominates (unrecoverable here); otherwise
+   *  the session lacks the games tier — a plain member or bare mod. */
+  private gamesDisabledReason(): string {
+    if (!this.capabilities.installed('games')) {
+      return 'Games is not available on this deployment.';
+    }
+    if (!this.canAccessGames()) {
+      return 'Sign in as a games member to open this.';
     }
     return '';
   }

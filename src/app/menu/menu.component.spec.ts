@@ -99,7 +99,10 @@ describe('MenuComponent — universal nav menubar', () => {
     // route, a remote and a capability but no nav entry, so it was unreachable).
     // These specs predate it; the missing isUser() stub member masked the mismatch
     // because every render threw before the comparison ran.
-    expect(labels).toEqual(['Home', 'Mastodon', 'Matrix', 'Forum']);
+    // Games joined after Forum (cross-repo contract 2026-10-28): listed for every
+    // signed-in member like the other services, greyed unless the session holds
+    // the games tier (the default stub does not), so the ENABLED cycle is unchanged.
+    expect(labels).toEqual(['Home', 'Mastodon', 'Matrix', 'Forum', 'Games']);
   });
 
   describe('SIGNED OUT — the menubar is Home only', () => {
@@ -125,7 +128,125 @@ describe('MenuComponent — universal nav menubar', () => {
       stub.loggedIn.set(true);
       fixture.detectChanges();
       expect(navButtons().map((b) => b.textContent?.trim()))
-        .toEqual(['Home', 'Mastodon', 'Matrix', 'Forum']);
+        .toEqual(['Home', 'Mastodon', 'Matrix', 'Forum', 'Games']);
+    });
+  });
+
+  // ── GAMES entries by role (cross-repo contract 2026-10-28) ────────────────
+  // nav-games is the member ENTRY POINT: listed for every signed-in member,
+  // enabled on the gamesGuard predicate (ROLE_GAMES | admin | superadmin) AND
+  // the 'games' capability. nav-games-admin is a CONSOLE: `visible` only on the
+  // DERIVED tier (isGamesAdmin = games AND (admin OR mod)) or superadmin, so the
+  // bare member / bare admin / bare mod never see it — mirroring gamesAdminGuard.
+  describe('GAMES entry point + Games Admin console by role', () => {
+    const byTestid = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+    const help = (id: string) => el.querySelector(`[data-testid="${id}-help"]`) as HTMLElement | null;
+
+    function roles(over: Partial<{ games: boolean; admin: boolean; mod: boolean; superadmin: boolean; gamesAdmin: boolean }>): void {
+      stub.isGames.set(over.games ?? false);
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      stub.isGamesAdmin.set(over.gamesAdmin ?? false);
+      fixture.detectChanges();
+    }
+
+    it('games only (e2e-gamesonly): nav-games is an enabled link to /games; no nav-games-admin', () => {
+      roles({ games: true });
+      const games = byTestid('nav-games')!;
+      expect(games.tagName).withContext('enabled entries render as routerLink anchors').toBe('A');
+      expect(games.getAttribute('href')).toBe('/games');
+      expect(help('nav-games')).toBeNull();
+      expect(byTestid('nav-games-admin')).withContext('bare member never sees the console').toBeNull();
+    });
+
+    it('games + admin (e2e-gamesadmin): both nav-games and nav-games-admin are enabled links', () => {
+      roles({ games: true, admin: true, mod: true, gamesAdmin: true });
+      expect(byTestid('nav-games')!.tagName).toBe('A');
+      const console = byTestid('nav-games-admin')!;
+      expect(console.tagName).toBe('A');
+      expect(console.getAttribute('href')).toBe('/games/admin');
+    });
+
+    it('games + mod (derived tier via mod): nav-games-admin is visible', () => {
+      roles({ games: true, mod: true, gamesAdmin: true });
+      expect(byTestid('nav-games-admin')).toBeTruthy();
+    });
+
+    it('admin only (e2e-adminonly): nav-games enabled (gamesGuard admits admins), nav-games-admin hidden', () => {
+      roles({ admin: true, mod: true });
+      expect(byTestid('nav-games')!.tagName).toBe('A');
+      expect(byTestid('nav-games-admin')).toBeNull();
+    });
+
+    it('superadmin: both entries enabled', () => {
+      roles({ superadmin: true, admin: true, mod: true });
+      expect(byTestid('nav-games')!.tagName).toBe('A');
+      expect(byTestid('nav-games-admin')!.tagName).toBe('A');
+    });
+
+    it('mod only: nav-games is visible-but-disabled with the games-member reason; no console', () => {
+      roles({ mod: true });
+      const games = byTestid('nav-games')!;
+      expect(games.tagName).toBe('BUTTON');
+      expect(games.getAttribute('aria-disabled')).toBe('true');
+      expect(games.hasAttribute('disabled')).toBeTrue();
+      expect(games.getAttribute('aria-describedby')).toBe('nav-games-help');
+      expect(help('nav-games')?.textContent?.trim()).toBe('Sign in as a games member to open this.');
+      expect(byTestid('nav-games-admin')).toBeNull();
+    });
+
+    it('user only: nav-games is visible-but-disabled with the games-member reason; no console', () => {
+      roles({});
+      const games = byTestid('nav-games')!;
+      expect(games.tagName).toBe('BUTTON');
+      expect(help('nav-games')?.textContent?.trim()).toBe('Sign in as a games member to open this.');
+      expect(byTestid('nav-games-admin')).toBeNull();
+    });
+
+    it('anonymous: no games entries at all (the anonymous bar is Home only)', () => {
+      stub.loggedIn.set(false);
+      stub.session.set(null);
+      fixture.detectChanges();
+      expect(byTestid('nav-games')).toBeNull();
+      expect(byTestid('nav-games-admin')).toBeNull();
+    });
+
+    it('games NOT installed: nav-games greys with the deployment reason even for a games member', () => {
+      caps.setAbsent('games');
+      roles({ games: true });
+      const games = byTestid('nav-games')!;
+      expect(games.tagName).toBe('BUTTON');
+      expect(help('nav-games')?.textContent?.trim()).toBe('Games is not available on this deployment.');
+    });
+
+    it('games NOT installed: nav-games-admin stays visible for the derived tier but greys with the deployment reason', () => {
+      caps.setAbsent('games');
+      roles({ games: true, admin: true, mod: true, gamesAdmin: true });
+      const console = byTestid('nav-games-admin')!;
+      expect(console.tagName).toBe('BUTTON');
+      expect(help('nav-games-admin')?.textContent?.trim()).toBe('Games is not available on this deployment.');
+    });
+
+    it('install-state dominates the role reason for nav-games', () => {
+      caps.setAbsent('games');
+      roles({});
+      expect(help('nav-games')?.textContent?.trim()).toBe('Games is not available on this deployment.');
+    });
+
+    it('nav-games sits after Forum, before the consoles; nav-games-admin is the last console', () => {
+      roles({ games: true, admin: true, mod: true, gamesAdmin: true });
+      const ids = navButtons().map((b) => b.getAttribute('data-testid'));
+      expect(ids).toEqual(['nav-home', 'nav-mastodon', 'nav-matrix', 'nav-forum', 'nav-games', 'nav-admin', 'nav-mod', 'nav-games-admin']);
+    });
+
+    it('the enabled arrow-key cycle includes nav-games once the member holds the tier', () => {
+      roles({ games: true });
+      component.activeIndex = 3; // Forum
+      component.onMenuKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      expect(component.activeIndex).withContext('advances onto Games').toBe(4);
+      component.onMenuKeydown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      expect(component.activeIndex).withContext('wraps back to Home').toBe(0);
     });
   });
 

@@ -10,7 +10,7 @@
  *    re-login — the host's most consequential multi-user behaviour.
  *  - The NOTIFICATION BELL unread badge (60s poll of /bff/user/notifications) and
  *    the live SSE TOAST pipeline (/bff/user/notifications/events).
- *  - The GAMES-tier local placeholder pages (host-local components, no remote).
+ *  - The GAMES remote mounts (the host asking for the 'games' remoteEntry).
  *  - The HOME ANNOUNCEMENTS banner (GET /bff/announcements/home) rendered in
  *    sandboxed null-origin srcdoc iframes.
  *
@@ -119,40 +119,65 @@ Then('the profile menu eventually does not contain {string}', async function (te
   assert.ok(!present, `Expected the open profile menu to eventually DROP "${testid}" (mid-session hydrate)`);
 });
 
-/* --- GAMES-tier local placeholder pages -------------------------------------- *
- * /games and /games/admin are GUARDED LOCAL PLACEHOLDER components (no remote),
- * so activating the games-admin menu item client-side nav's straight into a
- * host-rendered page — reachable host-only (the server.js no-SPA-fallback limit
- * only bites SERVER deep links, not in-app navigation). Assert the honest TODO
- * placeholder rendered.
+/* --- GAMES remote mounts (cross-repo contract 2026-10-28) -------------------- *
+ * /games and /games/admin are REAL mounts of the single 'games' federated remote
+ * (REMOTE_ROUTES rows: path 'games' -> './routes' GAMES_ROUTES, path
+ * 'games/admin' -> './admin-routes' GAMES_ADMIN_ROUTES). Host-only there is no
+ * way to serve or stub a remote (every remote-content scenario is @cluster), so
+ * the observable contract here is the host ASKING for the remote's entry at the
+ * prod-manifest URL once the guard admits the member: the deferred loader
+ * (federation/remote-loader.ts) fetches '/games/remoteEntry.json' only when the
+ * route is actually entered, so seeing that request proves (a) the guard let the
+ * role through and (b) the route resolved to the 'games' remote row. Captured at
+ * the network level via Chrome DevTools (Nightwatch .captureNetworkRequests).
  */
 
-Then('the games-admin placeholder renders', async function () {
-  await browser.waitForElementVisible('[data-testid="games-admin-placeholder-message"]', 6000);
-  const meta = await browser.execute(() => {
-    const badge = document.querySelector('[data-testid="games-admin-todo-badge"]');
-    const msg = document.querySelector('[data-testid="games-admin-placeholder-message"]');
-    return {
-      badge: (badge?.textContent ?? '').trim(),
-      hasMsg: !!msg,
-      path: window.location.pathname,
-    };
+/** Requests captured since the last "I start capturing network requests". */
+let capturedRequestUrls = [];
+
+Given('I start capturing network requests', async function () {
+  capturedRequestUrls = [];
+  await browser.captureNetworkRequests((requestParams) => {
+    const url = requestParams && requestParams.request && requestParams.request.url;
+    if (url) capturedRequestUrls.push(url);
   });
-  assert.strictEqual(meta.path, '/games/admin', `Expected to be on /games/admin but was "${meta.path}"`);
-  assert.ok(meta.hasMsg, 'games-admin placeholder message must render');
-  assert.strictEqual(meta.badge, 'TODO', 'games-admin placeholder shows the honest TODO badge');
 });
 
-Then('the games placeholder renders', async function () {
-  await browser.waitForElementVisible('[data-testid="games-placeholder-message"]', 6000);
-  const meta = await browser.execute(() => ({
-    badge: (document.querySelector('[data-testid="games-todo-badge"]')?.textContent ?? '').trim(),
-    hasMsg: !!document.querySelector('[data-testid="games-placeholder-message"]'),
-    path: window.location.pathname,
-  }));
-  assert.strictEqual(meta.path, '/games', `Expected to be on /games but was "${meta.path}"`);
-  assert.ok(meta.hasMsg, 'games placeholder message must render');
-  assert.strictEqual(meta.badge, 'TODO', 'games placeholder shows the honest TODO badge');
+/** THEN the host requests the games remote entry at {path} — polls the capture
+ *  for a request whose pathname is EXACTLY the contract path (the prod manifest's
+ *  'games' row). A 404 answer is expected host-only; the request is the proof. */
+Then('the host requests the games remote entry at {string}', async function (expectedPath) {
+  const deadline = Date.now() + 8000;
+  let hit = null;
+  while (Date.now() < deadline) {
+    hit = capturedRequestUrls.find((u) => {
+      try { return new URL(u).pathname === expectedPath; } catch { return false; }
+    }) ?? null;
+    if (hit) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.ok(
+    hit,
+    `Expected the host to request the games remote entry at "${expectedPath}" after activating the mount; ` +
+      `captured ${capturedRequestUrls.length} request(s): ${capturedRequestUrls.slice(0, 20).join(', ')}`,
+  );
+});
+
+/** @cluster-only: poll until the games remote populated the given testid (the
+ *  remote's own M1 'games-catalog' / A0 'games-admin-shell' landmarks). Needs the
+ *  games remote served at the manifest URL; host-only it fails by design. */
+Then('the games remote eventually renders {string}', async function (testid) {
+  const deadline = Date.now() + 15000;
+  let present = false;
+  while (Date.now() < deadline) {
+    present = await browser.execute(
+      (id) => !!document.querySelector(`[data-testid="${id}"]`),
+      [testid],
+    );
+    if (present) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.ok(present, `Expected the games remote to render [data-testid="${testid}"] (needs the games remote served)`);
 });
 
 /* --- Notification bell unread badge (poll of /bff/user/notifications) --------- */

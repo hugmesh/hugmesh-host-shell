@@ -109,9 +109,10 @@ describe('HeaderControlsComponent — user menu', () => {
       const items = Array.from(
         el.querySelectorAll<HTMLElement>('.profile-menu__item'),
       );
-      // Profile, Admin, API docs, Moderation, Wiki, Owncast, Tube (admin reaches
-      // them all), Sign out.
-      expect(items.length).withContext('admin+mod sees all 10 items').toBe(10);
+      // Profile, Admin, API docs, Moderation, Wiki, Owncast, Tube, Games (admin
+      // reaches them all — the games ENTRY POINT admits admins, the games-admin
+      // console does not without ROLE_GAMES), Character Studio/Forge, Sign out.
+      expect(items.length).withContext('admin+mod sees all 11 items').toBe(11);
       for (const item of items) {
         const id = item.getAttribute('aria-describedby');
         expect(id).withContext(`${item.textContent} needs describedby`).toBeTruthy();
@@ -121,6 +122,63 @@ describe('HeaderControlsComponent — user menu', () => {
           .withContext(`help for ${item.textContent} must be informative`)
           .toBeGreaterThan(10);
       }
+    });
+  });
+
+  describe('Games profile-menu entry (the member ENTRY POINT — mirrors gamesGuard)', () => {
+    function openProfileLabels(): string[] {
+      component.toggleProfile();
+      fixture.detectChanges();
+      return Array.from(el.querySelectorAll<HTMLElement>('.profile-menu__item'))
+        .map((i) => i.textContent?.trim() ?? '');
+    }
+
+    it('is SHOWN for a bare games member (e2e-gamesonly)', () => {
+      stub.isGames.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).toContain('Games');
+    });
+
+    it('is SHOWN for a bare admin (e2e-adminonly) — the guard admits admins to the entry point', () => {
+      stub.isAdmin.set(true);
+      fixture.detectChanges();
+      const labels = openProfileLabels();
+      expect(labels).toContain('Games');
+      expect(labels).withContext('but NOT the derived console').not.toContain('Games Admin');
+    });
+
+    it('is SHOWN for a superadmin', () => {
+      stub.isSuperadmin.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).toContain('Games');
+    });
+
+    it('is HIDDEN for a bare mod (mod alone does not earn the games entry point)', () => {
+      stub.isMod.set(true);
+      fixture.detectChanges();
+      expect(openProfileLabels()).not.toContain('Games');
+    });
+
+    it('is HIDDEN for a plain user', () => {
+      expect(openProfileLabels()).not.toContain('Games');
+    });
+
+    it('sits immediately BEFORE the Games Admin entry (one games group, member first)', () => {
+      const ids = component.profileMenuItems.map((i) => i.testid);
+      const games = ids.indexOf('menu-games');
+      const gamesAdmin = ids.indexOf('menu-games-admin');
+      expect(games).toBeGreaterThanOrEqual(0);
+      expect(gamesAdmin).withContext('Games Admin directly follows Games').toBe(games + 1);
+    });
+
+    it('activating it navigates to /games', () => {
+      stub.isGames.set(true);
+      fixture.detectChanges();
+      const router = TestBed.inject(Router);
+      const navigateSpy = spyOn(router, 'navigateByUrl');
+      const item = component.profileMenuItems.find((i) => i.testid === 'menu-games')!;
+      component.onProfileItem(item);
+      expect(navigateSpy).toHaveBeenCalledWith('/games');
     });
   });
 

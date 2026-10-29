@@ -147,7 +147,12 @@ export class HomeServicesService {
     switch (role) {
       case 'admin': return this.session.isAdmin();
       case 'mod': return this.session.isMod();
-      case 'games': return this.session.isGames();
+      // ALIGNED WITH gamesGuard (app.routes.ts / guards/games.guard.ts): the
+      // entry point admits a ROLE_GAMES holder OR an admin / superadmin, so the
+      // card must not grey out for the bare admin the guard lets through — the
+      // inconsistency home-services.service.spec.ts used to record. 'games-admin'
+      // below stays the DERIVED tier (a bare admin is still refused there).
+      case 'games': return this.session.isGames() || this.session.isAdmin() || this.session.isSuperadmin();
       case 'games-admin': return this.session.isGamesAdmin();
     }
   }

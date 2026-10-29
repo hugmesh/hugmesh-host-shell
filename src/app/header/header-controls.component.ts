@@ -33,13 +33,14 @@ export interface BackgroundAnimation {
 }
 
 /** An item inside the profile dropdown menu. `action` either navigates to a
- *  remote ('admin'/'apidocs'/'mod'/'wiki'/'owncast'/'tube'), opens the profile
- *  modal, or signs out. `show` gates the role-specific Admin / API docs /
- *  Moderation / Wiki / Owncast / Tube entries on the live session. */
+ *  remote ('admin'/'apidocs'/'mod'/'wiki'/'owncast'/'tube'/'games'/'games-admin'),
+ *  opens the profile modal, or signs out. `show` gates the role-specific Admin /
+ *  API docs / Moderation / Wiki / Owncast / Tube / Games entries on the live
+ *  session. */
 export interface ProfileMenuItem {
   label: string;
   testid: string;
-  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games-admin'
+  action: 'profile' | 'admin' | 'apidocs' | 'mod' | 'wiki' | 'owncast' | 'tube' | 'games' | 'games-admin'
         | 'character-studio' | 'character-forge' | 'logout';
   route?: string;
   show: () => boolean;
@@ -141,6 +142,14 @@ export class HeaderControlsComponent {
     // protects the /tube mount, so the entry is never a dead link.
     { label: 'Tube',       testid: 'menu-tube',    action: 'tube',    route: '/tube',       show: () => this.canAccessTube(),
       help: 'Manage your YouTube subscription archive (granted users, admins, and superadmins).' },
+    // GAMES member entry-point (the games catalog remote mounted at /games).
+    // Mirrors the gamesGuard EXACTLY: a ROLE_GAMES holder, or an admin /
+    // superadmin (management/oversight always reach the entry point — the
+    // wiki/tube/owncast precedent). A bare mod or plain user never sees it and
+    // could not pass the guard at /games. Placed BEFORE Games Admin so the two
+    // games entries read as one group (member first, console second).
+    { label: 'Games',      testid: 'menu-games',   action: 'games',   route: '/games',      show: () => this.canAccessGames(),
+      help: 'Browse and play the games on this mesh (games members, admins, and superadmins).' },
     // GAMES-ADMIN console (Phase 8/10) — shown ONLY to the DERIVED
     // ROLE_GAMES_ADMIN tier (session.isGamesAdmin: ROLE_GAMES ∩ (ROLE_ADMIN ∪
     // ROLE_MOD)), plus superadmins. A bare games member or a bare admin/mod does
@@ -206,6 +215,13 @@ export class HeaderControlsComponent {
       this.session.isAdmin() ||
       this.session.isSuperadmin()
     );
+  }
+
+  /** The GAMES entry-point tier (mirrors the host gamesGuard exactly): a ROLE_GAMES
+   *  holder, or an admin / superadmin. NOT isGamesAdmin — that is the narrower
+   *  console tier below; a bare admin reaches the catalog without it. */
+  private canAccessGames(): boolean {
+    return this.session.isGames() || this.session.isAdmin() || this.session.isSuperadmin();
   }
 
   /** The GAMES-ADMIN access tier (mirrors the host gamesAdminGuard exactly): the
@@ -362,6 +378,7 @@ export class HeaderControlsComponent {
       case 'wiki':
       case 'owncast':
       case 'tube':
+      case 'games':
       case 'games-admin':
         if (item.route) this.router.navigateByUrl(item.route);
         break;
