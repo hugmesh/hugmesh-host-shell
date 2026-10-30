@@ -12,7 +12,7 @@ HttpClient bearer seam.
 ## Supported Versions
 
 There is no fixed release train, and nothing has reached a final release: the
-current version is a beta (`package.json`, today `0.3.0-beta.1`). The supported
+current version is a beta (`package.json`, today `0.3.0-beta.2`). The supported
 version is the latest commit on `main`: the image built and pushed by GitLab CI,
 or the `ghcr.io/hugmesh/hugmesh-host-shell:main` image that the GHCR release
 workflow (`.github/workflows/release.yml`) pushes on every push to `main`. Tagged
