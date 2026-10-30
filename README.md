@@ -600,7 +600,7 @@ Remotes do almost everything. The host owns only the cross-cutting surface:
 
 The version lives in `package.json` (and `package-lock.json`, whose two version
 fields must match it). Today it is a beta, `MAJOR.MINOR.PATCH-beta.N`
-(`0.3.0-beta.1`). `.github/workflows/release.yml` publishes the image:
+(`0.3.0-beta.2`). `.github/workflows/release.yml` publishes the image:
 
 - A push to `main` pushes `:main` and `:sha-<12 hex>`.
 - Pushing the tag `v<version>` (for example `v0.3.0-beta.1`, on a commit on `main`)
