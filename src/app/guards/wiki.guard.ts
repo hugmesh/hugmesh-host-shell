@@ -1,5 +1,4 @@
-import { CanActivateFn } from '@angular/router';
-import { roleGuard } from './role-guard.factory';
+import { RoleGuardFn, roleGuard } from './role-guard.factory';
 
 /** Gate the WIKI management micro-frontend (the hugmesh-wiki-ui remote mounted
  *  at /wiki, exposing ./Wiki) on the wiki access tier. Mirrors the other federation
@@ -12,6 +11,6 @@ import { roleGuard } from './role-guard.factory';
  *  This is defense-in-depth only: the BFF + gateway route-access rows
  *  (/bff/wiki/** -> ROLE_WIKI) are the real authorization; this guard keeps the
  *  unauthorized out of the remote's UI. */
-export const wikiGuard: CanActivateFn = roleGuard(
+export const wikiGuard: RoleGuardFn = roleGuard(
   (session) => session.isAdmin() || session.isSuperadmin() || (session.isMod() && session.hasRole('WIKI')),
 );

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { CanActivateFn, Router, UrlSegment, UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
 
 import { adminGuard } from './admin.guard';
@@ -51,7 +51,7 @@ class SessionStub {
 /** The path a denied test pretends to be navigating to. */
 const ATTEMPTED = '/attempted';
 
-function run(guard: typeof adminGuard, url: string = ATTEMPTED): boolean | UrlTree {
+function run(guard: CanActivateFn, url: string = ATTEMPTED): boolean | UrlTree {
   return TestBed.runInInjectionContext(() =>
     guard({} as never, { url } as never)) as boolean | UrlTree;
 }
@@ -393,6 +393,34 @@ describe('federation route guards', () => {
         session.accessStatus = 'banned';
         expect(run(roleHomeGuard)).toEqual(router.parseUrl('/login'));
       });
+    });
+  });
+
+  /** The SAME guards are also mounted on canMatch (issue #93): there the router
+   *  calls them as (route, UrlSegment[], partialSnapshot), before loadChildren.
+   *  Outside a navigation the attempted path comes from the segments. A refusal
+   *  must be a UrlTree, never `false` — `false` on canMatch means "try the next
+   *  route" and falls through to '**' -> /user without a word. */
+  describe('canMatch call shape', () => {
+    function match(guard: typeof adminGuard, ...paths: string[]): unknown {
+      const segments = paths.map((p) => new UrlSegment(p, {}));
+      return TestBed.runInInjectionContext(() =>
+        (guard as unknown as (r: unknown, s: UrlSegment[], c: unknown) => unknown)({}, segments, {}));
+    }
+
+    it('admits a role-holder', () => {
+      session.games = true;
+      expect(match(gamesGuard, 'games')).toBeTrue();
+    });
+
+    it('denies a signed-in user without the role with a UrlTree carrying the path', () => {
+      expect(match(gamesGuard, 'games', 'play')).toEqual(denied('/games/play'));
+      expect(match(tubeGuard, 'tube', 'budgets')).toEqual(denied('/tube/budgets'));
+    });
+
+    it('sends an anonymous visitor to /login', () => {
+      session.sessionValue = null;
+      expect(match(adminGuard, 'admin')).toEqual(router.parseUrl('/login'));
     });
   });
 });

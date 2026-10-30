@@ -1,5 +1,4 @@
-import { CanActivateFn } from '@angular/router';
-import { roleGuard } from './role-guard.factory';
+import { RoleGuardFn, roleGuard } from './role-guard.factory';
 
 /** Gate the GAMES entry-point mount (Phase 8, route 'games') on the games access
  *  tier. Built from roleGuard like every other console mount, so the two failures
@@ -18,6 +17,6 @@ import { roleGuard } from './role-guard.factory';
  *  This is defense-in-depth only: the fe-gateway + games-namespace route-access
  *  rows are the real authorization; this guard keeps the unauthorized out of the
  *  host shell's games mount. */
-export const gamesGuard: CanActivateFn = roleGuard(
+export const gamesGuard: RoleGuardFn = roleGuard(
   (session) => session.isGames() || session.isAdmin() || session.isSuperadmin(),
 );
