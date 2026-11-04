@@ -111,9 +111,15 @@ jobs:
       # that leaves the two version fields of the lock disagreeing with
       # package.json (or sets a version no image tag can carry) fails here,
       # not on the day someone pushes the v<version> tag. bash + python3 only,
-      # so it runs before `npm ci`.
+      # so it runs before `npm ci`. The release channel self-test (beta tags
+      # from main, stable tags from release/X.Y, which floating tags move, and
+      # the release.yml steps that depend on it) runs here too, so a PR that
+      # breaks it fails before it merges rather than on a release run. It
+      # needs only git, python3 and coreutils; no network, no docker.
       - name: Release version gate
-        run: bash scripts/release-version.test.sh
+        run: |
+          bash scripts/release-version.test.sh
+          bash scripts/test-release-channel.sh
       # `npm ci`, NOT `npm install`: this job must test the tree the merge
       # actually produces, not a fresh re-resolve of it.
       # (An earlier revision of this comment justified that with "this job is the

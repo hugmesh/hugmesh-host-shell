@@ -2,11 +2,19 @@
 # release-version.sh — the version guard for .github/workflows/release.yml.
 #
 # Decides what kind of publish this run is, from the event and the ref, and
-# refuses anything that is not one of the two allowed shapes:
+# refuses anything that is not one of the allowed shapes:
 #
 #   refs/heads/main          -> kind=main     (image tags :main + :sha-<12>)
-#   refs/tags/v<version>     -> kind=release  (image tags :<version> + :beta + :sha-<12>,
-#                                              plus a GitHub prerelease)
+#   refs/heads/release/X.Y   -> kind=branch   (image tag :sha-<12> only; the
+#                                              version must be X.Y.*)
+#   refs/tags/v<version>     -> kind=release  (channel beta for X.Y.Z-beta.N,
+#                                              channel stable for X.Y.Z)
+#
+# Which image tags and GitHub Release flags a run gets, and which branch the
+# tagged commit must be on (main for a beta, release/X.Y for a stable), is
+# decided by scripts/release-channel.sh, which the workflow runs after this
+# guard. A version is X.Y.Z or X.Y.Z-beta.N; any other pre-release (-rc.N, ...)
+# names no release channel and is refused.
 #
 # The version source is package.json `.version`. package-lock.json must carry
 # the same string in both of its version fields, so the image, the lock and the
@@ -75,10 +83,29 @@ semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9
 case "$pkg_version" in
   *SNAPSHOT*) fail "version '$pkg_version' is a SNAPSHOT; never publish one" ;;
 esac
+# The only pre-release with a release channel is -beta.N (cut from main). A
+# stable X.Y.Z has none and is cut from release/X.Y.
+case "$pkg_version" in
+  *-*)
+    [[ "$pkg_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]] ||
+      fail "version '$pkg_version' names no release channel: a version is X.Y.Z (stable, from release/X.Y) or X.Y.Z-beta.N (beta, from main)"
+    ;;
+esac
+# MAJOR.MINOR of the version: the release/X.Y line it belongs on.
+line=${pkg_version%%-*}
+line=${line%.*}
 
 case "$ref" in
   refs/heads/main)
     kind=main
+    ;;
+  refs/heads/release/*)
+    branch=${ref#refs/heads/}
+    [[ "$branch" =~ ^release/([0-9]+)\.([0-9]+)$ ]] ||
+      fail "ref '$ref' publishes nothing: a release branch is named release/X.Y (for example release/0.3)"
+    [ "${BASH_REMATCH[1]}.${BASH_REMATCH[2]}" = "$line" ] ||
+      fail "$branch carries package.json version $pkg_version; a release/X.Y branch must carry an X.Y.* version (this one belongs on release/$line)"
+    kind=branch
     ;;
   refs/tags/v*)
     tag_version=${ref#refs/tags/v}
@@ -87,7 +114,7 @@ case "$ref" in
     kind=release
     ;;
   *)
-    fail "ref '$ref' publishes nothing: only refs/heads/main and refs/tags/v<version> do"
+    fail "ref '$ref' publishes nothing: only refs/heads/main, refs/heads/release/X.Y and refs/tags/v<version> do"
     ;;
 esac
 
@@ -97,10 +124,10 @@ case "$pkg_version" in
     channel=beta
     ;;
   *)
-    # A final release. Nothing has reached one yet; whether it also moves
-    # :latest is a decision for that day, so no channel tag is pushed.
+    # A stable release. Whether it also moves the floating :X.Y and :latest
+    # tags is decided by scripts/release-channel.sh (newest line only).
     prerelease=false
-    channel=
+    channel=stable
     ;;
 esac
 
