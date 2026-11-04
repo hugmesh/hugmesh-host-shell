@@ -88,8 +88,35 @@ expect_ok "dispatch on the matching tag re-runs the release" "$good" workflow_di
 
 final="$work/final"
 make_repo "$final" 0.2.0 0.2.0 0.2.0
-expect_ok "a final version is not a prerelease and moves no channel" "$final" push \
-  refs/tags/v0.2.0 kind=release prerelease=false channel=
+expect_ok "a final version is a stable release, not a prerelease" "$final" push \
+  refs/tags/v0.2.0 kind=release prerelease=false channel=stable
+expect_ok "push to release/X.Y carrying X.Y.* is a branch build" "$final" push \
+  refs/heads/release/0.2 version=0.2.0 kind=branch
+expect_ok "dispatch on release/X.Y is a branch build" "$final" workflow_dispatch \
+  refs/heads/release/0.2 kind=branch
+expect_refused "release/X.Y carrying another line's version" "$final" push refs/heads/release/0.3 \
+  "must carry an X.Y.* version"
+expect_refused "release/<not X.Y>" "$final" push refs/heads/release/attest-something \
+  "a release branch is named release/X.Y"
+expect_refused "release/X.Y.Z is not a release branch" "$final" push refs/heads/release/0.2.0 \
+  "a release branch is named release/X.Y"
+
+rc="$work/rc"
+make_repo "$rc" 0.2.0-rc.1 0.2.0-rc.1 0.2.0-rc.1
+expect_refused "an -rc.N version names no release channel" "$rc" push refs/tags/v0.2.0-rc.1 \
+  "names no release channel"
+expect_refused "an -rc.N version is refused on main too" "$rc" push refs/heads/main \
+  "names no release channel"
+
+beta0="$work/beta0"
+make_repo "$beta0" 0.2.0-beta.0 0.2.0-beta.0 0.2.0-beta.0
+expect_refused "beta numbers start at 1" "$beta0" push refs/tags/v0.2.0-beta.0 \
+  "names no release channel"
+
+xbeta="$work/xbeta"
+make_repo "$xbeta" 0.2.0-x-beta.1 0.2.0-x-beta.1 0.2.0-x-beta.1
+expect_refused "a pre-release that only ends in -beta.N is refused" "$xbeta" push refs/heads/main \
+  "names no release channel"
 
 expect_refused "tag that does not match package.json" "$good" push refs/tags/v0.2.0-beta.2 \
   "does not match package.json version"
@@ -134,8 +161,8 @@ repo_version=$(python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]
 case "$repo_version" in
   *-*) expect_ok "this repo's v$repo_version tag is a prerelease" "$repo_root" push \
     "refs/tags/v$repo_version" "version=$repo_version" kind=release prerelease=true channel=beta ;;
-  *) expect_ok "this repo's v$repo_version tag is a release" "$repo_root" push \
-    "refs/tags/v$repo_version" "version=$repo_version" kind=release ;;
+  *) expect_ok "this repo's v$repo_version tag is a stable release" "$repo_root" push \
+    "refs/tags/v$repo_version" "version=$repo_version" kind=release prerelease=false channel=stable ;;
 esac
 
 echo "release-version: $pass passed, $failures failed"
