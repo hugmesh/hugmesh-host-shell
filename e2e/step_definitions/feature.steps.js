@@ -5,7 +5,7 @@
  * mid-session behaviour the existing role suites did not reach:
  *
  *  - MID-SESSION role change via the authoritative GET /bff/session hydrate
- *    (SessionService.hydrate re-reads roles on every snap-session-change), so a
+ *    (SessionService.hydrate re-reads roles on every hug-session-change), so a
  *    role granted/revoked while a user is browsing is picked up WITHOUT a
  *    re-login — the host's most consequential multi-user behaviour.
  *  - The NOTIFICATION BELL unread badge (60s poll of /bff/user/notifications) and
@@ -28,7 +28,7 @@ const assert = require('assert');
 
 /* --- Mid-session role change: the authoritative GET /bff/session hydrate ------ *
  * SessionService.hydrate() re-reads GET /bff/session on boot AND on every
- * snap-session-change broadcast, mapping the authoritative roles[] into the
+ * hug-session-change broadcast, mapping the authoritative roles[] into the
  * in-memory session signal (WITHOUT touching the localStorage mirror). Every
  * OTHER suite relies on this read FAILING (404 host-only) so the localStorage
  * seed survives; THIS suite mocks a 200 so a role granted/revoked mid-session is
@@ -58,15 +58,23 @@ Given(/^the BFF session reports roles "([^"]*)"$/, async function (rolesCsv) {
   });
 });
 
-/** WHEN the session-change broadcast fires — dispatch the same snap-session-change
+/** WHEN the session-change broadcast fires — dispatch the same hug-session-change
  *  event a sibling in-page SessionService (or a login/registration completion)
  *  raises. The host's constructor listener re-runs hydrate(), which now reads the
  *  mocked /bff/session and updates the in-memory session signal. The reactive
  *  menu/guard re-evaluation is asserted by the polling steps below (hydrate is
- *  async, so a single instant sample would race the fetch). */
+ *  async, so a single instant sample would race the fetch).
+ *
+ *  The event NAME is the contract under test: the host LISTENS only on the
+ *  canonical 'hug-session-change' (src/app/session.service.ts:86 `channel`, wired
+ *  at :192 `window.addEventListener(this.channel, ...)`, since 713e3b7). The
+ *  pre-rebrand 'snap-session-change' is still DISPATCHED by the host for
+ *  not-yet-redeployed remotes but is never listened on (session.service.ts:92
+ *  `legacyChannel`) — dispatching it here re-ran nothing, so the menu never
+ *  re-hydrated and the role-change-midsession scenarios failed (issue #89). */
 When('the session-change broadcast fires', async function () {
   await browser.execute(() => {
-    window.dispatchEvent(new Event('snap-session-change'));
+    window.dispatchEvent(new Event('hug-session-change'));
   });
 });
 
