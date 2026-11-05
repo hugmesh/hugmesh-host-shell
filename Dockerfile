@@ -22,6 +22,7 @@ WORKDIR /usr/src/app
 #### tree it records is not one strict-peer mode would agree to build.
 COPY package*.json .npmrc ./
 COPY scripts/check-lockfile-sources.mjs scripts/check-lockfile-sources.mjs
+COPY scripts/check-node-floor.mjs scripts/check-node-floor.mjs
 
 #### FAIL THE BUILD on any dependency that is not an npm-registry tarball with an
 #### integrity hash (git+ssh, URL, path, owner/repo specs, missing hash). This runs
@@ -80,7 +81,10 @@ RUN node scripts/check-lockfile-sources.mjs
 #                  satisfy @types/node@26.2.0" -- names the package, and leaves
 #                  package-lock.json byte-identical.
 # On the committed tree `npm ci` here exits 0 with exactly one hoisted
-# @softarc/native-federation@4.5.0, i.e. the same tree the CI job validates.
+# @softarc/native-federation -- at whatever version package-lock.json records
+# (no number here: an earlier revision said 4.5.0 and went stale at the next
+# bump; scripts/check-nf-single-copy.mjs gates the one-copy part in CI), i.e.
+# the same tree the CI job validates.
 #
 # THIS LINE REQUIRES npm >= 11.3.0, and the `node -e` below ENFORCES it. The
 # nested override
@@ -116,8 +120,21 @@ RUN node scripts/check-lockfile-sources.mjs
 # --registry on the command line beats a `registry=` in .npmrc or the
 # environment, so the registry URLs in the lockfile are fetched from the
 # registry they name (the check above refuses such an .npmrc as well).
+#
+# A NODE FLOOR as well, DERIVED from package-lock.json (issue #92):
+# scripts/check-node-floor.mjs reads the engines.node range the lockfile records
+# for the federation runtime (@softarc/native-federation-orchestrator and
+# friends) and the Angular build packages, and fails here, naming the package
+# and the range, when this image's node does not satisfy one. `npm ci` alone
+# only WARNS on an engines mismatch (.npmrc has no engine-strict). No node
+# floor is hardcoded in this file or in the script, so the floor moves with the
+# next dependency bump; a name the lockfile stops holding fails the check
+# instead of dropping out of it, and a range it cannot read fails rather than
+# passes. Red/green table and mutations: node --test
+# scripts/check-node-floor.test.mjs.
 RUN node -v && npm -v && \
     node -e 'const v=process.argv[1],p=v.split(".").map(Number); if(!Number.isInteger(p[0])||p[0]<11||(p[0]===11&&!(p[1]>=3))){console.error("FATAL: npm "+v+" cannot read this repo lockfile; need >= 11.3.0 -- the base image tag has moved below the bound");process.exit(1)} console.log("npm "+v+" satisfies the >= 11.3.0 lockfile floor")' "$(npm -v)" && \
+    node scripts/check-node-floor.mjs && \
     npm ci --ignore-scripts --registry=https://registry.npmjs.org/
 
 #### copy things

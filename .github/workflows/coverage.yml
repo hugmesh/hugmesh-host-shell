@@ -96,6 +96,15 @@ jobs:
         run: node scripts/check-nf-single-copy.mjs
       - name: native-federation single-copy gate self-test
         run: node --test scripts/check-nf-single-copy.test.mjs
+      # Node floor gate (issue #92). The same command the Dockerfile build stage
+      # runs before `npm ci`: this job's node must satisfy the engines.node range
+      # package-lock.json records for the federation runtime and Angular build
+      # packages (npm ci itself only warns). Lockfile only, node built-ins only.
+      # Its self-test is the red/green table and the fail-closed cases.
+      - name: Node floor gate
+        run: |
+          node scripts/check-node-floor.mjs
+          node --test scripts/check-node-floor.test.mjs
       # Pull request runner gate. Fails if any workflow that runs on
       # pull_request could send a job to the self-hosted runner (see the
       # runs-on comment above). Node built-ins only, so it runs before `npm ci`.
