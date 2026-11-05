@@ -83,7 +83,6 @@
     "karma-spec-reporter": "^0.0.37",
     "mocha": "^12.0.3",
     "nightwatch": "^3.16.0",
-    "nightwatch-html-reporter": "^2.0.6",
     "sass": "^1.105.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.9.1",
@@ -94,7 +93,11 @@
     "mocha.diff": "REMOVED 2026-09-18 (issue #71): the pin was added 2026-07-08 (e1453fb) to close an npm-audit advisory against `diff`, but npm applies overrides by package name only, so `8.0.4` was forced onto EVERY nested `diff` under a `mocha` parent regardless of what that mocha actually declared -- and it never once matched: mocha 11's bundled diff wanted ^7, mocha 12 (this bump) wants ^9, and nightwatch's own nested mocha 10.8.2 wants ^5.2.0. `npm audit` on this tree shows no advisory for `diff` at all, so the pin is not closing anything live. Removed rather than re-pinned so each nested diff resolves to the range its own mocha declares; re-verify with `npm ls diff` after any future mocha bump instead of re-adding a bare version override here."
   },
   "_overridesNote2": {
-    "qs": "ADDED 2026-10-15 (issue #72): a floor, not a pin. express and body-parser@2 allow qs ^6.16, but the dev-only express 4 and body-parser 1 copies ask for ~6.15.1 and kept the one hoisted copy on 6.15.3, which `npm audit` flags (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g) on the runtime path of server.js. scripts/check-runtime-audit.mjs fails when a runtime advisory reappears."
+    "qs": "ADDED 2026-10-15 (issue #72): a floor, not a pin. express and body-parser@2 allow qs ^6.16, but the dev-only express 4 and body-parser 1 copies ask for ~6.15.1 and kept the one hoisted copy on 6.15.3, which `npm audit` flags (GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g) on the runtime path of server.js. scripts/check-runtime-audit.mjs fails when a runtime advisory reappears.",
+    "nightwatch-html-reporter": "REMOVED 2026-11-04 (issue #72): nothing loaded it. Every e2e script passes `-r ./e2e/html-reporter.js`, this repo's own handlebars reporter, and nightwatch.conf.js names no reporter package. It was the only parent of nconf 0.8.5 (GHSA-6xwr-q98w-rvg7, whose audit 'fix' was a semver-major DOWNGRADE of the reporter to 0.1.1), pug 2.0.4 (GHSA-p493-635q-r6gr, GHSA-3965-hpx2-q597) and xml2js 0.4.23 (GHSA-776f-qx25-q3cc). The `pug-code-gen` override existed only for that pug and is removed with it. scripts/runtime-lock-floors.test.mjs fails if any of the four reappears in the lockfile.",
+    "shell-quote": "EXACT 1.11.0 since 2026-11-04 (issue #72): the earlier pin, 1.9.0, sat INSIDE GHSA-pqg4-j6r4-53mv (>=1.8.4 <1.11.0, critical) and below launch-editor's own ^1.10.0, so the override itself held the vulnerable copy in place. Floor-tested in scripts/runtime-lock-floors.test.mjs (DEV_FLOORS).",
+    "nightwatch.piscina": "EXACT 4.9.4 since 2026-11-04 (issue #72): GHSA-67c8-pqhq-4rmx (critical) covers piscina <4.9.4 and >=5.0.0 <5.3.2; nightwatch 3.16.0 asks ^4.3.1, so this stays on the 4.x line. Floor-tested (DEV_FLOORS).",
+    "serialize-javascript": "EXACT 7.1.3 since 2026-11-04 (issue #72): GHSA-m5mm-p8h7-m29v covers <7.1.3. The earlier pin, 7.0.7, was below mocha 12's own ^7.1.1. Floor-tested (DEV_FLOORS)."
   },
   "overrides": {
     "@babel/core": "7.29.7",
@@ -102,16 +105,16 @@
     "axios": "1.20.0",
     "@xhmikosr/decompress": "11.1.3",
     "form-data": "4.0.6",
-    "shell-quote": "1.9.0",
+    "shell-quote": "1.11.0",
     "@appium/support": {
       ".": "7.2.5",
       "yauzl": "3.4.0"
     },
     "http-proxy-middleware": "3.0.7",
     "nightwatch": {
-      "piscina": "4.9.3"
+      "piscina": "4.9.4"
     },
-    "serialize-javascript": "7.0.7",
+    "serialize-javascript": "7.1.3",
     "cucumber-html-reporter": {
       "@cucumber/cucumber": {
         "semver": "7.5.2"
@@ -126,7 +129,6 @@
       "http-proxy-middleware": "2.0.10"
     },
     "micromatch": "4.0.8",
-    "pug-code-gen": "3.0.3",
     "uuid": "11.1.1",
     "esbuild": "0.28.1",
     "brace-expansion@^5.0.0": "^5.0.9",
