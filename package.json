@@ -14,6 +14,7 @@
     "check:lockfile-sources": "node scripts/check-lockfile-sources.mjs",
     "check:runtime-audit": "node scripts/check-runtime-audit.mjs",
     "check:karma-viewport": "node scripts/check-karma-viewport.mjs",
+    "check:nginx-csp": "node --test scripts/check-nginx-csp.test.mjs",
     "test:release-version": "bash scripts/release-version.test.sh",
     "coverage": "ng test --no-watch --code-coverage --browsers=ChromeHeadlessCI",
     "e2e": "nightwatch  -r ./e2e/html-reporter.js nightwatch.conf.js -e chrome",

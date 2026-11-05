@@ -105,6 +105,16 @@ jobs:
         run: |
           node scripts/check-pr-runner.mjs
           node --test scripts/check-pr-runner.test.mjs
+      # Served CSP gate. nginx.conf's Content-Security-Policy governs every
+      # remote mounted into the shell, and neither Karma nor `ng serve` sends a
+      # CSP, so nothing else in this job can see that header. The test parses
+      # the header nginx.conf actually serves (comment lines excluded) and
+      # requires connect-src to admit exactly the loopback sign-in agent origin
+      # http://127.0.0.1:27621 that login-ui's role cards probe, with no `http:`
+      # scheme source, no wildcard, no other plaintext origin, and script-src not
+      # loosened. Node built-ins only, so it runs before `npm ci`.
+      - name: Served CSP gate
+        run: node --test scripts/check-nginx-csp.test.mjs
       # Release version gate. scripts/release-version.sh is the guard
       # release.yml runs before it publishes an image; its test also runs it
       # against this repo's own package.json and package-lock.json, so a PR

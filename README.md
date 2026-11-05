@@ -53,6 +53,11 @@ unrelated PRs in this repo, so each is given as a commit as well (find it with
   (`max-age=31536000; includeSubDomains`), and a nonce-based
   `Content-Security-Policy` (`script-src 'self' 'nonce-$cspnonce' blob: 'wasm-unsafe-eval'`,
   `media-src 'self' blob:`, no `'unsafe-inline'` or `'unsafe-hashes'` for scripts).
+  `connect-src` is `'self' blob: https: wss: http://127.0.0.1:27621`: the one
+  plaintext origin is the local passwordless sign-in agent that login-ui's role
+  cards probe, and it has to be admitted here because login-ui mounted at `/login`
+  runs under the shell's policy, not its own. `scripts/check-nginx-csp.test.mjs`
+  pins that header (`npm run check:nginx-csp`, and the "Served CSP gate" CI step).
   `angular.json`'s prod build sets `inlineCritical` to false, so no inline
   `<style>` or `onload=` preloader ships. `nginx.conf` rewrites every `<script` tag
   with a fresh per-request nonce (`sub_filter`), and es-module-shims copies that
