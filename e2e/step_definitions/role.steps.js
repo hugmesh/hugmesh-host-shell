@@ -9,7 +9,7 @@
  * Driving the role WITHOUT a real Casdoor: every journey SEEDS localStorage under
  * the canonical "hug.session" key the login remote writes (see SessionService).
  * The host's SessionService reads that key on construction and on the
- * "snap-session-change" / cross-tab "storage" events, deriving the admin > mod >
+ * "hug-session-change" / cross-tab "storage" events, deriving the admin > mod >
  * user role signals the guards + nav read. So a JWT-shaped object with the right
  * roles[] is all the host needs to behave as that role — no remote auth server.
  *
@@ -93,7 +93,10 @@ async function seedSession(session) {
       if (value === null) localStorage.removeItem(key);
       else localStorage.setItem(key, value);
       // Broadcast so any already-constructed SessionService re-reads immediately.
-      window.dispatchEvent(new Event('snap-session-change'));
+      // Canonical channel only: the host listens on 'hug-session-change'
+      // (src/app/session.service.ts:86/:192); the legacy 'snap-session-change'
+      // is dispatch-only there (:92) and would reach no listener.
+      window.dispatchEvent(new Event('hug-session-change'));
     },
     [SESSION_KEY, session === null ? null : JSON.stringify(session)],
   );
@@ -568,11 +571,29 @@ When('I sign out', async function () {
   await browser.click('[data-testid="menu-logout"]');
 });
 
+/** THEN the session is cleared — POLL until the hug.session mirror is gone.
+ *
+ *  Sign-out is ASYNC by contract: HeaderControlsComponent.logout() awaits
+ *  SessionService.clear() (src/app/header/header-controls.component.ts:414-415),
+ *  and clear() first AWAITS POST /bff/sessionOut and only THEN removes the key
+ *  (src/app/session.service.ts:303-313 — the await is the d593818 fix that stops a
+ *  live cookie re-hydrating the session). So the key is removed one network
+ *  round-trip AFTER the click; a single sample taken right after the click races
+ *  that POST and reads the still-present e2e user JSON whenever the round-trip is
+ *  slower than the WebDriver hop (issue #89, row 2). The shell IS the party that
+ *  clears the mirror on sign-out (session.service.ts:313), so the assertion itself
+ *  is unchanged — only its timing now matches the app's real contract. */
 Then('the session is cleared', async function () {
-  const raw = await browser.execute(
-    (key) => localStorage.getItem(key),
-    [SESSION_KEY],
-  );
+  const deadline = Date.now() + 5000;
+  let raw = null;
+  do {
+    raw = await browser.execute(
+      (key) => localStorage.getItem(key),
+      [SESSION_KEY],
+    );
+    if (raw === null) break;
+    await new Promise((r) => setTimeout(r, 100));
+  } while (Date.now() < deadline);
   assert.strictEqual(raw, null, 'hug.session should be removed after sign out');
 });
 
