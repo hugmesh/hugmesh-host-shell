@@ -349,3 +349,127 @@ test('a genuinely trusted proxy is still believed (the fix did not turn forwardi
   assert.equal(proxyaddr(req, proxyaddr.compile('10.0.0.0/8')), '198.51.100.7');
   assert.equal(proxyaddr(req, proxyaddr.compile('::ffff:10.0.0.0/104')), '198.51.100.7');
 });
+
+// ---------------------------------------------------------------------------
+// Dev-tree floors (issue #72, 2026-11-04). The floors above cover only what
+// `npm start` can load. These cover EVERY copy in the lockfile, dev included,
+// for the packages whose Dependabot alerts the overrides in package.json close.
+// An override pin rots silently: shell-quote was pinned at 1.9.0, which sits
+// inside GHSA-pqg4-j6r4-53mv (>=1.8.4 <1.11.0, critical), so the pin itself
+// held the vulnerable copy in place. A floor is per major line where the
+// advisory patched more than one line: a copy is held to the floor of its own
+// major, or of the nearest major below it; a copy below every listed major
+// fails. Floors are the first patched releases the advisories name:
+//   shell-quote 1.11.0           GHSA-pqg4-j6r4-53mv (critical)
+//   piscina 4.9.4 / 5.3.2        GHSA-67c8-pqhq-4rmx (critical; nightwatch's
+//                                nested copy is on 4.x, Angular's on 5.x)
+//   serialize-javascript 7.1.3   GHSA-m5mm-p8h7-m29v (low)
+export const DEV_FLOORS = {
+  'shell-quote': { 1: '1.11.0' },
+  piscina: { 4: '4.9.4', 5: '5.3.2' },
+  'serialize-javascript': { 7: '7.1.3' },
+};
+
+// Packages that must not be in the lockfile at all. nightwatch-html-reporter
+// was an unused devDependency (every e2e script passes -r ./e2e/html-reporter.js,
+// this repo's own handlebars reporter) and the only parent of nconf 0.8.5
+// (GHSA-6xwr-q98w-rvg7), pug 2.0.4 (GHSA-p493-635q-r6gr, GHSA-3965-hpx2-q597)
+// and xml2js 0.4.23 (GHSA-776f-qx25-q3cc). If one of them is ever needed
+// again, take it out of this list deliberately, with a patched version.
+export const DEV_ABSENT = ['nightwatch-html-reporter', 'nconf', 'pug', 'xml2js'];
+
+/** Every copy of `name` anywhere in the lockfile, dev or not: [{ at, version }]. */
+export function allCopies(lock, name) {
+  const out = [];
+  for (const [at, entry] of Object.entries(lock.packages ?? {})) {
+    if (at === `node_modules/${name}` || at.endsWith(`/node_modules/${name}`)) out.push({ at, version: entry?.version });
+  }
+  return out;
+}
+
+function floorFor(byMajor, version) {
+  const major = Number(String(version).split('.')[0]);
+  const below = Object.keys(byMajor)
+    .map(Number)
+    .filter((m) => m <= major)
+    .sort((a, b) => b - a);
+  return below.length ? byMajor[below[0]] : null;
+}
+
+/** The dev floors and absences a lockfile violates, as readable strings. */
+export function devFloorViolations(lock, floors = DEV_FLOORS, absent = DEV_ABSENT) {
+  const bad = [];
+  for (const [name, byMajor] of Object.entries(floors)) {
+    for (const c of allCopies(lock, name)) {
+      if (typeof c.version !== 'string' || !/^\d+\.\d+\.\d+/.test(c.version)) {
+        bad.push(`${c.at} has no usable version (${c.version})`);
+        continue;
+      }
+      const floor = floorFor(byMajor, c.version);
+      if (floor === null) bad.push(`${c.at} is ${c.version}, below every patched line (${Object.values(byMajor).join(', ')})`);
+      else if (cmp(c.version, floor) < 0) bad.push(`${c.at} is ${c.version}, floor is ${floor}`);
+    }
+  }
+  for (const name of absent) {
+    for (const c of allCopies(lock, name)) bad.push(`${c.at} (${c.version}) must not be in the lockfile`);
+  }
+  return bad;
+}
+
+test('DEV: every lockfile copy of a dev-floored package is at or above its patched floor, and the removed reporter chain is gone', () => {
+  assert.deepEqual(devFloorViolations(lock), []);
+});
+
+test('DEV: each dev-floored package is present, and piscina has a 4.x copy under nightwatch (the floors are not vacuous)', () => {
+  for (const name of Object.keys(DEV_FLOORS)) {
+    assert.ok(allCopies(lock, name).length > 0, `${name} has no copy in the lockfile`);
+  }
+  const nested = lock.packages['node_modules/nightwatch/node_modules/piscina'];
+  assert.ok(nested && /^4\./.test(nested.version), 'nightwatch no longer nests a 4.x piscina: revisit the overrides.nightwatch.piscina pin');
+});
+
+test('DEV: package.json no longer asks for nightwatch-html-reporter', () => {
+  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    assert.ok(!Object.hasOwn(pkgJson[field] ?? {}, 'nightwatch-html-reporter'), field);
+  }
+});
+
+test('DEV checker: the pre-fix pins fail (shell-quote 1.9.0, nested piscina 4.9.3, serialize-javascript 7.0.7)', () => {
+  const l = fake({}, [
+    ['node_modules/shell-quote', PKG('shell-quote', '1.9.0')],
+    ['node_modules/nightwatch/node_modules/piscina', PKG('piscina', '4.9.3')],
+    ['node_modules/piscina', PKG('piscina', '5.3.2')],
+    ['node_modules/serialize-javascript', PKG('serialize-javascript', '7.0.7')],
+  ]);
+  assert.deepEqual(devFloorViolations(l), [
+    'node_modules/shell-quote is 1.9.0, floor is 1.11.0',
+    'node_modules/nightwatch/node_modules/piscina is 4.9.3, floor is 4.9.4',
+    'node_modules/serialize-javascript is 7.0.7, floor is 7.1.3',
+  ]);
+});
+
+test('DEV checker: piscina is held to the floor of its own major line', () => {
+  const at = (v) => fake({}, [['node_modules/piscina', PKG('piscina', v)]]);
+  assert.deepEqual(devFloorViolations(at('4.9.4')), []);
+  assert.deepEqual(devFloorViolations(at('5.3.2')), []);
+  assert.deepEqual(devFloorViolations(at('6.0.0')), []);
+  assert.deepEqual(devFloorViolations(at('5.3.1')), ['node_modules/piscina is 5.3.1, floor is 5.3.2']);
+  assert.equal(devFloorViolations(at('3.2.0')).length, 1);
+  assert.equal(devFloorViolations(at('5.3.2-rc.1')).length, 1);
+});
+
+test('DEV checker: any copy of a removed package fails, nested or hoisted', () => {
+  const l = fake({}, [
+    ['node_modules/nightwatch-html-reporter', PKG('nightwatch-html-reporter', '2.0.6')],
+    ['node_modules/a/node_modules/nconf', PKG('nconf', '0.13.0')],
+  ]);
+  assert.deepEqual(devFloorViolations(l), [
+    'node_modules/nightwatch-html-reporter (2.0.6) must not be in the lockfile',
+    'node_modules/a/node_modules/nconf (0.13.0) must not be in the lockfile',
+  ]);
+});
+
+test('DEV checker: a floored entry with no version fails closed', () => {
+  const l = fake({}, [['node_modules/shell-quote', {}]]);
+  assert.equal(devFloorViolations(l).length, 1);
+});
