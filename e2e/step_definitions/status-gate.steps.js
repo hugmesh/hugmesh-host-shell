@@ -116,12 +116,34 @@ Then('the account-status banner shows the reason {string}', async function (reas
 });
 
 /** THEN the banner offers the appeal route — the real router link to the
- *  login remote's appeal surface (APPEAL_ROUTE in status-gate.component.ts). */
+ *  login remote's appeal surface (APPEAL_ROUTE, status-gate.component.ts:23).
+ *
+ *  The link carries the audit reason as an optional `?reason=<text>` deep-link
+ *  when the banner has one (`[queryParams]="appealQueryParams()"`,
+ *  status-gate.component.html:24, built by appealQueryParams() at
+ *  status-gate.component.ts:87-90; the login remote's appeal page announces it).
+ *  So compare the PATH, not the whole href, and when a reason was shown, require
+ *  the query to carry exactly that reason; with no reason there is no query. */
 Then('the account-status banner links to the appeal page', async function () {
-  const href = await browser.execute(
-    () => document.querySelector('a[data-testid="status-gate-appeal"]')?.getAttribute('href') ?? '',
-  );
-  assert.strictEqual(href, '/login/appeal', `Expected the appeal link href "/login/appeal" but got "${href}"`);
+  const { href, reason } = await browser.execute(() => ({
+    href: document.querySelector('a[data-testid="status-gate-appeal"]')?.getAttribute('href') ?? '',
+    reason: (document.querySelector('[data-testid="status-gate-reason"]')?.textContent ?? '').trim(),
+  }));
+  assert.ok(href, 'Expected the banner to render an appeal link');
+  const url = new URL(href, 'http://host.invalid');
+  assert.strictEqual(url.pathname, '/login/appeal', `Expected the appeal link path "/login/appeal" but got "${href}"`);
+  const linked = url.searchParams.get('reason');
+  // The reason paragraph renders "Reason: <text>" (status-gate.component.html:17-18).
+  const shown = reason.replace(/^Reason:\s*/, '');
+  if (shown) {
+    assert.strictEqual(
+      linked,
+      shown,
+      `Expected the appeal link to carry the banner reason "${shown}" as ?reason= but got "${href}"`,
+    );
+  } else {
+    assert.strictEqual(linked, null, `Expected no ?reason= on the appeal link without a banner reason, got "${href}"`);
+  }
 });
 
 When('I dismiss the account-status banner', async function () {

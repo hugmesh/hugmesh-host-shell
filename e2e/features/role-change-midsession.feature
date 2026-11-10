@@ -1,6 +1,6 @@
 Feature: Mid-session role grant / revoke via the /bff/session hydrate
   SessionService.hydrate() re-reads the AUTHORITATIVE GET /bff/session on boot AND
-  on every snap-session-change broadcast, mapping the returned roles[] into the
+  on every hug-session-change broadcast, mapping the returned roles[] into the
   in-memory session signal WITHOUT touching the localStorage mirror. That exists
   precisely so a role granted or revoked MID-SESSION (an admin demoting a mod, or
   promoting a user, while they are browsing) is picked up WITHOUT a re-login — the
