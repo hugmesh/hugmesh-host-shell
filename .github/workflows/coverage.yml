@@ -96,6 +96,15 @@ jobs:
         run: node scripts/check-nf-single-copy.mjs
       - name: native-federation single-copy gate self-test
         run: node --test scripts/check-nf-single-copy.test.mjs
+      # Node floor gate (issue #92). The same command the Dockerfile build stage
+      # runs before `npm ci`: this job's node must satisfy the engines.node range
+      # package-lock.json records for the federation runtime and Angular build
+      # packages (npm ci itself only warns). Lockfile only, node built-ins only.
+      # Its self-test is the red/green table and the fail-closed cases.
+      - name: Node floor gate
+        run: |
+          node scripts/check-node-floor.mjs
+          node --test scripts/check-node-floor.test.mjs
       # Pull request runner gate. Fails if any workflow that runs on
       # pull_request could send a job to the self-hosted runner (see the
       # runs-on comment above). Node built-ins only, so it runs before `npm ci`.
@@ -105,6 +114,16 @@ jobs:
         run: |
           node scripts/check-pr-runner.mjs
           node --test scripts/check-pr-runner.test.mjs
+      # Served CSP gate. nginx.conf's Content-Security-Policy governs every
+      # remote mounted into the shell, and neither Karma nor `ng serve` sends a
+      # CSP, so nothing else in this job can see that header. The test parses
+      # the header nginx.conf actually serves (comment lines excluded) and
+      # requires connect-src to admit exactly the loopback sign-in agent origin
+      # http://127.0.0.1:27621 that login-ui's role cards probe, with no `http:`
+      # scheme source, no wildcard, no other plaintext origin, and script-src not
+      # loosened. Node built-ins only, so it runs before `npm ci`.
+      - name: Served CSP gate
+        run: node --test scripts/check-nginx-csp.test.mjs
       # Release version gate. scripts/release-version.sh is the guard
       # release.yml runs before it publishes an image; its test also runs it
       # against this repo's own package.json and package-lock.json, so a PR
