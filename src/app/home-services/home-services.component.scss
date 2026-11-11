@@ -31,7 +31,12 @@
 }
 
 .service-card__link {
-  color: t.$light;
+  // --hug-text, not t.$light: #bbb was the palette's dimmest text and left no
+  // margin on a card that is itself translucent (card-surface ends at 0.4
+  // alpha). This is the token the help bubble and body copy already read,
+  // the one a theme re-derives for its own ramp, and scrim-contrast.spec.ts
+  // measures it on the composed card.
+  color: var(--hug-text);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
