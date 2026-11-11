@@ -157,13 +157,17 @@ nav.navbar {
 // text cannot reach AA on a 40% grey wash over near-white. The bar these cards
 // replace on the /user home is glass-float, so the cards take the same chrome
 // scrim. Its alpha is the t.$scrim-alpha contract, which scrim-contrast.spec.ts
-// holds against the rendered composition. Shape and spacing mirror the backpane
-// so the two panes line up when they stack.
+// holds against the rendered composition.
+//
+// Inset 1.5rem from the viewport edges, the same as the header banner above it,
+// so the panel's rounded edge never lands flush against the screen edge. A plain
+// `margin: auto` with the backpane's 90rem cap did exactly that below 90rem.
+// Centred and capped at the backpane's 90rem beyond that.
 .home-services-nav {
   @include m.glass-float;
-  margin: clamp(0.5rem, 1.5vw, 1.25rem) auto;
+  margin-block: clamp(0.5rem, 1.5vw, 1.25rem);
+  margin-inline: max(1.5rem, (100% - 90rem) / 2);
   padding: clamp(0.25rem, 1vw, 0.75rem);
-  max-width: 90rem;
 
   .links-grid {
     display: flex;
