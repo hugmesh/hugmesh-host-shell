@@ -24,6 +24,7 @@ import { ViewReloadService } from '../view-reload.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
 import { MenuBarModeService } from './menu-bar-mode.service';
 import { WorkloadConsoleProbeService } from './workload-console-probe.service';
+import { AdminTasksProbeService } from './admin-tasks-probe.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
@@ -127,6 +128,7 @@ export class MenuComponent {
   private readonly router = inject(Router);
   private readonly capabilities = inject(CapabilitiesService);
   private readonly workloadProbe = inject(WorkloadConsoleProbeService);
+  private readonly adminTasksProbe = inject(AdminTasksProbeService);
   private readonly bellNotifications = inject(BellNotificationsService);
   /** The shell-wide RELOAD control. Lives HERE (one control in the chrome) rather
    *  than per-remote, so every federated view is refreshed the same way and a
@@ -206,7 +208,10 @@ export class MenuComponent {
    *   - the HIDDEN tier ('Workload console') is listed ONLY while this host's own
    *     server-confirmed capability probe (WorkloadConsoleProbeService) has
    *     succeeded (404 or any error = stays dark), so a dark feature is never
-   *     revealed from a static list.
+   *     revealed from a static list;
+   *   - 'Guided tasks' is listed ONLY while AdminTasksProbeService found a task
+   *     catalogue at /bff/admin/tasks (the remote's `needsTaskCatalogue` item). No
+   *     admin-bff implements that endpoint yet, so it 404s and the entry stays out.
    *  PLUS the host's own /admin/docs mount (the admin-only API-docs remote — a
    *  section of the admin surface from the host's perspective, same route the
    *  profile dropdown's 'API docs' entry uses). */
@@ -219,7 +224,7 @@ export class MenuComponent {
     { label: 'Route definitions', route: '/admin/routes', testid: 'subnav-admin-routes' },
     { label: 'ISO downloads', route: '/admin/isos', testid: 'subnav-admin-isos' },
     { label: 'ArgoCD', route: '/admin/argocd', testid: 'subnav-admin-argocd' },
-    { label: 'Guided tasks', route: '/admin/tasks', testid: 'subnav-admin-tasks' },
+    { label: 'Guided tasks', route: '/admin/tasks', testid: 'subnav-admin-tasks', show: () => this.adminTasksProbe.available() },
     { label: 'Backup', route: '/admin/backup', testid: 'subnav-admin-backup' },
     { label: 'Recovery', route: '/admin/recovery', testid: 'subnav-admin-recovery' },
     { label: 'Backups history', route: '/admin/backups', testid: 'subnav-admin-backups' },
@@ -476,14 +481,19 @@ export class MenuComponent {
     // load greys every optional service rather than breaking the shell.
     void this.capabilities.load();
 
-    // The HIDDEN-tier Workload console entry: probe the server for every signed-in
-    // admin, and go dark again the moment the session stops being one. Only the
-    // session signals are tracked; the probe runs untracked.
+    // The HIDDEN-tier Workload console entry and the Guided tasks entry: probe the
+    // server for every signed-in admin, and go dark again the moment the session
+    // stops being one. Only the session signals are tracked; the probes run untracked.
     effect(() => {
       const admin = this.session.loggedIn() && this.session.isAdmin();
       untracked(() => {
-        if (admin) void this.workloadProbe.probe();
-        else this.workloadProbe.reset();
+        if (admin) {
+          void this.workloadProbe.probe();
+          void this.adminTasksProbe.probe();
+        } else {
+          this.workloadProbe.reset();
+          this.adminTasksProbe.reset();
+        }
       });
     });
 
