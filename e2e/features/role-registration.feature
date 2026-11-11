@@ -8,8 +8,11 @@ Feature: Registration gate on the social surfaces (pending users)
   (menu.component.ts enabled()/disabledReason()).
 
   A social entry is enabled only when its service is INSTALLED on the
-  deployment AND the session is fully registered — and the install-state gate
-  takes precedence in the helptext. The host-only stack has no federation-api
+  deployment AND the session holds the service role AND is fully registered
+  (GUI-07: the user-bff hsproxy refuses Matrix/Mastodon without ROLE_MATRIX /
+  ROLE_MASTODON) — install-state first, then the role, then registration in
+  the helptext. The pending fixture holds both roles, so it isolates the
+  registration reason. The host-only stack has no federation-api
   (the public capabilities read 404s -> everything greys by ABSENCE), so to
   isolate the REGISTRATION reason these journeys mock the capabilities response
   at the network level (@capabilities-mock; the After hook restores the 404
@@ -31,10 +34,22 @@ Feature: Registration gate on the social surfaces (pending users)
   @capabilities-mock
   Scenario: Completing registration unlocks the social entries (the ALLOW pair)
     Given the deployment reports the "mastodon" and "matrix" services installed
-    And I have a user session
+    And I have a user session with the "mastodon" and "matrix" service grants
     And I go to "/"
     Then the "nav-mastodon" nav entry is an enabled link
     And the "nav-matrix" nav entry is an enabled link
+
+  @capabilities-mock
+  Scenario: A registered member WITHOUT the service roles is told which role (GUI-07)
+    # e2e-user live: registered, roles [user]. The hsproxy 403s every Matrix /
+    # Mastodon call for this identity, so the shell must not offer either.
+    Given the deployment reports the "mastodon" and "matrix" services installed
+    And I have a user session
+    And I go to "/"
+    Then the "nav-mastodon" nav entry is disabled
+    And the "nav-mastodon" nav entry explains "Sign in as a Mastodon member to open this."
+    And the "nav-matrix" nav entry is disabled
+    And the "nav-matrix" nav entry explains "Sign in as a Matrix member to open this."
 
   @capabilities-mock
   Scenario: A pending user keeps the universal Home entry and their account menu

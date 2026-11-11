@@ -15,7 +15,9 @@ Feature: Home-services launcher card state matrix (+ forum dead-link regression 
   installed forum card must be an enabled real link to /social/forum.
 
   Background:
-    Given I have a user session
+    # GUI-07: the forum card needs ROLE_FORUM (or admin) — the gateway's
+    # /social/forum/** row — so the member here holds the forum grant.
+    Given I have a user session with the "forum" service grant
 
   @capabilities-mock
   Scenario: The forum card is an enabled link to the newly-mounted forum route

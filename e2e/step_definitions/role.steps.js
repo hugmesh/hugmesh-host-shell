@@ -63,7 +63,11 @@ function sessionFor(role) {
     roles,
     // A syntactically-shaped JWT (header.payload.signature); never verified host-side.
     bffToken: `eyJhbGciOiJub25lIn0.${Buffer.from(JSON.stringify({ roles })).toString('base64url')}.sig`,
-    // Fully registered so the Mastodon/Matrix nav entries are enabled (registeredGuard).
+    // Fully registered. NOTE (GUI-07): registration alone no longer enables the
+    // Mastodon/Matrix entries — they also need ROLE_MASTODON / ROLE_MATRIX, and the
+    // Forum needs ROLE_FORUM (or admin), exactly as the backend enforces
+    // (src/app/guards/social-access.ts). None of these fixtures carries a social
+    // role; grant one with "... session with the "<service>" service grant(s)".
     registrationComplete: true,
     matrix: { token: 'e2e-matrix', userId: `@${role}:hugmesh.test` },
     mastodon: { token: 'e2e-mastodon' },
@@ -128,6 +132,18 @@ Given(
   },
 );
 
+/** GIVEN I have a {role} session with the {a} and {b} service grants — the same as
+ *  the single-grant step above, with two per-service roles (e.g. "matrix" and
+ *  "mastodon", which the social nav needs side by side). */
+Given(
+  /^I have an? (superadmin|admin|mod|user) session with the "([^"]+)" and "([^"]+)" service grants$/,
+  async function (role, a, b) {
+    const session = sessionFor(role);
+    session.roles = [...session.roles, a.toLowerCase(), b.toLowerCase()];
+    await seedSession(session);
+  },
+);
+
 /** GIVEN I have a pending user session — an authenticated identity that has NOT
  *  completed registration (registrationComplete:false). Registration is what
  *  mints the per-service Matrix/Mastodon tokens, so the pending fixture carries
@@ -135,6 +151,10 @@ Given(
  *  Drives the registeredGuard / menu enabled() gating (role-registration.feature). */
 Given('I have a pending user session', async function () {
   const session = sessionFor('user');
+  // Holds the Matrix/Mastodon roles, so registration is the ONLY missing gate
+  // and the journeys below isolate the registration reason (GUI-07: without the
+  // role, the role reason is reported first — registering cannot grant it).
+  session.roles = [...session.roles, 'matrix', 'mastodon'];
   session.registrationComplete = false;
   delete session.matrix;
   delete session.mastodon;
