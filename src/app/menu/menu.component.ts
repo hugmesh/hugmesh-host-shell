@@ -19,11 +19,6 @@ import { filter } from 'rxjs';
 
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
-import { BellNotificationsService } from '../bell/bell-notifications.service';
-import { ViewReloadService } from '../view-reload.service';
-import { AnnouncementsService } from '../announcements/announcements.service';
-import { MenuBarModeService } from './menu-bar-mode.service';
-import { WorkloadConsoleProbeService } from './workload-console-probe.service';
 import {
   SocialAccessSession,
   canUseForum,
@@ -32,6 +27,11 @@ import {
   holdsMastodonRole,
   holdsMatrixRole,
 } from '../guards/social-access';
+import { BellNotificationsService } from '../bell/bell-notifications.service';
+import { ViewReloadService } from '../view-reload.service';
+import { AnnouncementsService } from '../announcements/announcements.service';
+import { MenuBarModeService } from './menu-bar-mode.service';
+import { WorkloadConsoleProbeService } from './workload-console-probe.service';
 
 /** A primary menubar entry. The router-outlet is the swappable content region, so
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
