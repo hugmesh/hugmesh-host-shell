@@ -145,7 +145,9 @@ export class HomeServicesService {
 
   private hasRole(role: 'admin' | 'mod' | 'games' | 'games-admin'): boolean {
     switch (role) {
-      case 'admin': return this.session.isAdmin();
+      // The adminGuard predicate (admin OR superadmin): the card must not grey out
+      // for the pure superadmin the guard lets through.
+      case 'admin': return this.session.isAdminTier();
       case 'mod': return this.session.isMod();
       // ALIGNED WITH gamesGuard (app.routes.ts / guards/games.guard.ts): the
       // entry point admits a ROLE_GAMES holder OR an admin / superadmin, so the

@@ -111,13 +111,15 @@ export class HeaderControlsComponent {
 
   /** Profile dropdown — Profile (modal) + the conditional Admin / API docs /
    *  Moderation role shortcuts + Sign out. Admin and the admin-only API docs
-   *  console appear ONLY for admins; Moderation ONLY for moderators. */
+   *  console appear ONLY for the admin-console tier (admin OR superadmin — the
+   *  adminGuard predicate, so neither is ever a dead link nor hidden from a
+   *  superadmin the guard admits); Moderation ONLY for moderators. */
   readonly profileMenuItems: readonly ProfileMenuItem[] = [
     { label: 'Profile',    testid: 'menu-profile', action: 'profile', show: () => true,
       help: 'Opens your profile editor in a dialog.' },
-    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdmin(),
+    { label: 'Admin',      testid: 'menu-admin',   action: 'admin',   route: '/admin',      show: () => this.session.isAdminTier(),
       help: 'Go to the admin console (administrators only).' },
-    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdmin(),
+    { label: 'API docs',   testid: 'menu-apidocs', action: 'apidocs', route: '/admin/docs', show: () => this.session.isAdminTier(),
       help: 'Browse the platform API documentation (administrators only).' },
     { label: 'Moderation', testid: 'menu-mod',     action: 'mod',     route: '/mod',        show: () => this.session.isMod(),
       help: 'Go to the moderation console (moderators only).' },

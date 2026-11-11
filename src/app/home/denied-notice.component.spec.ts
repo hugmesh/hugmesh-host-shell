@@ -25,13 +25,26 @@ import { SessionService } from '../session.service';
  */
 describe('DeniedNoticeComponent', () => {
   let params: BehaviorSubject<ParamMap>;
-  let session: { isMod: () => boolean; isAdmin: () => boolean };
+  let session: {
+    isMod: () => boolean;
+    isAdmin: () => boolean;
+    isSuperadmin: () => boolean;
+    isAdminTier: () => boolean;
+  };
 
   function setup(denied: string | null, roles: Partial<typeof session> = {}) {
     params = new BehaviorSubject<ParamMap>(
       convertToParamMap(denied === null ? {} : { denied }),
     );
-    session = { isMod: () => false, isAdmin: () => false, ...roles };
+    session = {
+      isMod: () => false,
+      isAdmin: () => false,
+      isSuperadmin: () => false,
+      // MIRRORS SessionService.isAdminTier (admin OR superadmin), derived from the
+      // two flags so an override of either flows through.
+      isAdminTier() { return this.isAdmin() || this.isSuperadmin(); },
+      ...roles,
+    };
     TestBed.configureTestingModule({
       imports: [DeniedNoticeComponent],
       providers: [
@@ -84,6 +97,15 @@ describe('DeniedNoticeComponent', () => {
 
     it('does the same for the admin console', () => {
       expect(has(setup('/admin', { isAdmin: () => true }), 'denied-mismatch')).toBeTrue();
+    });
+
+    // GUI-01: a pure superadmin (no literal 'admin' role) holds the admin-console
+    // tier — adminGuard admits it — so a refused /admin is a server-side mismatch
+    // for them too, not "your account lacks the role".
+    it('does the same for a PURE superadmin refused the admin console', () => {
+      const f = setup('/admin/superadmin/domains', { isSuperadmin: () => true });
+      expect(has(f, 'denied-mismatch')).toBeTrue();
+      expect(has(f, 'denied-no-role')).toBeFalse();
     });
 
     it('NEVER claims the account lacks the role — it demonstrably has it', () => {

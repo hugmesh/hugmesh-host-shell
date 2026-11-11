@@ -35,6 +35,9 @@ class SessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = signal(false);
   isGamesAdmin = signal(false);
   roles = signal<string[]>([]);
@@ -129,6 +132,44 @@ describe('MenuComponent — universal nav menubar', () => {
       fixture.detectChanges();
       expect(navButtons().map((b) => b.textContent?.trim()))
         .toEqual(['Home', 'Mastodon', 'Matrix', 'Forum', 'Games']);
+    });
+  });
+
+  // ── ADMIN console entry by role (GUI-01, retest 2026-11-11) ──────────────
+  // nav-admin is `visible` on the admin-CONSOLE tier — isAdminTier (admin OR
+  // superadmin), the adminGuard predicate. A PURE superadmin (roles exactly
+  // ['superadmin']: isAdmin false, isMod true) used to have no Admin entry at all,
+  // and with it no route to the superadmin-only consoles.
+  describe('ADMIN console entry by role', () => {
+    const byTestid = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+    function roles(over: Partial<{ admin: boolean; mod: boolean; superadmin: boolean }>): void {
+      stub.isAdmin.set(over.admin ?? false);
+      stub.isMod.set(over.mod ?? false);
+      stub.isSuperadmin.set(over.superadmin ?? false);
+      fixture.detectChanges();
+    }
+
+    it('pure superadmin: the Admin entry renders as a visible link to /admin', () => {
+      roles({ superadmin: true, mod: true });
+      const admin = byTestid('nav-admin');
+      expect(admin).withContext('a pure superadmin must see the Admin console').toBeTruthy();
+      expect(admin!.tagName).toBe('A');
+      expect(admin!.getAttribute('href')).toBe('/admin');
+      const box = admin!.getBoundingClientRect();
+      expect(box.width).withContext('rendered with a real box, not collapsed').toBeGreaterThan(0);
+      expect(box.height).toBeGreaterThan(0);
+    });
+
+    it('admin: the Admin entry renders', () => {
+      roles({ admin: true, mod: true });
+      expect(byTestid('nav-admin')).toBeTruthy();
+    });
+
+    it('bare mod and plain user: no Admin entry', () => {
+      roles({ mod: true });
+      expect(byTestid('nav-admin')).toBeNull();
+      roles({});
+      expect(byTestid('nav-admin')).toBeNull();
     });
   });
 

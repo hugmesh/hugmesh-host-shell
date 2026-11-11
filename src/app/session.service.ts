@@ -122,6 +122,22 @@ export class SessionService {
    *  isAdmin/isMod. Used by service guards that grant superadmins unconditional
    *  access (e.g. the wiki management remote: superadmin manages ALL wiki features). */
   readonly isSuperadmin = computed(() => (this.session()?.roles ?? []).includes('superadmin'));
+  /** ADMIN-CONSOLE tier: may this session open the /admin console (and the
+   *  /admin/docs API-docs console the host mounts under it)? An admin OR a
+   *  superadmin. Every enforcement layer behind the console already admits both:
+   *  admin-bff SecurityConfig maps /bff/admin/** to hasAnyRole(ADMIN, SUPERADMIN),
+   *  and its RoleHierarchy makes SUPERADMIN > ADMIN for every @PreAuthorize. Gating
+   *  the console on isAdmin alone refused a PURE superadmin (roles exactly
+   *  ['superadmin'], the e2e-superadmin persona) every /admin route — including the
+   *  superadmin-only Domains / Device licenses / Egress VPN consoles — while the
+   *  server would have served them.
+   *
+   *  isAdmin itself stays the literal 'admin' check on purpose: it also feeds
+   *  role() (the role-home precedence) and isGamesAdmin (the derived
+   *  ROLE_GAMES_ADMIN tier), and widening it would move a superadmin's role-home
+   *  and grant a games tier the server does not derive. Use THIS predicate for
+   *  "can see / enter the admin console" and isAdmin only for the literal role. */
+  readonly isAdminTier = computed(() => this.isAdmin() || this.isSuperadmin());
   /** GAMES entry-point role (Phase 8): plain ROLE_GAMES grants access to the games
    *  namespace ENTRY-POINT ONLY — it does NOT by itself grant games ADMIN (see
    *  {@link isGamesAdmin}). Lowercase 'games' role string, mirroring isAdmin/isMod. */
