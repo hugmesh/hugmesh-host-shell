@@ -103,6 +103,21 @@ nav.navbar {
   font-weight: 700;
 }
 
+// DISABLED-ENTRY REASONS IN THE HORIZONTAL BAR (GUI-07). They stay BLOCK help,
+// read without asking (styles.scss `.field-help`), but each one is confined to
+// its own entry's column: capped so it wraps under its label, and padded so two
+// neighbours never touch. Uncapped, a reason sized its <li> to the whole
+// sentence, so a member holding none of the social roles got four reasons fused
+// into one run-on line ("…to open this.Sign in as a Matrix member…") with the
+// entries strung out across the bar. Desktop only: below lg the bar collapses
+// into a vertical list where a full-width reason reads fine.
+@media (min-width: #{t.$bp-lg}) {
+  .navbar-nav > .nav-item > .field-help {
+    max-width: 9rem;
+    padding-inline: 0.5rem;
+  }
+}
+
 // CONSOLE SECTIONS SUBMENU (issue #19): a full-width second row of the navbar,
 // rendered only while an admin/mod console is the active route. Denser than the
 // primary entries — the admin console has ~30 sections — so the .nav-link

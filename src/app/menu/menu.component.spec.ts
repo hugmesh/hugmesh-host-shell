@@ -336,6 +336,30 @@ describe('MenuComponent — universal nav menubar', () => {
       expect(entry('nav-mastodon').tagName).toBe('BUTTON');
     });
 
+    // GEOMETRY, not just text: the live re-render showed the three reasons fused
+    // into one run-on line under the bar ("…to open this.Sign in as a Matrix
+    // member…"). Measures the TEXT boxes (a Range, so padding cannot fake a gap).
+    it('lays each reason out in its own column: neighbours never touch, none outgrows the cap', () => {
+      stub.roles.set([]);
+      fixture.detectChanges();
+      const textBox = (node: HTMLElement) => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return range.getBoundingClientRect();
+      };
+      const boxes = ['nav-mastodon', 'nav-matrix', 'nav-forum'].map((id) => textBox(help(id)!));
+      expect(window.innerWidth).withContext('the desktop (expanded) bar is what is measured').toBeGreaterThanOrEqual(992);
+      for (const [i, b] of boxes.entries()) {
+        expect(b.width).withContext(`reason ${i} is painted`).toBeGreaterThan(0);
+        expect(b.width).withContext(`reason ${i} wraps at the 9rem cap`).toBeLessThanOrEqual(9 * 16);
+      }
+      for (let i = 1; i < boxes.length; i++) {
+        expect(boxes[i].left - boxes[i - 1].right)
+          .withContext(`horizontal gap between reason ${i - 1} and reason ${i}`)
+          .toBeGreaterThanOrEqual(8);
+      }
+    });
+
     it('each role enables exactly its own entry', () => {
       stub.roles.set(['matrix']);
       fixture.detectChanges();
