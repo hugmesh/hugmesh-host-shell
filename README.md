@@ -378,9 +378,9 @@ table.
 | `/mod` | `mod` (`hugmesh-mod-ui`) | `modGuard` | `mod`, `admin` or `superadmin` (`isMod()` includes the admin tier) |
 | `/admin` | `admin` (`hugmesh-admin-ui`) | `adminGuard` | Casdoor `admin` role |
 | `/admin/docs` | `apidocs` (`hugmesh-api-docs`) | `adminGuard` | admin-only OpenAPI/API-docs console (listed **before** `/admin` so the more specific path wins) |
-| `/social/matrix` | `matrix` (`hugmesh-matrix-ui`) | `registeredGuard` | requires full registration |
-| `/social/mastodon` | `mastodon` (`hugmesh-mastodon-ui`) | `registeredGuard` | requires full registration |
-| `/social/forum` | `forum` (`hugmesh-forum-ui`) | `forumGuard` | any authenticated identity — reuses our native federated identity directly, so (unlike matrix/mastodon) no per-service registration is required |
+| `/social/matrix` | `matrix` (`hugmesh-matrix-ui`) | `matrixGuard` | full registration **and** `ROLE_MATRIX` (the user-bff hsproxy's rule; no tier implies it) |
+| `/social/mastodon` | `mastodon` (`hugmesh-mastodon-ui`) | `mastodonGuard` | full registration **and** `ROLE_MASTODON` (same) |
+| `/social/forum` | `forum` (`hugmesh-forum-ui`) | `forumGuard` | `ROLE_FORUM`, or `admin`/`superadmin` (the gateway's `/social/forum/**` row plus its bypasses); no registration step — it reuses our native federated identity |
 | `/character-studio` | `character-studio` (`hugmesh-character-studio-ui`) | `registeredGuard` | requires full registration; no per-service role (the gateway admits any `ROLE_USER`) |
 | `/character-forge` | `character-forge` (`hugmesh-character-forge-bff-api` frontend) | `registeredGuard` | requires full registration; no per-service role |
 | `/wiki` | `wiki` (`hugmesh-wiki-ui`, exposes `./Wiki`) | `wikiGuard` | optional service; `admin`/`superadmin`, or `mod` + per-service `ROLE_WIKI` |
@@ -423,13 +423,20 @@ Guards live in `src/app/guards/` and read `SessionService`:
   role and `/mod` on `isMod()` (`mod`, `admin` or `superadmin`).
 - **`userGuard`** — every authenticated identity is a baseline `ROLE_USER`, so this
   blocks only anonymous visitors.
-- **`registeredGuard`** — Matrix, Mastodon and the two character remotes work only
-  after the login remote mints the per-service tokens
-  (`registrationComplete === true`).
-- **`forumGuard`** — gates `/social/forum` on any **authenticated** identity, not on
-  `registeredGuard`. The forum reuses our native federated identity, so there is no
-  registration step. This matches the home-services `forum` card (slug-gated only,
-  no `requiresRegistration` or `requiresRole`).
+- **`registeredGuard`** — the two character remotes work only after the login
+  remote completes registration (`registrationComplete === true`); the gateway
+  admits any `ROLE_USER` there and there is no per-service role.
+- **`matrixGuard` / `mastodonGuard` / `forumGuard`** — the social services, all built
+  on ONE set of predicates in `src/app/guards/social-access.ts` that the `/home`
+  cards, the menubar and the `/user` home cards also read, so no surface can offer
+  what the guard refuses. Each mirrors the enforcing layer: Matrix/Mastodon need
+  registration **and** `ROLE_MATRIX`/`ROLE_MASTODON` (user-bff
+  `@PreAuthorize("hasRole('MATRIX'|'MASTODON')")`, which admin, mod and superadmin
+  do not satisfy); Forum needs `ROLE_FORUM`, or `admin`/`superadmin` (the gateway's
+  `/social/forum/**` row plus its admin bypasses), with no registration step. Open
+  owner decision: the gateway seed also admits `ROLE_MOD` on
+  `/social/matrix|mastodon/**`, which the user-bff refuses; the predicates follow the
+  BFF.
 - **`wikiGuard`** — admits `admin`/`superadmin`, or a `mod` who also holds the
   per-service `ROLE_WIKI`. The wiki remote's own child guards enforce the per-view
   `WIKI_READ`/`WRITE`/`MANAGE` boundary, and the BFF (`/bff/wiki/**` → `ROLE_WIKI`)
