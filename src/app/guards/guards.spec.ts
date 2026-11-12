@@ -121,7 +121,7 @@ describe('federation route guards', () => {
   });
 
   describe('registeredGuard', () => {
-    it('allows a fully-registered user into the social remotes', () => {
+    it('allows a fully-registered user into the character remotes', () => {
       session.registered = true;
       expect(run(registeredGuard)).toBeTrue();
     });

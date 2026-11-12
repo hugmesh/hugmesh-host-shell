@@ -19,6 +19,14 @@ import { filter } from 'rxjs';
 
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
+import {
+  SocialAccessSession,
+  canUseForum,
+  canUseMastodon,
+  canUseMatrix,
+  holdsMastodonRole,
+  holdsMatrixRole,
+} from '../guards/social-access';
 import { BellNotificationsService } from '../bell/bell-notifications.service';
 import { ViewReloadService } from '../view-reload.service';
 import { AnnouncementsService } from '../announcements/announcements.service';
@@ -30,8 +38,9 @@ import { AdminTasksProbeService } from './admin-tasks-probe.service';
  *  selecting an entry navigates the host: Home -> the role-home remote ('/'),
  *  Mastodon/Matrix -> the social remotes. `enabled` reacts to the live session AND
  *  the federation install-state so an entry is reachable only when BOTH its service
- *  is installed AND the user is fully registered, matching the registeredGuard
- *  (visible-but-disabled, never a dead link).
+ *  is installed AND the session passes that route's guard predicate (for the social
+ *  services, guards/social-access.ts — the same function the guard calls), so it is
+ *  visible-but-disabled, never a dead link.
  *
  *  `slug` is the optional federation-capability slug an entry depends on (absent
  *  for the always-present Home). `disabledReason()` returns the helptext explaining
@@ -266,9 +275,10 @@ export class MenuComponent {
   /** UNIVERSAL NAV — Home | Mastodon | Matrix. Home returns to the role-home
    *  remote ('' -> roleHomeGuard redirect); Mastodon/Matrix swap the content
    *  outlet to the social remotes. A social entry is enabled only when its service
-   *  is INSTALLED (federation capability) AND the session is fully registered; an
-   *  uninstalled service greys out by install-state, a registered-gate by
-   *  registration — each with its own helptext reason. */
+   *  is INSTALLED (federation capability) AND the session passes the route guard's
+   *  own predicate (canUseMatrix / canUseMastodon / canUseForum); otherwise it greys
+   *  out with the reason that applies — not installed, the per-service role is
+   *  missing, or registration is unfinished. */
   readonly navEntries: readonly NavEntry[] = [
     {
       label: 'Home', route: '/', testid: 'nav-home',
@@ -279,27 +289,27 @@ export class MenuComponent {
       label: 'Mastodon', route: '/social/mastodon', testid: 'nav-mastodon', slug: 'mastodon',
       description: 'The fediverse timeline',
       visible: () => this.serviceListed('mastodon'),
-      enabled: () => this.capabilities.installed('mastodon') && this.session.fullyRegistered(),
+      enabled: () => this.capabilities.installed('mastodon') && canUseMastodon(this.access),
       disabledReason: () => this.socialDisabledReason('mastodon'),
     },
     {
       label: 'Matrix', route: '/social/matrix', testid: 'nav-matrix', slug: 'matrix',
       description: 'Secure chat',
       visible: () => this.serviceListed('matrix'),
-      enabled: () => this.capabilities.installed('matrix') && this.session.fullyRegistered(),
+      enabled: () => this.capabilities.installed('matrix') && canUseMatrix(this.access),
       disabledReason: () => this.socialDisabledReason('matrix'),
     },
     // Forum had a ROUTE (app.routes.ts 'social/forum'), a remote, and a registered
     // capability — but no entry anywhere in the nav or the profile menu, so there was
-    // no way to reach it in the UI at all. Gated on isUser() to match forumGuard
-    // exactly: forum is deliberately NOT registration-gated (see app.routes.ts), so
-    // reusing the social registration predicate here would hide it from precisely the
-    // authenticated-but-unregistered identity the route was written to admit.
+    // no way to reach it in the UI at all. Enabled on canUseForum, the forumGuard
+    // predicate (ROLE_FORUM, or admin/superadmin): it used to be any signed-in user,
+    // and for everyone without ROLE_FORUM the gateway 403'd the remote, so the entry
+    // was a dead link. Still deliberately NOT registration-gated.
     {
       label: 'Forum', route: '/social/forum', testid: 'nav-forum', slug: 'forum',
       description: 'Discussion boards',
       visible: () => this.serviceListed('forum'),
-      enabled: () => this.capabilities.installed('forum') && this.session.isUser(),
+      enabled: () => this.capabilities.installed('forum') && canUseForum(this.access),
       disabledReason: () => this.forumDisabledReason(),
     },
     // GAMES member entry-point (cross-repo contract 2026-10-28): the games
@@ -411,14 +421,22 @@ export class MenuComponent {
     return this.session.loggedIn();
   }
 
-  /** Forum's own reason: it needs ROLE_USER, not completed registration, so the
-   *  social "complete your registration" copy would be actively misleading here. */
+  /** The session as the shared social-access predicates read it. SessionService
+   *  satisfies the interface structurally; named once so every call site passes
+   *  the same thing the route guards do. */
+  private get access(): SocialAccessSession {
+    return this.session;
+  }
+
+  /** Forum's own reason: it needs ROLE_FORUM (or admin), not completed
+   *  registration, so the social "complete your registration" copy would be
+   *  actively misleading here. Never empty while the entry is disabled. */
   private forumDisabledReason(): string {
     if (!this.capabilities.installed('forum')) {
       return 'This service is not available on this deployment.';
     }
-    if (!this.session.isUser()) {
-      return 'Sign in with a member account to use the forum.';
+    if (!canUseForum(this.access)) {
+      return 'Sign in as a forum member to open this.';
     }
     return '';
   }
@@ -441,12 +459,20 @@ export class MenuComponent {
     return '';
   }
 
-  /** Why a social entry is disabled: NOT installed on this deployment takes
-   *  precedence over the registration gate (an absent service can't be unlocked by
-   *  registering). Surfaced as aria-describedby helptext on the disabled button. */
-  private socialDisabledReason(slug: string): string {
+  /** Why a social entry is disabled, most-dominant first: NOT installed on this
+   *  deployment, then the per-service ROLE is missing, then registration is
+   *  unfinished — the same precedence as the /home launcher cards, because neither
+   *  installing nor registering can supply a role the account does not hold.
+   *  Surfaced as aria-describedby helptext on the disabled button. */
+  private socialDisabledReason(slug: 'matrix' | 'mastodon'): string {
     if (!this.capabilities.installed(slug)) {
       return 'This service is not available on this deployment.';
+    }
+    const holdsRole = slug === 'matrix' ? holdsMatrixRole(this.access) : holdsMastodonRole(this.access);
+    if (!holdsRole) {
+      return slug === 'matrix'
+        ? 'Sign in as a Matrix member to open this.'
+        : 'Sign in as a Mastodon member to open this.';
     }
     if (!this.session.fullyRegistered()) {
       return 'Complete your registration to use this.';

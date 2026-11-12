@@ -7,11 +7,14 @@ import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
 import { SessionService, SnapSession } from '../session.service';
 
+// A registered member who holds the Matrix and Forum service roles, so those
+// two cards are ENABLED here (a bare ['user'] is refused all three social
+// services since GUI-07 — see social-access.parity.spec.ts). Still no admin.
 const SESSION: SnapSession = {
   id: 'google:alice@example.com',
   label: 'alice',
   provider: 'google',
-  roles: ['user'],
+  roles: ['user', 'matrix', 'forum'],
   registrationComplete: true,
 };
 

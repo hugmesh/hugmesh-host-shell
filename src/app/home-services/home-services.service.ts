@@ -3,13 +3,17 @@ import { Injectable, Signal, computed, inject } from '@angular/core';
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CardState, ServiceCard } from './service-card.model';
+import { canUseForum, holdsMastodonRole, holdsMatrixRole } from '../guards/social-access';
 
 /**
  * The static catalog row for one launcher card. `slug` (when set) is the
  * federation-capability the card depends on — present for the OPTIONAL services
  * (matrix/mastodon/forum/games/tube/owncast), absent for the always-present
  * role-homes (admin/mod). `requiresRegistration` adds the social registration
- * gate. `requiresRole` (when set) gates a CORE card on a session role. NOTE: tube
+ * gate. `requiresRole` (when set) gates a card on a session role — the CORE
+ * role-homes, games, and the three social services, whose role terms come from
+ * guards/social-access.ts so the card can never disagree with the route guard
+ * (Matrix/Mastodon = role + registration, Forum = role or admin). NOTE: tube
  * and owncast have no `requiresRole` here — they are slug-gated only, so they
  * render 'enabled' for any signed-in, registered user regardless of the
  * per-service ROLE_TUBE/ROLE_OWNCAST grant that their destination route guards
@@ -22,10 +26,12 @@ interface CardSpec {
   readonly route: string;
   readonly slug?: string;
   readonly requiresRegistration?: boolean;
-  readonly requiresRole?: 'admin' | 'mod' | 'games' | 'games-admin';
+  readonly requiresRole?: CardRole;
   /** Human label for the missing role, used in the "sign in as …" helptext. */
   readonly roleLabel?: string;
 }
+
+type CardRole = 'admin' | 'mod' | 'games' | 'games-admin' | 'matrix' | 'mastodon' | 'forum';
 
 /** The host launcher catalog. OPTIONAL services (matrix/mastodon/forum/games/
  *  tube/owncast) are install-state-gated via their capability slug; admin/mod are
@@ -33,22 +39,30 @@ interface CardSpec {
  *  gated purely on the session role). mountAt values mirror the federation
  *  registry / fe-gateway. */
 const CARD_CATALOG: readonly CardSpec[] = [
+  // MATRIX / MASTODON: the per-service role AND registration — together exactly
+  // matrixGuard / mastodonGuard (guards/social-access.ts canUseMatrix /
+  // canUseMastodon), the user-bff hsproxy's rule. Registration alone used to be
+  // enough here, so admins, mods, superadmins and plain members saw an enabled
+  // card into a remote whose every call then 403'd. The role gate precedes the
+  // registration gate (see resolve()): registering cannot unlock a missing role.
   {
     id: 'matrix', label: 'Matrix', description: 'Secure chat',
     route: '/social/matrix', slug: 'matrix', requiresRegistration: true,
+    requiresRole: 'matrix', roleLabel: 'a Matrix member',
   },
   {
     id: 'mastodon', label: 'Mastodon', description: 'The fediverse timeline',
     route: '/social/mastodon', slug: 'mastodon', requiresRegistration: true,
+    requiresRole: 'mastodon', roleLabel: 'a Mastodon member',
   },
   // FORUM: route '/social/forum' is a real HOST mount (app.routes.ts
-  // REMOTE_ROUTES -> forum remote, forumGuard) so an 'enabled' card is a live
-  // link. slug-gated only (no requiresRegistration / requiresRole): the forum
-  // reuses our native federated identity, so any signed-in user reaches it —
-  // matching forumGuard's authenticated-only predicate (never a dead link).
+  // REMOTE_ROUTES -> forum remote, forumGuard). Role-gated on canUseForum
+  // (ROLE_FORUM, or admin/superadmin — the gateway row plus its bypasses), with
+  // no registration term. It used to be enabled for every signed-in user, and
+  // for anyone without ROLE_FORUM the click died on a 403'd remoteEntry.
   {
     id: 'forum', label: 'Forum', description: 'Discussion boards',
-    route: '/social/forum', slug: 'forum',
+    route: '/social/forum', slug: 'forum', requiresRole: 'forum', roleLabel: 'a forum member',
   },
   // GAMES entry-point (Phase 8): a plain ROLE_GAMES member reaches this — the
   // ENTRY-POINT ONLY, distinct from the games-ADMIN console below (a bare
@@ -143,7 +157,7 @@ export class HomeServicesService {
     return { state: 'enabled', disabledReason: '' };
   }
 
-  private hasRole(role: 'admin' | 'mod' | 'games' | 'games-admin'): boolean {
+  private hasRole(role: CardRole): boolean {
     switch (role) {
       case 'admin': return this.session.isAdmin();
       case 'mod': return this.session.isMod();
@@ -154,6 +168,12 @@ export class HomeServicesService {
       // below stays the DERIVED tier (a bare admin is still refused there).
       case 'games': return this.session.isGames() || this.session.isAdmin() || this.session.isSuperadmin();
       case 'games-admin': return this.session.isGamesAdmin();
+      // The social ROLE terms, from the one shared definition. Matrix/Mastodon
+      // add the registration half through requiresRegistration (step 3), so
+      // role + registration here == canUseMatrix / canUseMastodon == the guard.
+      case 'matrix': return holdsMatrixRole(this.session);
+      case 'mastodon': return holdsMastodonRole(this.session);
+      case 'forum': return canUseForum(this.session);
     }
   }
 }

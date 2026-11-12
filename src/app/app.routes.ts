@@ -3,6 +3,8 @@ import type { RoleGuardFn } from './guards/role-guard.factory';
 import { federationLoader } from './federation/remote-loader';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
+import { matrixGuard } from './guards/matrix.guard';
+import { mastodonGuard } from './guards/mastodon.guard';
 import { forumGuard } from './guards/forum.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
@@ -32,7 +34,9 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *   games    -> hugmesh-games/games-ui remote 'games'  exposes ./routes (GAMES_ROUTES)
  *                                                       AND ./admin-routes (GAMES_ADMIN_ROUTES)
  * Paths mirror the fe-gateway: /login, /social/matrix, /social/mastodon, /admin,
- * /mod, /user, /admin/docs, /games, /games/admin. Matrix/Mastodon require full registration; Admin and
+ * /mod, /user, /admin/docs, /games, /games/admin. Matrix/Mastodon require full
+ * registration AND their per-service role (ROLE_MATRIX / ROLE_MASTODON); Forum
+ * requires ROLE_FORUM or admin/superadmin (guards/social-access.ts); Admin and
  * the admin-only API-docs console (/admin/docs) need the admin role; Mod needs
  * the mod role; User is any authenticated identity.
  *
@@ -57,8 +61,11 @@ export interface RemoteRouteSpec {
 
 export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   { path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
-  { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [registeredGuard] },
-  { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [registeredGuard] },
+  // MATRIX / MASTODON: registration AND the per-service role, the user-bff
+  // hsproxy's own rule (guards/social-access.ts). registeredGuard alone mounted
+  // these for admin/mod/superadmin/plain users the hsproxy then 403'd.
+  { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [matrixGuard] },
+  { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [mastodonGuard] },
   // FORUM remote (hugmesh-forum-ui): exposes './routes' -> FORUM_ROUTES
   // (verified against forum-ui federation.config.js name:'forum' exposes
   // './routes' -> src/app/forum.routes.ts FORUM_ROUTES; forum.routes.ts's own
@@ -67,12 +74,14 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // PR #362, merged 2026-07-16); this entry is the matching HOST mount that was
   // missing — its absence made the home-services 'forum' launcher card a dead
   // link (an 'enabled' card whose click fell through to the '**' redirect).
-  // Guarded by forumGuard (any AUTHENTICATED identity — NOT registeredGuard):
-  // the forum reuses our native federated identity, so it needs no per-service
-  // registration, exactly matching the card (slug 'forum', no
-  // requiresRegistration / requiresRole). Like wiki/tube/owncast, the remoteEntry
-  // is supplied at runtime by the DYNAMIC federation manifest, so no static
-  // floor edit is needed for an authed user to resolve it.
+  // Guarded by forumGuard: ROLE_FORUM, or admin/superadmin — the gateway's
+  // /social/forum/** row plus its admin bypasses (guards/social-access.ts). No
+  // registration term: the forum reuses our native federated identity. It used
+  // to admit ANY signed-in identity, and for everyone without ROLE_FORUM the
+  // gateway 403'd the remoteEntry, so the card click died with an NFError and
+  // left the user where they were. Like wiki/tube/owncast, the remoteEntry is
+  // supplied at runtime by the DYNAMIC federation manifest, so no static floor
+  // edit is needed for an admitted user to resolve it.
   { path: 'social/forum', remoteName: 'forum', exposed: './routes', routesConst: 'FORUM_ROUTES', canActivate: [forumGuard] },
   // admin/docs (the admin-only API-docs console) MUST precede 'admin': the more
   // specific path has to match before the admin remote's loadChildren swallows it.

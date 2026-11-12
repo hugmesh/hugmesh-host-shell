@@ -11,9 +11,10 @@ import { BellNotificationsService } from '../bell/bell-notifications.service';
 
 /**
  * The UNIVERSAL NAV menubar: Home | Mastodon | Matrix. Home is always enabled;
- * Mastodon/Matrix are enabled only once the session is fully registered (matching
- * the registeredGuard) — so the enabled arrow-key cycle is [0] when unregistered
- * and [0, 1, 2] when registered.
+ * Mastodon/Matrix are enabled only once the session is fully registered AND holds
+ * the service role (matrixGuard / mastodonGuard, guards/social-access.ts) — so for
+ * the default stub member (who holds the social roles) the enabled arrow-key cycle
+ * is [0, 3] when unregistered and [0, 1, 2, 3] when registered.
  *
  * These specs assert the WAI-ARIA menubar contract end to end:
  *   - role=menubar on the ul, role=menuitem on each entry,
@@ -37,7 +38,11 @@ class SessionStub {
   isSuperadmin = signal(false);
   isGames = signal(false);
   isGamesAdmin = signal(false);
-  roles = signal<string[]>([]);
+  // A member who HOLDS the social service roles, so the registration and
+  // install-state suites below isolate the gate they are about. Since GUI-07 the
+  // role is part of the Matrix/Mastodon/Forum predicate; the 'social service
+  // roles' suite clears it to cover the role gate itself.
+  roles = signal<string[]>(['matrix', 'mastodon', 'forum']);
   session = signal<{ label: string } | null>({ label: 'alice' });
   cleared = false;
   hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
@@ -303,6 +308,67 @@ describe('MenuComponent — universal nav menubar', () => {
     });
   });
 
+  // GUI-07: the role gate. A registered member WITHOUT the service roles (the
+  // live e2e-user) used to get three enabled entries into services the backend
+  // refuses — the hsproxy 403s Matrix/Mastodon, the gateway 403s the Forum.
+  describe('social service roles (matrixGuard / mastodonGuard / forumGuard)', () => {
+    const entry = (testid: string) => el.querySelector(`[data-testid="${testid}"]`) as HTMLElement;
+    const help = (testid: string) =>
+      el.querySelector(`[data-testid="${testid}-help"]`) as HTMLElement | null;
+
+    it('a registered member without the roles gets all three disabled, each saying which role', () => {
+      stub.roles.set([]);
+      fixture.detectChanges();
+      for (const [id, words] of [['nav-matrix', 'a Matrix member'], ['nav-mastodon', 'a Mastodon member'], ['nav-forum', 'a forum member']]) {
+        expect(entry(id).tagName).withContext(id).toBe('BUTTON');
+        expect(entry(id).getAttribute('aria-disabled')).withContext(id).toBe('true');
+        expect(entry(id).getAttribute('aria-describedby')).withContext(id).toBe(`${id}-help`);
+        expect(help(id)?.textContent).withContext(id).toContain(words);
+      }
+    });
+
+    it('an admin gets the Forum (gateway admin bypass) but still not Matrix/Mastodon', () => {
+      stub.roles.set([]);
+      stub.isAdmin.set(true);
+      fixture.detectChanges();
+      expect(entry('nav-forum').tagName).toBe('A');
+      expect(entry('nav-matrix').tagName).toBe('BUTTON');
+      expect(entry('nav-mastodon').tagName).toBe('BUTTON');
+    });
+
+    // GEOMETRY, not just text: the live re-render showed the three reasons fused
+    // into one run-on line under the bar ("…to open this.Sign in as a Matrix
+    // member…"). Measures the TEXT boxes (a Range, so padding cannot fake a gap).
+    it('lays each reason out in its own column: neighbours never touch, none outgrows the cap', () => {
+      stub.roles.set([]);
+      fixture.detectChanges();
+      const textBox = (node: HTMLElement) => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return range.getBoundingClientRect();
+      };
+      const boxes = ['nav-mastodon', 'nav-matrix', 'nav-forum'].map((id) => textBox(help(id)!));
+      expect(window.innerWidth).withContext('the desktop (expanded) bar is what is measured').toBeGreaterThanOrEqual(992);
+      for (const [i, b] of boxes.entries()) {
+        expect(b.width).withContext(`reason ${i} is painted`).toBeGreaterThan(0);
+        expect(b.width).withContext(`reason ${i} wraps at the 9rem cap`).toBeLessThanOrEqual(9 * 16);
+      }
+      for (let i = 1; i < boxes.length; i++) {
+        expect(boxes[i].left - boxes[i - 1].right)
+          .withContext(`horizontal gap between reason ${i - 1} and reason ${i}`)
+          .toBeGreaterThanOrEqual(8);
+      }
+    });
+
+    it('each role enables exactly its own entry', () => {
+      stub.roles.set(['matrix']);
+      fixture.detectChanges();
+      expect(entry('nav-matrix').tagName).toBe('A');
+      expect(entry('nav-mastodon').tagName).toBe('BUTTON');
+      expect(entry('nav-forum').tagName).toBe('BUTTON');
+    });
+  });
+
   describe('install-state gated social entries (federation capabilities)', () => {
     const byLabel = (l: string) => navButtons().find((b) => b.textContent?.trim() === l)!;
     const help = (testid: string) =>
@@ -523,10 +589,10 @@ describe('MenuComponent — universal nav menubar', () => {
       component.activeIndex = 0;
       press('ArrowRight');
       // Mastodon/Matrix stay skipped (registration-gated), but Forum is
-      // DELIBERATELY not registration-gated — menu.component.ts:118-128 gates it on
-      // isUser() to match forumGuard, precisely so the authenticated-but-unregistered
-      // identity the route admits can reach it. So the cycle is [Home, Forum], and
-      // "Home is the only enabled entry" stopped being true when Forum landed.
+      // DELIBERATELY not registration-gated — it is gated on canUseForum
+      // (ROLE_FORUM, which the stub member holds, or admin), matching forumGuard,
+      // so the authenticated-but-unregistered forum member can reach it. So the
+      // cycle is [Home, Forum].
       expect(component.activeIndex).withContext('advances to Forum, the other enabled entry').toBe(3);
       press('ArrowRight');
       expect(component.activeIndex).withContext('wraps back to Home').toBe(0);
