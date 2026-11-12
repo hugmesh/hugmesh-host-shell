@@ -245,9 +245,19 @@ function paintedOver(backdrop: RGB, layers: RGBA[][]): RGB[] {
   return painted;
 }
 
+/** Is `el` painted at all: displayed, visible, and with a real box (a 1px box is
+ *  the visually-hidden idiom)? */
+function isPainted(el: Element): boolean {
+  const cs = getComputedStyle(el);
+  if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+  const box = el.getBoundingClientRect();
+  return box.width > 1 && box.height > 1;
+}
+
 /** Visible elements that directly carry text, minus the WCAG 1.4.3 exemption
- *  for inactive UI components (a greyed, aria-disabled card label). The REASON
- *  text beside a disabled card is not exempt — it is how the user learns why. */
+ *  for inactive UI components (a greyed, aria-disabled card label — held to its
+ *  own floor by expectInactiveCardTextIsDiscernible below). The REASON text
+ *  beside a disabled card is not exempt — it is how the user learns why. */
 function textCarriers(root: Element): HTMLElement[] {
   const out: HTMLElement[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -255,10 +265,7 @@ function textCarriers(root: Element): HTMLElement[] {
     const el = n.parentElement;
     if (!el || !n.textContent?.trim() || out.includes(el)) continue;
     if (el.closest('[aria-disabled="true"]')) continue;
-    const cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden' || cs.display === 'none') continue;
-    const box = el.getBoundingClientRect();
-    if (box.width <= 1 || box.height <= 1) continue; // unpainted or visually-hidden
+    if (!isPainted(el)) continue; // unpainted or visually-hidden
     out.push(el);
   }
   return out;
@@ -271,21 +278,29 @@ function describeEl(el: Element): string {
   return `<${el.tagName.toLowerCase()}${id}${cls}> "${text}"`;
 }
 
+/** The LOWEST contrast `el`'s text has against what is really painted beneath it:
+ *  its computed colour over every colour its layers can put under a glyph, on
+ *  every worst-case backdrop. Names the backdrop that produced it. */
+function worstContrast(el: Element): { ratio: number; bg: string; fg: RGBA } {
+  const fg = parseColor(getComputedStyle(el).color);
+  const layers = layersUnder(el);
+  let worst = { ratio: Infinity, bg: '' };
+  for (const [bgName, backdrop] of BACKDROPS) {
+    for (const under of paintedOver(backdrop, layers)) {
+      const text = fg.alpha < 1 ? composite(fg.rgb, fg.alpha, under) : fg.rgb;
+      const ratio = contrast(text, under);
+      if (ratio < worst.ratio) worst = { ratio, bg: bgName };
+    }
+  }
+  return { ...worst, fg };
+}
+
 /** Hold every visible text carrier under `root` to AA on what is really painted
  *  beneath it; returns the carriers so callers can prove the walk was not empty. */
 function expectRenderedTextIsLegible(view: string, root: Element): HTMLElement[] {
   const carriers = textCarriers(root);
   for (const el of carriers) {
-    const fg = parseColor(getComputedStyle(el).color);
-    const layers = layersUnder(el);
-    let worst = { ratio: Infinity, bg: '' };
-    for (const [bgName, backdrop] of BACKDROPS) {
-      for (const under of paintedOver(backdrop, layers)) {
-        const text = fg.alpha < 1 ? composite(fg.rgb, fg.alpha, under) : fg.rgb;
-        const ratio = contrast(text, under);
-        if (ratio < worst.ratio) worst = { ratio, bg: bgName };
-      }
-    }
+    const { fg, ...worst } = worstContrast(el);
     expect(worst.ratio)
       .withContext(
         `${view}: ${describeEl(el)} in rgb(${fg.rgb.join(', ')} / ${fg.alpha}) ` +
@@ -297,6 +312,63 @@ function expectRenderedTextIsLegible(view: string, root: Element): HTMLElement[]
       .toBeGreaterThanOrEqual(AA);
   }
   return carriers;
+}
+
+/**
+ * The text ON a disabled card (its label and description) — the one thing the
+ * walk above skips.
+ *
+ * WCAG 2.1 SC 1.4.3 exempts text that is part of an inactive user interface
+ * component, so AA does not bind a greyed card's own text, and it does not meet
+ * it: `rgba(t.$light, t.$opacity-muted)` measures 2.00:1 on the composed /user
+ * card and 2.04:1 on the /home one, over a pure-white backdrop. That dimness is
+ * the affordance — it says "not available to you" before the reason does — and
+ * the reason beside the card, which is NOT exempt, is held to AA above.
+ *
+ * Exempt is not the same as free to vanish. The label is how a member tells
+ * which service a reason is about, and since the social cards were gated on
+ * their per-service role (GUI-07) a member holding none of those roles gets a
+ * /user home made of nothing BUT disabled cards. Skipping this text meant that
+ * nothing measured it at all: the disabled grey could be dimmed further, or the
+ * text hidden outright, with every spec in this file still green. And a grey
+ * that is alpha-blended into its surface only reads while that surface is dark:
+ * without the cards' scrim the same labels measure 1.04:1 over white.
+ *
+ * So this text is held to a floor instead. The floor is a RATCHET set just under
+ * what ships, not a WCAG number (there is none for inactive components): making
+ * the disabled state MORE legible needs no change here, and dimming it has to be
+ * done on purpose.
+ */
+const INACTIVE_TEXT_FLOOR = 1.9;
+
+/** Hold every disabled card's label and description under `root` to the floor
+ *  on what is really painted beneath them; returns them so callers can prove
+ *  the walk was not empty. */
+function expectInactiveCardTextIsDiscernible(view: string, root: Element): HTMLElement[] {
+  const dimmed = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      '[aria-disabled="true"] .service-card__label, [aria-disabled="true"] .service-card__desc',
+    ),
+  );
+  for (const el of dimmed) {
+    expect(isPainted(el))
+      .withContext(
+        `${view}: ${describeEl(el)} on a disabled card is not painted. A card the ` +
+          `member cannot open is greyed and explained, never hidden.`,
+      )
+      .toBeTrue();
+    const { fg, ...worst } = worstContrast(el);
+    expect(worst.ratio)
+      .withContext(
+        `${view}: ${describeEl(el)} on a disabled card, in rgb(${fg.rgb.join(', ')} / ` +
+          `${fg.alpha}), renders at ${worst.ratio.toFixed(2)}:1 over ${worst.bg}, below ` +
+          `the ${INACTIVE_TEXT_FLOOR}:1 floor for inactive card text. It is exempt from ` +
+          `AA (SC 1.4.3) but must not fade into its card: either the surface under it ` +
+          `lost its scrim, or the disabled colour was dimmed.`,
+      )
+      .toBeGreaterThanOrEqual(INACTIVE_TEXT_FLOOR);
+  }
+  return dimmed;
 }
 
 /**
@@ -318,7 +390,10 @@ function expectCardTextFollowsTheme(view: string, root: Element): void {
     for (const q of ['.service-card__label', '.service-card__desc']) {
       const el = root.querySelector(`a.service-card__link ${q}`);
       expect(el).withContext(`${view}: an enabled ${q}`).toBeTruthy();
-      expect(getComputedStyle(el!).color)
+      // The line above IS the failure. Reading a style off null would bury it
+      // under a TypeError about getComputedStyle.
+      if (!el) continue;
+      expect(getComputedStyle(el).color)
         .withContext(`${view}: ${q} must read var(--hug-text), the theme's text token`)
         .toBe(probe);
     }
@@ -388,6 +463,12 @@ describe('scrim legibility — the shell-owned routed views as rendered', () => 
     expect(sel('.service-card__label')).withContext('an enabled card label').toBeTrue();
     expect(sel('.service-card__desc')).withContext('an enabled card description').toBeTrue();
     expect(sel('.field-help')).withContext('a disabled card\'s reason').toBeTrue();
+    // The cards this member cannot open are greyed, not hidden. Their own text is
+    // exempt from AA and held to the inactive floor instead.
+    const dimmed = expectInactiveCardTextIsDiscernible('/home', host);
+    expect(dimmed.some((el) => el.matches('.service-card__label')))
+      .withContext('a disabled card\'s label')
+      .toBeTrue();
   });
 
   it('/home: the launcher card text reads the theme\'s text token', async () => {
@@ -418,11 +499,9 @@ describe('scrim legibility — the /user home service cards (menu-owned, outside
     isAdmin = signal(false);
     isMod = signal(false);
     isSuperadmin = signal(false);
-    isGames = signal(false); // a plain member: the Games card is DISABLED, with a reason
+    isGames = signal(false); // no games role: the Games card is DISABLED, with a reason
     isGamesAdmin = signal(false);
-    // Holds the social service roles so an ENABLED card exists to measure; the role
-    // gate itself (GUI-07) is covered by social-access.parity.spec.ts.
-    roles = signal<string[]>(['user', 'matrix', 'mastodon', 'forum']);
+    roles = signal<string[]>(['user']);
     session = signal<{ label: string } | null>({ label: 'alice' });
     hasRole(role: string) {
       return this.roles().some((r) => r.toLowerCase() === role.toLowerCase());
@@ -433,17 +512,31 @@ describe('scrim legibility — the /user home service cards (menu-owned, outside
     }
   }
 
+  // WHO IS LOOKING decides what there is to measure. Every card on the /user home
+  // is gated (menu.component.ts navEntries), and since GUI-07 the three social
+  // cards are gated on their per-service role: 'matrix', 'mastodon' and 'forum',
+  // the names guards/social-access.ts reads. The bare 'user' role enables none of
+  // them. So one member cannot show this page's two states: with the roles there
+  // is no all-disabled home, and without them there is no enabled card at all.
+  // Both members are rendered below, each held to what its state can prove.
+  const SERVICE_MEMBER = ['user', 'matrix', 'mastodon', 'forum'];
+  const PLAIN_MEMBER = ['user'];
+
   beforeEach(() => localStorage.removeItem(MENU_BAR_MODE_KEY));
   afterEach(() => localStorage.removeItem(MENU_BAR_MODE_KEY));
 
-  it('every visible card text node clears WCAG AA over the painted composition', async () => {
+  /** Render the real menu on the real /user URL for a signed-in, registered
+   *  member holding `roles`, and return the service-cards panel. */
+  async function userHomeCards(roles: string[]): Promise<HTMLElement> {
+    const session = new SessionStub();
+    session.roles.set(roles);
     await TestBed.configureTestingModule({
       imports: [MenuComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: 'user', children: [] }]),
-        { provide: SessionService, useValue: new SessionStub() },
+        { provide: SessionService, useValue: session },
         { provide: CapabilitiesService, useValue: new CapabilitiesStub() },
         {
           provide: BellNotificationsService,
@@ -464,17 +557,89 @@ describe('scrim legibility — the /user home service cards (menu-owned, outside
     await TestBed.inject(Router).navigateByUrl('/user');
     fixture.detectChanges();
 
-    const nav = (fixture.nativeElement as HTMLElement).querySelector(
+    const nav = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
       '[data-testid="home-services-nav"]',
     );
-    expect(nav).withContext('the /user home renders the menu as service cards').toBeTruthy();
-    const checked = expectRenderedTextIsLegible('/user home cards', nav!);
+    if (!nav) {
+      throw new Error(
+        'the /user home did not render the menu as service cards: ' +
+          '[data-testid="home-services-nav"] is missing, so there is nothing to measure.',
+      );
+    }
+    return nav;
+  }
+
+  /** What the member was actually shown, one entry per card, for the failures
+   *  below: `home-card-nav-matrix disabled ("Sign in as a Matrix member…")`. */
+  function cardStates(nav: Element): string {
+    const cards = Array.from(nav.querySelectorAll('.service-card')).map((card) => {
+      const link = card.querySelector('.service-card__link');
+      const id = link?.getAttribute('data-testid') ?? 'a card with no link element';
+      if (link?.matches('a')) return `${id} enabled`;
+      const reason = card.querySelector('.field-help')?.textContent?.trim();
+      return `${id} disabled (${reason ? `"${reason}"` : 'no reason shown'})`;
+    });
+    return cards.length ? cards.join(', ') : 'no cards at all';
+  }
+
+  it('every visible card text node clears WCAG AA over the painted composition', async () => {
+    const nav = await userHomeCards(SERVICE_MEMBER);
+    // A HARD stop, not an expectation: with no enabled card this spec has no
+    // enabled card text to measure and every line below would be about something
+    // else. This is what a gate change that outruns SERVICE_MEMBER looks like.
+    if (!nav.querySelector('a.service-card__link')) {
+      throw new Error(
+        'no ENABLED service card rendered on the /user home, so there is no enabled ' +
+          'card text to measure. SERVICE_MEMBER must hold a role that enables at least ' +
+          'one card: see guards/social-access.ts (Matrix, Mastodon, Forum) and the ' +
+          `navEntries in menu.component.ts. Rendered: ${cardStates(nav)}.`,
+      );
+    }
+    const checked = expectRenderedTextIsLegible('/user home cards', nav);
     const sel = (q: string) => checked.some((el) => el.matches(q));
     expect(sel('.service-card__label')).withContext('an enabled card label').toBeTrue();
     expect(sel('.service-card__desc')).withContext('an enabled card description').toBeTrue();
     expect(sel('#nav-games-card-help'))
       .withContext('the disabled Games card\'s reason (#nav-games-card-help)')
       .toBeTrue();
-    expectCardTextFollowsTheme('/user home cards', nav!);
+    expectCardTextFollowsTheme('/user home cards', nav);
+  });
+
+  it('a member without the service roles: every reason clears WCAG AA and every greyed card stays discernible', async () => {
+    const view = '/user home cards (no service roles)';
+    const nav = await userHomeCards(PLAIN_MEMBER);
+    // A HARD stop again: each card GUI-07 gates must be in the refused state, or
+    // nothing below is about the state this spec names.
+    const refused = ['mastodon', 'matrix', 'forum'].map((id) => {
+      const card = nav.querySelector<HTMLElement>(`[data-testid="home-card-nav-${id}"]`);
+      if (card?.getAttribute('aria-disabled') !== 'true') {
+        throw new Error(
+          `the ${id} card is ${card ? 'not marked aria-disabled="true"' : 'not rendered at all'} ` +
+            "for a member holding only 'user', so this spec is not measuring the refused " +
+            'state it names: a greyed card with its reason beside it. A card the member ' +
+            'cannot open is never hidden, and if the gate in guards/social-access.ts now ' +
+            'admits this member, PLAIN_MEMBER must become one it still refuses. ' +
+            `Rendered: ${cardStates(nav)}.`,
+        );
+      }
+      return { id, card };
+    });
+    const checked = expectRenderedTextIsLegible(view, nav);
+    const dimmed = expectInactiveCardTextIsDiscernible(view, nav);
+    // Not vacuous, and by id: before the gate existed the Games reason alone
+    // satisfied a bare `.field-help` check. Each refused card's reason AND its
+    // own text must both be in what was measured.
+    for (const { id, card } of refused) {
+      expect(checked.some((el) => el.id === `nav-${id}-card-help`))
+        .withContext(
+          `the disabled ${id} card's reason (#nav-${id}-card-help) is painted and was measured`,
+        )
+        .toBeTrue();
+      for (const q of ['.service-card__label', '.service-card__desc']) {
+        expect(dimmed.some((el) => card.contains(el) && el.matches(q)))
+          .withContext(`the disabled ${id} card's ${q} was measured`)
+          .toBeTrue();
+      }
+    }
   });
 });
