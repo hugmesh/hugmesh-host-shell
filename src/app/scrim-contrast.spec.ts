@@ -420,7 +420,9 @@ describe('scrim legibility — the /user home service cards (menu-owned, outside
     isSuperadmin = signal(false);
     isGames = signal(false); // a plain member: the Games card is DISABLED, with a reason
     isGamesAdmin = signal(false);
-    roles = signal<string[]>(['user']);
+    // Holds the social service roles so an ENABLED card exists to measure; the role
+    // gate itself (GUI-07) is covered by social-access.parity.spec.ts.
+    roles = signal<string[]>(['user', 'matrix', 'mastodon', 'forum']);
     session = signal<{ label: string } | null>({ label: 'alice' });
     hasRole(role: string) {
       return this.roles().some((r) => r.toLowerCase() === role.toLowerCase());
