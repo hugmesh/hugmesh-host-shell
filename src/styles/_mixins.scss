@@ -82,8 +82,19 @@
   box-shadow: 0 0 8px rgba($color, 0.4), 0 0 20px rgba($color, 0.15);
 }
 
+// The :host of a shell-owned ROUTED view (/home, /about). Shape only.
+//
+// NO BACKGROUND, and that is the whole contract. A routed view's host IS the
+// element the `router-outlet + *` backpane paints (styles.scss), and Angular
+// compiles `:host` to `[_nghost-…]`, specificity (0,1,0), against the backpane's
+// (0,0,1). So ANY background set here does not sit on top of the scrim. It
+// REPLACES it. This mixin used to set `rgba(white, 0.05)`, which turned the 0.82
+// black scrim into a 5% white wash. The live /home then rendered its gold
+// "Services" heading at 1.06:1 on the pastel gradient and the intro-card copy at
+// 2.72:1, while scrim-contrast.spec.ts stayed green because it probed a bare
+// <div> rather than the routed component. The "views as rendered" specs there
+// now mount the real views through the real router.
 @mixin page-host {
-  background-color: rgba(white, t.$opacity-ghost);
   border-radius: var(--sd-radius-lg, var(--hug-radius-lg, #{t.$radius-page}));
   display: block;
 }
