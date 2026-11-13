@@ -1,5 +1,5 @@
 // ── STICKY FOOTER (flex column min-height pattern, issue #19) ────────────────
-// The shell root (main[app-root] in index.html) becomes a flex COLUMN at least
+// The shell root (div[app-root] in index.html) becomes a flex COLUMN at least
 // one viewport tall. The fixed/absolute chrome (background, bg-toggle, toasts,
 // modal) is out of flow and unaffected; the in-flow children — header, menubar,
 // status gate, the routed view, footer — stack exactly as before.

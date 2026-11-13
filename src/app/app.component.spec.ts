@@ -105,6 +105,40 @@ describe('AppComponent', () => {
   });
 
   // ── Sticky footer (issue #19): flex column min-height pattern ──────────────
+  describe('landmarks and the skip target (WCAG 1.3.1 / 2.4.1)', () => {
+    it('renders exactly one <main id="maincontent" tabindex="-1"> around the router outlet', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      const mains = el.querySelectorAll('main');
+      expect(mains.length).toBe(1);
+      expect(mains[0].id).toBe('maincontent');
+      expect(mains[0].getAttribute('tabindex')).toBe('-1');
+      expect(mains[0].querySelector('router-outlet')).not.toBeNull();
+    });
+
+    it('keeps the header and footer OUTSIDE <main>, so they stay banner/contentinfo', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('header')?.closest('main')).toBeNull();
+      expect(el.querySelector('footer')?.closest('main')).toBeNull();
+    });
+
+    it('the skip link moves focus to the shell <main> on any route', () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      document.body.appendChild(fixture.nativeElement);
+      try {
+        const skip = (fixture.nativeElement as HTMLElement).querySelector('a.skip') as HTMLAnchorElement;
+        skip.click();
+        expect(document.activeElement?.id).toBe('maincontent');
+      } finally {
+        (fixture.nativeElement as HTMLElement).remove();
+      }
+    });
+  });
+
   describe('sticky footer', () => {
     it('lays the shell out as a min-viewport-height flex column', () => {
       const fixture = TestBed.createComponent(AppComponent);
