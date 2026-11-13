@@ -1,3 +1,7 @@
+// A module, not a global script: without an import/export TypeScript puts these
+// helpers in the global scope, where they collide with other specs' copies.
+export {};
+
 /**
  * Tokens the federated remotes read must be DEFINED by the shell (WCAG 1.4.3 /
  * 1.4.11). A remote renders here without its own global stylesheet, so a token
