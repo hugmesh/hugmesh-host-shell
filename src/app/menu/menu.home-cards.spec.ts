@@ -40,6 +40,9 @@ class SessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = signal(false);
   isGamesAdmin = signal(false);
   // Holds the social service roles so the card tests below are about the card
@@ -271,6 +274,21 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
       expect(byTestid('subnav-admin-egress-vpn')).toBeNull();
     });
 
+    // GUI-01: a PURE superadmin (no literal admin role) is an admin-console viewer
+    // too, and the only one who can see these sections at all.
+    it('a PURE superadmin gets the console submenu WITH the superadmin-only sections', async () => {
+      session.isAdmin.set(false);
+      session.isSuperadmin.set(true);
+      await goto('/admin');
+      expect(byTestid('nav-admin')).withContext('the console entry itself').toBeTruthy();
+      expect(submenu()).toBeTruthy();
+      expect(byTestid('subnav-admin-domains')!.getAttribute('href')).toBe('/admin/superadmin/domains');
+      expect(byTestid('subnav-admin-device-licenses')!.getAttribute('href')).toBe('/admin/device-licenses');
+      expect(byTestid('subnav-admin-egress-vpn')!.getAttribute('href')).toBe('/admin/egress-vpn');
+      expect(byTestid('subnav-admin-docs')!.getAttribute('href')).toBe('/admin/docs');
+      TestBed.inject(HttpTestingController).expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush('', { status: 404, statusText: 'Not Found' });
+    });
+
     it('superadmin-only sections appear for a superadmin', async () => {
       session.isSuperadmin.set(true);
       await goto('/admin');
@@ -338,6 +356,17 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
         again.flush('', { status: 404, statusText: 'Not Found' });
         await settle();
         expect(byTestid('subnav-admin-workloads')).toBeNull();
+      });
+
+      // GUI-01: admin-bff answers the capability probe for a superadmin too, so a
+      // PURE superadmin (no literal admin role) must be probed like an admin.
+      it('is probed for a PURE superadmin and lights the entry on 200', async () => {
+        session.isAdmin.set(false);
+        session.isSuperadmin.set(true);
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush({ enabled: true });
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeTruthy();
       });
 
       it('is never probed for a session that is not an admin', async () => {

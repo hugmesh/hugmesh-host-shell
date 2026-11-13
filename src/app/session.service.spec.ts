@@ -73,6 +73,36 @@ describe('SessionService', () => {
     expect(service.isSuperadmin()).toBeTrue();
   });
 
+  describe('isAdminTier() — the admin-CONSOLE tier (admin OR superadmin)', () => {
+    it('is false when anonymous, for a plain user and for a bare moderator', () => {
+      expect(service.isAdminTier()).toBeFalse();
+      service.set(makeSession({ roles: ['user'] }));
+      expect(service.isAdminTier()).toBeFalse();
+      service.set(makeSession({ roles: ['user', 'mod'] }));
+      expect(service.isAdminTier()).toBeFalse();
+    });
+
+    it('is true for an admin', () => {
+      service.set(makeSession({ roles: ['admin'] }));
+      expect(service.isAdminTier()).toBeTrue();
+    });
+
+    // GUI-01: the e2e-superadmin persona carries roles EXACTLY ['superadmin'].
+    // admin-bff admits it to /bff/admin/** (hasAnyRole(ADMIN, SUPERADMIN)); the
+    // shell must too.
+    it("is true for a PURE superadmin (roles exactly ['superadmin'])", () => {
+      service.set(makeSession({ roles: ['superadmin'] }));
+      expect(service.isAdminTier()).toBeTrue();
+    });
+
+    it('does NOT widen isAdmin, role() or isGamesAdmin for a pure superadmin', () => {
+      service.set(makeSession({ roles: ['superadmin'] }));
+      expect(service.isAdmin()).withContext('isAdmin stays the literal admin role').toBeFalse();
+      expect(service.role()).withContext('role-home precedence unchanged (superadmin lands on /mod)').toBe('mod');
+      expect(service.isGamesAdmin()).withContext('no games tier without ROLE_GAMES').toBeFalse();
+    });
+  });
+
   it('derives isGames from the lowercase games role string', () => {
     service.set(makeSession({ roles: ['user'] }));
     expect(service.isGames()).toBeFalse();

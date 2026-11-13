@@ -31,6 +31,9 @@ class SessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = signal(false);
   isGamesAdmin = signal(false);
   roles = signal<string[]>([]);
@@ -122,6 +125,51 @@ describe('HeaderControlsComponent — user menu', () => {
           .withContext(`help for ${item.textContent} must be informative`)
           .toBeGreaterThan(10);
       }
+    });
+  });
+
+  // GUI-01: Admin and API docs are gated on the admin-CONSOLE tier — isAdminTier
+  // (admin OR superadmin), the adminGuard predicate on both /admin and /admin/docs.
+  // A PURE superadmin (roles exactly ['superadmin']: isAdmin false, isMod true) used
+  // to get neither entry.
+  describe('Admin + API docs profile-menu entries (the admin-console tier — mirrors adminGuard)', () => {
+    function openProfileTestids(): string[] {
+      component.toggleProfile();
+      fixture.detectChanges();
+      return Array.from(el.querySelectorAll<HTMLElement>('.profile-menu__item'))
+        .map((i) => i.getAttribute('data-testid') ?? '');
+    }
+
+    it('are SHOWN for a pure superadmin', () => {
+      stub.isSuperadmin.set(true);
+      stub.isMod.set(true);
+      fixture.detectChanges();
+      const ids = openProfileTestids();
+      expect(ids).toContain('menu-admin');
+      expect(ids).toContain('menu-apidocs');
+    });
+
+    it('are SHOWN for an admin', () => {
+      stub.isAdmin.set(true);
+      fixture.detectChanges();
+      const ids = openProfileTestids();
+      expect(ids).toContain('menu-admin');
+      expect(ids).toContain('menu-apidocs');
+    });
+
+    it('are HIDDEN for a bare moderator and a plain user', () => {
+      stub.isMod.set(true);
+      fixture.detectChanges();
+      let ids = openProfileTestids();
+      expect(ids).not.toContain('menu-admin');
+      expect(ids).not.toContain('menu-apidocs');
+      expect(ids).toContain('menu-mod');
+      component.toggleProfile();
+      stub.isMod.set(false);
+      fixture.detectChanges();
+      ids = openProfileTestids();
+      expect(ids).not.toContain('menu-admin');
+      expect(ids).not.toContain('menu-apidocs');
     });
   });
 
@@ -356,6 +404,9 @@ class BellSessionStub {
   isAdmin = signal(false);
   isMod = signal(false);
   isSuperadmin = signal(false);
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = signal(false);
   isGamesAdmin = signal(false);
   roles = signal<string[]>([]);

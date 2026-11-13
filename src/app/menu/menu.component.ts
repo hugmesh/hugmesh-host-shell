@@ -213,7 +213,7 @@ export class MenuComponent {
    *   - `superadminOnly` items -> show: isSuperadmin (same predicate);
    *   - `fleetOnly` ('My fleet', tier fleet_admin/admin/superadmin): NO gate —
    *     this submenu only renders inside /admin, whose adminGuard viewers
-   *     (role 'admin') all satisfy the fleet tier already;
+   *     (role 'admin' or 'superadmin') all satisfy the fleet tier already;
    *   - the HIDDEN tier ('Workload console') is listed ONLY while this host's own
    *     server-confirmed capability probe (WorkloadConsoleProbeService) has
    *     succeeded (404 or any error = stays dark), so a dark feature is never
@@ -340,7 +340,11 @@ export class MenuComponent {
     {
       label: 'Admin', route: '/admin', testid: 'nav-admin',
       description: 'Administration console',
-      visible: () => this.session.isAdmin(),
+      // The admin-CONSOLE tier (admin OR superadmin) — the adminGuard predicate.
+      // isAdmin() alone hid the console from a pure superadmin, whose
+      // superadmin-only sections (Domains, Device licenses, Egress VPN ...) live
+      // nowhere else.
+      visible: () => this.session.isAdminTier(),
       enabled: () => true,
       disabledReason: () => '',
       sections: this.adminSections,
@@ -508,10 +512,11 @@ export class MenuComponent {
     void this.capabilities.load();
 
     // The HIDDEN-tier Workload console entry and the Guided tasks entry: probe the
-    // server for every signed-in admin, and go dark again the moment the session
-    // stops being one. Only the session signals are tracked; the probes run untracked.
+    // server for every signed-in admin-console viewer (admin OR superadmin — the server
+    // answers both), and go dark again the moment the session stops being one. Only the
+    // session signals are tracked; the probes run untracked.
     effect(() => {
-      const admin = this.session.loggedIn() && this.session.isAdmin();
+      const admin = this.session.loggedIn() && this.session.isAdminTier();
       untracked(() => {
         if (admin) {
           void this.workloadProbe.probe();

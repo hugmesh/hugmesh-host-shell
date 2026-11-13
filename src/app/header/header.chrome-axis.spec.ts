@@ -316,6 +316,9 @@ describe('Header chrome axis — the control cluster obeys a themed height', () 
     isAdmin = signal(false);
     isMod = signal(false);
     isSuperadmin = signal(false);
+    // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+    // cannot drift from the two flags it is built from.
+    isAdminTier = () => this.isAdmin() || this.isSuperadmin();
     roles = signal<string[]>([]);
     session = signal<{ label: string } | null>({ label: 'alice' });
     hasRole(role: string) {

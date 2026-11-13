@@ -100,7 +100,8 @@ export class DeniedNoticeComponent {
   readonly roleLooksHeld = computed(() => {
     const path = this.deniedPath();
     if (path.startsWith('/mod')) return this.session.isMod();
-    if (path.startsWith('/admin')) return this.session.isAdmin();
+    // Same predicate as adminGuard (admin OR superadmin), covering /admin/docs too.
+    if (path.startsWith('/admin')) return this.session.isAdminTier();
     return false;
   });
 }

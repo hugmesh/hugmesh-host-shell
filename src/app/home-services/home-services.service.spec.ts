@@ -150,6 +150,14 @@ describe('HomeServicesService — card projection', () => {
       expect(card('mod').state).toBe('enabled');
       expect(card('admin').state).toBe('role');
     });
+
+    // GUI-01: adminGuard admits a pure superadmin (roles exactly ['superadmin']),
+    // so the Admin card must not grey out for them.
+    it('a PURE superadmin sees the Admin console enabled (and Moderation)', () => {
+      session$.set(session({ roles: ['superadmin'] }));
+      expect(card('admin').state).toBe('enabled');
+      expect(card('mod').state).toBe('enabled');
+    });
   });
 
   describe('USER-SITUATIONAL — GAMES entry-point + DERIVED games-admin (Phase 8/10)', () => {

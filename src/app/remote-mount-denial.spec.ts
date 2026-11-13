@@ -70,6 +70,9 @@ class SessionStub {
   isMod = () => this.mod;
   isUser = () => this.user;
   isSuperadmin = () => this.superadmin;
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = () => this.games;
   isGamesAdmin = () => this.gamesAdmin;
   hasRole = (role: string) => this.roles.some((r) => r.toLowerCase() === role.toLowerCase());

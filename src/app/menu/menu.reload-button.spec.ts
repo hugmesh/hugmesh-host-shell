@@ -28,6 +28,9 @@ class CompleteSessionStub {
   isAdmin = () => false;
   isMod = () => false;
   isSuperadmin = () => false;
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = () => false;
   isGamesAdmin = () => false;
   session = signal<{ label: string } | null>(null);

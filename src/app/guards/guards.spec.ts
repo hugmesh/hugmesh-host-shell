@@ -39,6 +39,9 @@ class SessionStub {
   isMod = () => this.mod;
   isUser = () => this.user;
   isSuperadmin = () => this.superadmin;
+  // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+  // cannot drift from the two flags it is built from.
+  isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = () => this.games;
   isGamesAdmin = () => this.gamesAdmin;
   hasRole = (role: string) => this.roles.some((r) => r.toLowerCase() === role.toLowerCase());
@@ -117,6 +120,26 @@ describe('federation route guards', () => {
       session.admin = false;
       const result = run(adminGuard);
       expect(result).toEqual(denied());
+    });
+
+    // GUI-01 (retest 2026-11-11): the e2e-superadmin persona — roles EXACTLY
+    // ['superadmin'], so isAdmin() is false and isMod() is true — was bounced off
+    // all 42 /admin routes, the superadmin-only consoles included, while admin-bff
+    // admits it (/bff/admin/** hasAnyRole(ADMIN, SUPERADMIN)).
+    it('admits a PURE superadmin (no literal admin role) into /admin', () => {
+      session.admin = false;
+      session.mod = true;
+      session.superadmin = true;
+      expect(run(adminGuard, '/admin')).toBeTrue();
+      expect(run(adminGuard, '/admin/superadmin/domains')).toBeTrue();
+      expect(run(adminGuard, '/admin/docs')).withContext('the API-docs mount shares the guard').toBeTrue();
+    });
+
+    it('still refuses a bare moderator (mod is not the admin-console tier)', () => {
+      session.admin = false;
+      session.mod = true;
+      session.superadmin = false;
+      expect(run(adminGuard, '/admin')).toEqual(denied('/admin'));
     });
   });
 
@@ -422,5 +445,65 @@ describe('federation route guards', () => {
       session.sessionValue = null;
       expect(match(adminGuard, 'admin')).toEqual(router.parseUrl('/login'));
     });
+
+    it('admits a pure superadmin on the canMatch side too (before the admin remote loads)', () => {
+      session.superadmin = true;
+      session.mod = true;
+      expect(match(adminGuard, 'admin', 'egress-vpn')).toBeTrue();
+    });
+  });
+});
+
+/** adminGuard over the REAL SessionService, seeded the way login-ui seeds it (the
+ *  hug.session mirror), so the whole chain — role strings -> isAdminTier -> guard —
+ *  is exercised, not a stub's idea of it. The stubbed suite above proves the guard
+ *  reads the tier; this proves the tier is computed from the roles the persona
+ *  actually carries. */
+describe('adminGuard over the real SessionService', () => {
+  const originalFetch = globalThis.fetch;
+  let router: Router;
+
+  function signIn(roles: string[]): void {
+    localStorage.setItem('hug.session', JSON.stringify({
+      id: 'casdoor:e2e-persona', label: 'e2e-persona', provider: 'password',
+      roles, registrationComplete: true,
+    }));
+    // No live BFF in the unit env: the constructor's /bff/session hydrate fails
+    // and falls back to the mirror above.
+    globalThis.fetch = jasmine.createSpy('fetch').and.rejectWith(new Error('no bff')) as unknown as typeof fetch;
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    router = TestBed.inject(Router);
+  }
+
+  function run(url: string): boolean | UrlTree {
+    return TestBed.runInInjectionContext(() =>
+      adminGuard({} as never, { url } as never)) as boolean | UrlTree;
+  }
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    localStorage.removeItem('hug.session');
+  });
+
+  it("admits roles exactly ['superadmin'] (the e2e-superadmin persona)", () => {
+    signIn(['superadmin']);
+    const session = TestBed.inject(SessionService);
+    expect(session.isAdmin()).withContext('the literal admin role is NOT granted').toBeFalse();
+    expect(session.role()).withContext('role-home precedence unchanged').toBe('mod');
+    expect(run('/admin')).toBeTrue();
+    expect(run('/admin/egress-vpn')).toBeTrue();
+  });
+
+  it("admits roles ['admin']", () => {
+    signIn(['admin']);
+    expect(run('/admin')).toBeTrue();
+  });
+
+  it("refuses roles ['mod'] and ['user'] with the denied landing", () => {
+    signIn(['mod']);
+    expect(run('/admin')).toEqual(router.createUrlTree(['/home'], { queryParams: { denied: '/admin' } }));
+    TestBed.resetTestingModule();
+    signIn(['user']);
+    expect(run('/admin/docs')).toEqual(router.createUrlTree(['/home'], { queryParams: { denied: '/admin/docs' } }));
   });
 });
