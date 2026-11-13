@@ -44,7 +44,10 @@ export interface LoadedVantaEffect {
 /** The signature {@link BackgroundComponent} depends on, so specs can substitute it. */
 export type VantaEffectLoader = (id: BackgroundEffectId) => Promise<LoadedVantaEffect>;
 
-const EFFECT_IMPORTS: Readonly<Record<BackgroundEffectId, () => Promise<{ default: unknown }>>> = {
+/** Exported (and mutable) so a spec can hand loadVantaEffect the PRODUCTION module shape:
+ *  karma's webpack interop and the esbuild application build disagree about it, which is
+ *  exactly how the double-default bug passed every spec and broke every live page. */
+export const EFFECT_IMPORTS: Record<BackgroundEffectId, () => Promise<{ default: unknown }>> = {
   fog: () => import('vanta/dist/vanta.fog.min'),
   waves: () => import('vanta/dist/vanta.waves.min'),
   net: () => import('vanta/dist/vanta.net.min'),
@@ -59,11 +62,30 @@ const EFFECT_IMPORTS: Readonly<Record<BackgroundEffectId, () => Promise<{ defaul
  */
 export const loadVantaEffect: VantaEffectLoader = async (id) => {
   const [three, effect] = await Promise.all([import('three'), EFFECT_IMPORTS[id]()]);
-  return {
-    three,
-    factory: effect.default as (options: Record<string, unknown>) => VantaInstance,
-  };
+  return { three, factory: vantaFactory(effect) };
 };
+
+/**
+ * The effect constructor out of a dynamically imported Vanta module.
+ *
+ * Vanta's dist files are UMD builds whose CommonJS branch sets
+ * `module.exports = { default: effect }`. A bundler's ESM interop then hands the import
+ * back as `{ default: module.exports }`, so `.default` is that OBJECT and the function
+ * sits one level further down. Reading `.default` alone made `factory(...)` throw
+ * "not a function" inside startEffect's catch, and no theme's WebGL background ever
+ * rendered: the shell silently stayed on the gradient. Both shapes are accepted, so a
+ * future vanta that exports the function directly keeps working.
+ */
+export function vantaFactory(mod: unknown): (options: Record<string, unknown>) => VantaInstance {
+  let candidate: unknown = (mod as { default?: unknown } | null)?.default ?? mod;
+  if (typeof candidate !== 'function') {
+    candidate = (candidate as { default?: unknown } | null)?.default;
+  }
+  if (typeof candidate !== 'function') {
+    throw new Error('vanta effect module exports no effect constructor');
+  }
+  return candidate as (options: Record<string, unknown>) => VantaInstance;
+}
 
 /**
  * Whether this browser can run any of it at all.
