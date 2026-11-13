@@ -27,15 +27,7 @@
      state + links to the appeal page, it never blocks routing. -->
 <div status-gate></div>
 
-<!-- THE ONE <main> (WCAG 1.3.1 / 2.4.1). The shell owns it, so EVERY route has
-     the skip-link and focus-on-navigate target, federated remotes included: a
-     remote's own AppComponent (and the <main id=…> in it) never renders inside
-     the shell, only its exposed routes do. Header and footer stay OUTSIDE it,
-     so they keep their banner/contentinfo roles. tabindex=-1: focusable by
-     script (skip link, NavigationEnd), never a Tab stop. -->
-<main id="maincontent" tabindex="-1">
-  <router-outlet></router-outlet>
-</main>
+<router-outlet></router-outlet>
 <footer personal-footer></footer>
 
 <app-profile-modal></app-profile-modal>

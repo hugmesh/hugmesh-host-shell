@@ -58,9 +58,7 @@ a {
 }
 
 .github {
-  // --hug-text-muted, not $muted: #777 measured 4.15:1 on #12121e and less on
-  // the translucent footer; #a8acc4 is 4.92:1 even on the worst composite.
-  color: var(--sd-footer-on, var(--hug-footer-on, var(--hug-text-muted)));
+  color: var(--sd-footer-on, var(--hug-footer-on, #{t.$muted}));
   font-weight: 600;
   font-family: t.$font-fancy;
   font-size: 0.875rem;

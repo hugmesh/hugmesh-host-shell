@@ -51,9 +51,6 @@ import { roleHomeGuard } from './guards/role-home.guard';
  *  without spying the frozen native-federation ESM namespace. */
 export interface RemoteRouteSpec {
   readonly path: string;
-  /** Page name for the document title (WCAG 2.4.2). ShellTitleStrategy renders
-   *  "<title> — <brand>"; a remote's own child-route `title` takes precedence. */
-  readonly title: string;
   readonly remoteName: string;
   readonly exposed: string;
   readonly routesConst: string;
@@ -63,12 +60,12 @@ export interface RemoteRouteSpec {
 }
 
 export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
-  { path: 'login', title: 'Sign in', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
+  { path: 'login', remoteName: 'login', exposed: './routes', routesConst: 'LOGIN_ROUTES' },
   // MATRIX / MASTODON: registration AND the per-service role, the user-bff
   // hsproxy's own rule (guards/social-access.ts). registeredGuard alone mounted
   // these for admin/mod/superadmin/plain users the hsproxy then 403'd.
-  { path: 'social/matrix', title: 'Matrix chat', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [matrixGuard] },
-  { path: 'social/mastodon', title: 'Mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [mastodonGuard] },
+  { path: 'social/matrix', remoteName: 'matrix', exposed: './routes', routesConst: 'MATRIX_ROUTES', canActivate: [matrixGuard] },
+  { path: 'social/mastodon', remoteName: 'mastodon', exposed: './routes', routesConst: 'MASTODON_ROUTES', canActivate: [mastodonGuard] },
   // FORUM remote (hugmesh-forum-ui): exposes './routes' -> FORUM_ROUTES
   // (verified against forum-ui federation.config.js name:'forum' exposes
   // './routes' -> src/app/forum.routes.ts FORUM_ROUTES; forum.routes.ts's own
@@ -85,13 +82,13 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // left the user where they were. Like wiki/tube/owncast, the remoteEntry is
   // supplied at runtime by the DYNAMIC federation manifest, so no static floor
   // edit is needed for an admitted user to resolve it.
-  { path: 'social/forum', title: 'Forum', remoteName: 'forum', exposed: './routes', routesConst: 'FORUM_ROUTES', canActivate: [forumGuard] },
+  { path: 'social/forum', remoteName: 'forum', exposed: './routes', routesConst: 'FORUM_ROUTES', canActivate: [forumGuard] },
   // admin/docs (the admin-only API-docs console) MUST precede 'admin': the more
   // specific path has to match before the admin remote's loadChildren swallows it.
-  { path: 'admin/docs', title: 'API docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES', canActivate: [adminGuard] },
-  { path: 'admin', title: 'Admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES', canActivate: [adminGuard] },
-  { path: 'mod', title: 'Moderation', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES', canActivate: [modGuard] },
-  { path: 'user', title: 'Your account', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES', canActivate: [userGuard] },
+  { path: 'admin/docs', remoteName: 'apidocs', exposed: './routes', routesConst: 'API_DOCS_ROUTES', canActivate: [adminGuard] },
+  { path: 'admin', remoteName: 'admin', exposed: './routes', routesConst: 'ADMIN_ROUTES', canActivate: [adminGuard] },
+  { path: 'mod', remoteName: 'mod', exposed: './routes', routesConst: 'MOD_ROUTES', canActivate: [modGuard] },
+  { path: 'user', remoteName: 'user', exposed: './routes', routesConst: 'USER_ROUTES', canActivate: [userGuard] },
   // WIKI management remote (hugmesh-wiki-ui): exposes ./Wiki -> WIKI_ROUTES, NOT
   // the './routes' convention the role-homes use. Mounted at /wiki behind wikiGuard
   // (admin|superadmin|mod+ROLE_WIKI); the remote's own child guards then enforce the
@@ -99,7 +96,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // by the DYNAMIC federation manifest (federation-api wiki row #16, visibility
   // internal, requiresRole wiki) unioned over the static floor — no static-manifest
   // edit is needed for an authed role-holder to resolve it.
-  { path: 'wiki', title: 'Wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES', canActivate: [wikiGuard] },
+  { path: 'wiki', remoteName: 'wiki', exposed: './Wiki', routesConst: 'WIKI_ROUTES', canActivate: [wikiGuard] },
   // TUBE management remote (hugmesh-tube-ui): exposes ./Tube -> TUBE_ROUTES,
   // mirroring the wiki './Wiki' convention (NOT the './routes' of the role-homes).
   // Optional, DEFAULT-OFF, GPU-gated. Mounted at /tube behind tubeGuard
@@ -109,7 +106,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // enforce per-view boundaries (user vs admin). The remoteEntry is supplied at runtime
   // by the DYNAMIC federation manifest (visibility internal, requiresRole TUBE) — no
   // static-manifest edit is needed for an authed role-holder to resolve it.
-  { path: 'tube', title: 'Tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES', canActivate: [tubeGuard] },
+  { path: 'tube', remoteName: 'tube', exposed: './Tube', routesConst: 'TUBE_ROUTES', canActivate: [tubeGuard] },
   // OWNCAST management remote (hugmesh-owncast-ui): exposes ./Owncast ->
   // OWNCAST_ROUTES, mirroring the wiki './Wiki' convention. Optional, DEFAULT-OFF,
   // GPU-gated. Mounted at /owncast behind owncastGuard (admin|superadmin|ROLE_OWNCAST).
@@ -118,7 +115,7 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // ApplicationSet on grant flip; requires GPU node + superadmin per-domain enable). The
   // remoteEntry is supplied at runtime by the DYNAMIC federation manifest (visibility
   // internal, requiresRole OWNCAST) — kept OFF the static floor like wiki.
-  { path: 'owncast', title: 'Live', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES', canActivate: [owncastGuard] },
+  { path: 'owncast', remoteName: 'owncast', exposed: './Owncast', routesConst: 'OWNCAST_ROUTES', canActivate: [owncastGuard] },
   // CHARACTER remotes (hugmesh-character-studio-ui, hugmesh-character-forge-bff-api/
   // frontend). Both expose './routes' (the role-home convention, NOT wiki's './Wiki').
   //
@@ -134,8 +131,8 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // registeredGuard matches the gateway's own gate, measured live: a plain ROLE_USER
   // gets 200 on both paths and an anonymous caller gets 401, and there is no
   // per-service role, so gating tighter here would deny users the backend admits.
-  { path: 'character-studio', title: 'Character studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES', canActivate: [registeredGuard] },
-  { path: 'character-forge', title: 'Character forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES', canActivate: [registeredGuard] },
+  { path: 'character-studio', remoteName: 'character-studio', exposed: './routes', routesConst: 'CHARACTER_STUDIO_ROUTES', canActivate: [registeredGuard] },
+  { path: 'character-forge', remoteName: 'character-forge', exposed: './routes', routesConst: 'CHARACTER_FORGE_ROUTES', canActivate: [registeredGuard] },
   // GAMES remote (hugmesh-games/games-ui) — CROSS-REPO CONTRACT, games member +
   // games admin screens (2026-10-28). ONE native-federation remote, federation
   // name 'games' (the manifest key, this remoteName and the `name` inside the
@@ -154,8 +151,8 @@ export const REMOTE_ROUTES: readonly RemoteRouteSpec[] = [
   // mirroring admin/docs -> admin) or the member mount's loadChildren swallows
   // the admin path. Guards unchanged: gamesGuard = games|admin|superadmin;
   // gamesAdminGuard = isGamesAdmin() (games AND (admin OR mod)) | superadmin.
-  { path: 'games/admin', title: 'Games admin', remoteName: 'games', exposed: './admin-routes', routesConst: 'GAMES_ADMIN_ROUTES', canActivate: [gamesAdminGuard] },
-  { path: 'games', title: 'Games', remoteName: 'games', exposed: './routes', routesConst: 'GAMES_ROUTES', canActivate: [gamesGuard] },
+  { path: 'games/admin', remoteName: 'games', exposed: './admin-routes', routesConst: 'GAMES_ADMIN_ROUTES', canActivate: [gamesAdminGuard] },
+  { path: 'games', remoteName: 'games', exposed: './routes', routesConst: 'GAMES_ROUTES', canActivate: [gamesGuard] },
 ];
 
 /** Resolve a remote's exported routes constant via native-federation.
@@ -185,7 +182,6 @@ export { federationLoader };
 function remoteRoute(spec: RemoteRouteSpec): Route {
   return {
     path: spec.path,
-    title: spec.title,
     ...(spec.canActivate
       ? { canMatch: [...spec.canActivate], canActivate: [...spec.canActivate] }
       : {}),
@@ -200,13 +196,11 @@ export const routes: Routes = [
   // Public marketing pages (kept from the original static SPA).
   {
     path: 'home',
-    title: 'Home',
     loadComponent: () =>
       import('./home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: 'about',
-    title: 'About',
     loadComponent: () =>
       import('./about/about.component').then((m) => m.AboutComponent),
   },

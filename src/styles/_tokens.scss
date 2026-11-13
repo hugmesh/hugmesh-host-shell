@@ -65,7 +65,7 @@ $scrim-alpha: 0.82;
 // claimed to mean, and at 0 it does not deliver it.
 //
 // <app-background> is `position: fixed` (background.component.scss). Its nearest
-// ancestor that forms a stacking context is the ROOT element: `[app-root]` is
+// ancestor that forms a stacking context is the ROOT element: `main[app-root]` is
 // `position: absolute` (styles.scss) but its z-index is `auto`, which positions it
 // WITHOUT creating a stacking context. So the backdrop competes directly with the
 // shell's other root-level children, and CSS paint order (CSS 2.1 Appendix E) puts
@@ -85,7 +85,7 @@ $scrim-alpha: 0.82;
 //
 // -1 puts the backdrop in step 2 instead: above the canvas background (<body>'s
 // background-color propagates to the canvas, since nothing sets one on <html>) and
-// above `[app-root]`'s own `background: transparent`, but below the in-flow
+// above `main[app-root]`'s own `background: transparent`, but below the in-flow
 // content of the shell. The gradient stays fully visible; it simply stops being
 // able to paint over anything.
 //

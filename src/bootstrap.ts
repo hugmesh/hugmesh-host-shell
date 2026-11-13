@@ -1,10 +1,9 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { TitleStrategy, provideRouter, withViewTransitions } from '@angular/router';
+import { provideRouter, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { bearerInterceptor } from './app/http/bearer.interceptor';
-import { ShellTitleStrategy } from './app/shell-title.strategy';
 
 // Bootstrapped only AFTER initFederation() has resolved the remote manifest (see
 // main.ts). PATH-based routing (no withHashLocation) so the host's /login,
@@ -25,7 +24,5 @@ bootstrapApplication(AppComponent, {
       withViewTransitions(),
     ),
     provideHttpClient(withInterceptors([bearerInterceptor])),
-    // WCAG 2.4.2: "<page> — <brand>" on every route (see the strategy).
-    { provide: TitleStrategy, useClass: ShellTitleStrategy },
   ],
 }).catch((err) => console.error(err));

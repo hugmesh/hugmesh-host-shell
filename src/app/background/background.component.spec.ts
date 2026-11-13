@@ -61,7 +61,7 @@ describe('BackgroundComponent', () => {
 
   describe('stacking — decorative means BEHIND, not merely non-interactive', () => {
     // <app-background> is position:fixed and full-viewport. Its nearest stacking
-    // context is the ROOT ([app-root] is position:absolute but z-index:auto, so
+    // context is the ROOT (main[app-root] is position:absolute but z-index:auto, so
     // it positions WITHOUT creating one), which puts it in direct paint competition
     // with the shell's other root-level children. At z-index:0 it is a POSITIONED
     // element in CSS 2.1 paint step 8 — above the step-3/5 content of every

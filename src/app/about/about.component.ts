@@ -10,6 +10,8 @@ import { AboutSectionComponent } from './about-section/about-section.component';
   selector: '[about]',
   imports: [AboutSectionComponent],
   host: {
+    id: 'maincontent',
+    tabindex: '-1',
     class: 'container mt-1 mb-5',
   },
   templateUrl: './about.component.html',
