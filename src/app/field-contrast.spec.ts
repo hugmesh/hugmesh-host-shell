@@ -1,3 +1,7 @@
+// A module, not a global script: without an import/export TypeScript puts these
+// helpers in the global scope, where they collide with other specs' copies.
+export {};
+
 /**
  * Form-field edge contract (WCAG 1.4.11, non-text contrast >= 3:1).
  *
