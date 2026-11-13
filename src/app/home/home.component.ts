@@ -13,8 +13,6 @@ import { DeniedNoticeComponent } from './denied-notice.component';
     DeniedNoticeComponent,
   ],
   host: {
-    id: 'maincontent',
-    tabindex: '-1',
     class: 'container mt-1 mb-5',
   },
   templateUrl: './home.component.html',

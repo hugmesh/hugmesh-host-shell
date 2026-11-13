@@ -131,6 +131,78 @@ a {
   --hug-error:       var(--sd-error, #ff6b6b);
 }
 
+// ── Tokens the remotes read that the shell never defined (WCAG 1.4.3/1.4.11) ──
+// A federated remote renders inside this document WITHOUT its own global
+// stylesheet, so a token only that stylesheet declares is undefined here: the
+// read falls through to its literal fallback (admin-ui's --hug-ok #2e7d32 at
+// 3.62:1, --hug-warning #a65d00 at 3.70:1, user-ui's --hug-muted #666 at
+// 3.23:1, all on #12121e), or, with no fallback, the whole declaration drops
+// and an edge or button fill simply vanishes (the --wiki-/--forum-/--tube-/
+// --owncast- families). Measured on #12121e: success 6.68:1, warning 10.73:1,
+// muted 8.28:1.
+:root {
+  --hug-ok:      var(--sd-ok, var(--hug-success));
+  --hug-warning: var(--sd-warning, #ffb74d);
+  --hug-muted:   var(--hug-text-muted);
+
+  // Each family mirrors the remote's own styles.scss :root block (what it
+  // declares when it runs standalone), so a remote looks the same in the shell
+  // as on its own.
+  --forum-bg:          var(--hug-bg-0);
+  --forum-surface:     var(--hug-bg-1);
+  --forum-border:      var(--hug-border);
+  --forum-text:        var(--hug-text);
+  --forum-text-muted:  var(--hug-text-muted);
+  --forum-accent:      var(--hug-accent);
+  --forum-accent-soft: var(--hug-accent-soft);
+  --forum-accent-on:   var(--hug-accent-on, #ffffff);
+  --forum-success:     var(--hug-success);
+  --forum-error:       var(--hug-error);
+  --forum-radius:      #{t.$radius-md};
+  --forum-gap:         0.75rem;
+  --wiki-bg:          var(--hug-bg-0);
+  --wiki-surface:     var(--hug-bg-1);
+  --wiki-border:      var(--hug-border);
+  --wiki-text:        var(--hug-text);
+  --wiki-text-muted:  var(--hug-text-muted);
+  --wiki-accent:      var(--hug-accent);
+  --wiki-accent-soft: var(--hug-accent-soft);
+  --wiki-accent-on:   var(--hug-accent-on, #ffffff);
+  --wiki-success:     var(--hug-success);
+  --wiki-warning:     var(--hug-warning);
+  --wiki-error:       var(--hug-error);
+  --wiki-radius:      #{t.$radius-md};
+  --wiki-gap:         0.75rem;
+  --tube-bg:          var(--hug-bg-0);
+  --tube-surface:     var(--hug-bg-1);
+  --tube-border:      var(--hug-border);
+  --tube-text:        var(--hug-text);
+  --tube-text-muted:  var(--hug-text-muted);
+  --tube-accent:      var(--hug-accent);
+  --tube-accent-soft: var(--hug-accent-soft);
+  --tube-accent-on:   var(--hug-accent-on, #ffffff);
+  --tube-success:     var(--hug-success);
+  --tube-warning:     var(--hug-warning);
+  --tube-error:       var(--hug-error);
+  --tube-radius:      #{t.$radius-md};
+  --tube-gap:         0.75rem;
+  --tube-font-sans:   #{t.$font-sans};
+  --tube-font-mono:   #{t.$font-mono};
+  --owncast-bg:          var(--hug-bg-0);
+  --owncast-surface:     var(--hug-bg-1);
+  --owncast-border:      var(--hug-border);
+  --owncast-text:        var(--hug-text);
+  --owncast-text-muted:  var(--hug-text-muted);
+  --owncast-accent:      var(--hug-accent);
+  --owncast-accent-soft: var(--hug-accent-soft);
+  --owncast-accent-on:   var(--hug-accent-on, #ffffff);
+  --owncast-success:     var(--hug-success);
+  --owncast-warning:     var(--hug-warning);
+  --owncast-error:       var(--hug-error);
+  --owncast-radius:      #{t.$radius-md};
+  --owncast-gap:         0.75rem;
+}
+
 
 html,
 body {
@@ -138,25 +210,38 @@ body {
   overflow-wrap: anywhere;
 }
 
-// NOTE: the shell itself no longer renders a <main>. app.component.html is
-// <app-background> + header/nav + <router-outlet>, all root-level siblings.
+// The shell ROOT is `<div app-root>` (index.html). It used to be `<main app-root>`,
+// which put the header and footer INSIDE a <main> and cost them their
+// banner/contentinfo roles (WCAG 1.3.1); this rule is what positioned it, and
+// it now names the root directly so the layout is unchanged.
 //
-// This rule is NOT dead, though — it is global, and the federated remotes render
-// INSIDE this document, so today it styles THEIR <main> elements (admin-ui and
-// character-studio-ui both emit one). That is a different rule than the one
-// written here: it was authored for a shell-owned element and now reaches into
-// remotes we do not control from this repo.
-//
-// Left as-is deliberately rather than deleted: removing it would change the
-// layout of every remote that emits <main>, which is a visual change that needs
-// to be checked against those remotes rather than reasoned about here.
-main {
+// `main:not(#maincontent)` keeps reaching any <main> a federated remote emits
+// (the rule always has, being global). The shell's own <main id="maincontent">
+// (app.component.html) wraps the router outlet as an ordinary in-flow flex
+// item, so it is excluded: absolute positioning would lift the routed view out
+// of the sticky-footer column.
+[app-root],
+main:not(#maincontent) {
   position: absolute;
   top: 0;
   width: 100%;
   max-width: 100%;
   min-height: 100%;
   background: transparent;
+}
+
+// The skip-link / focus-on-navigate target. Focused by script only
+// (tabindex=-1), so the region itself gets no ring: the ring belongs on the
+// controls inside it, and a page-sized outline after every navigation reads as
+// an error state.
+#maincontent {
+  display: block;
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
 }
 
 header,

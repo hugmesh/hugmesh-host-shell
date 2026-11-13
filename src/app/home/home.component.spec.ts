@@ -29,12 +29,10 @@ describe('HomeComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('host should have id="maincontent"', () => {
-    expect((fixture.nativeElement as HTMLElement).id).toBe('maincontent');
-  });
-
-  it('host should have tabindex="-1" for programmatic focus', () => {
-    expect((fixture.nativeElement as HTMLElement).getAttribute('tabindex')).toBe('-1');
+  it('host does NOT carry the skip target (the shell <main id="maincontent"> owns it)', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.id).not.toBe('maincontent');
+    expect(host.getAttribute('tabindex')).toBeNull();
   });
 
   it('should render the "What is HugMesh?" section heading', () => {
