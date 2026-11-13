@@ -499,6 +499,9 @@ describe('scrim legibility — the /user home service cards (menu-owned, outside
     isAdmin = signal(false);
     isMod = signal(false);
     isSuperadmin = signal(false);
+    // MIRRORS SessionService.isAdminTier (admin OR superadmin) — derived, so it
+    // cannot drift from the two flags it is built from.
+    isAdminTier = () => this.isAdmin() || this.isSuperadmin();
     isGames = signal(false); // no games role: the Games card is DISABLED, with a reason
     isGamesAdmin = signal(false);
     roles = signal<string[]>(['user']);
