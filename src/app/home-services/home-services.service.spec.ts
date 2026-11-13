@@ -61,7 +61,20 @@ describe('HomeServicesService — card projection', () => {
   describe('USER-SITUATIONAL — plain registered user', () => {
     beforeEach(() => session$.set(session({ roles: ['user'], registrationComplete: true })));
 
-    it('enables installed social + forum', () => {
+    // GUI-07: registration alone no longer unlocks the social services. A plain
+    // member (e2e-user: roles [user]) holds none of ROLE_MATRIX / ROLE_MASTODON /
+    // ROLE_FORUM, and the backend refuses all three, so the cards say so.
+    it('greys Matrix, Mastodon and Forum for a plain member, naming the missing role', () => {
+      expect(card('matrix').state).toBe('role');
+      expect(card('matrix').disabledReason).toContain('a Matrix member');
+      expect(card('mastodon').state).toBe('role');
+      expect(card('mastodon').disabledReason).toContain('a Mastodon member');
+      expect(card('forum').state).toBe('role');
+      expect(card('forum').disabledReason).toContain('a forum member');
+    });
+
+    it('enables each social card for the member who holds its role', () => {
+      session$.set(session({ roles: ['user', 'matrix', 'mastodon', 'forum'], registrationComplete: true }));
       expect(card('matrix').state).toBe('enabled');
       expect(card('mastodon').state).toBe('enabled');
       expect(card('forum').state).toBe('enabled');
@@ -81,11 +94,18 @@ describe('HomeServicesService — card projection', () => {
   });
 
   describe('USER-SITUATIONAL — unregistered user', () => {
-    beforeEach(() => session$.set(session({ registrationComplete: false })));
+    beforeEach(() => session$.set(session({ roles: ['user', 'matrix', 'mastodon', 'forum'], registrationComplete: false })));
 
-    it('greys the social cards with a REGISTRATION reason (not absence)', () => {
+    it('greys the social cards with a REGISTRATION reason (not absence) when the role is held', () => {
       expect(card('matrix').state).toBe('registration');
       expect(card('matrix').disabledReason).toContain('registration');
+      expect(card('mastodon').state).toBe('registration');
+    });
+
+    it('the ROLE reason wins over registration when the role is missing too (registering cannot grant it)', () => {
+      session$.set(session({ roles: ['user'], registrationComplete: false }));
+      expect(card('matrix').state).toBe('role');
+      expect(card('mastodon').state).toBe('role');
     });
 
     it('still enables non-social installed services (forum/tube/owncast need no registration)', () => {
@@ -104,6 +124,25 @@ describe('HomeServicesService — card projection', () => {
     it('admin sees the Admin console enabled', () => {
       session$.set(session({ roles: ['admin'] }));
       expect(card('admin').state).toBe('enabled');
+    });
+
+    // GUI-07: the gateway lets admins (own domain) and superadmins through on
+    // /social/forum/**, but the user-bff hsproxy grants NO tier ROLE_MATRIX or
+    // ROLE_MASTODON (e2e-admin / e2e-superadmin 403 there live).
+    it('admin and superadmin get the Forum (gateway bypass) but not Matrix/Mastodon (hsproxy refuses)', () => {
+      for (const roles of [['admin', 'user'], ['superadmin']]) {
+        session$.set(session({ roles }));
+        expect(card('forum').state).withContext(roles.join('+')).toBe('enabled');
+        expect(card('matrix').state).withContext(roles.join('+')).toBe('role');
+        expect(card('mastodon').state).withContext(roles.join('+')).toBe('role');
+      }
+    });
+
+    it('a mod gets none of the three (no ROLE_FORUM; the hsproxy refuses MOD)', () => {
+      session$.set(session({ roles: ['mod'] }));
+      expect(card('forum').state).toBe('role');
+      expect(card('matrix').state).toBe('role');
+      expect(card('mastodon').state).toBe('role');
     });
 
     it('mod sees the Moderation console enabled but Admin greyed', () => {
@@ -190,7 +229,7 @@ describe('HomeServicesService — card projection', () => {
     });
 
     it('install-state ABSENCE dominates over the registration gate', () => {
-      session$.set(session({ registrationComplete: false }));
+      session$.set(session({ roles: ['user', 'matrix'], registrationComplete: false }));
       caps.setAbsent('matrix');
       // Both gates fail; absence is reported (it's unrecoverable on this deploy).
       expect(card('matrix').state).toBe('absent');

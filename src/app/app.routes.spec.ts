@@ -3,6 +3,8 @@ import { Route } from '@angular/router';
 import { routes, REMOTE_ROUTES, federationLoader } from './app.routes';
 import { adminGuard } from './guards/admin.guard';
 import { registeredGuard } from './guards/registration.guard';
+import { matrixGuard } from './guards/matrix.guard';
+import { mastodonGuard } from './guards/mastodon.guard';
 import { forumGuard } from './guards/forum.guard';
 import { modGuard } from './guards/mod.guard';
 import { userGuard } from './guards/user.guard';
@@ -77,18 +79,28 @@ describe('app.routes federation wiring', () => {
     });
   });
 
-  it('guards the social + admin remotes (registeredGuard / adminGuard)', () => {
-    expect(routeFor('social/matrix').canActivate).toContain(registeredGuard);
-    expect(routeFor('social/mastodon').canActivate).toContain(registeredGuard);
+  it('guards the social + admin remotes (matrixGuard / mastodonGuard / adminGuard)', () => {
+    // GUI-07: registration alone is NOT the Matrix/Mastodon gate — the user-bff
+    // hsproxy also requires ROLE_MATRIX / ROLE_MASTODON (guards/social-access.ts).
+    expect(routeFor('social/matrix').canActivate).toEqual([matrixGuard]);
+    expect(routeFor('social/matrix').canMatch).toEqual([matrixGuard]);
+    expect(routeFor('social/mastodon').canActivate).toEqual([mastodonGuard]);
+    expect(routeFor('social/mastodon').canMatch).toEqual([mastodonGuard]);
     expect(routeFor('admin').canActivate).toContain(adminGuard);
   });
 
-  it('mounts the forum remote at /social/forum behind forumGuard (authenticated, NOT registration-gated)', () => {
+  it('character-studio / character-forge stay on the registration-only guard (no per-service role)', () => {
+    expect(routeFor('character-studio').canActivate).toEqual([registeredGuard]);
+    expect(routeFor('character-forge').canActivate).toEqual([registeredGuard]);
+  });
+
+  it('mounts the forum remote at /social/forum behind forumGuard (ROLE_FORUM or admin, NOT registration-gated)', () => {
     const forum = routeFor('social/forum');
-    // The forum reuses our native identity, so it is authenticated-only — the
-    // registration gate (matrix/mastodon per-service tokens) does NOT apply, and
-    // adding it would turn the 'enabled' launcher card into a dead link.
-    expect(forum.canActivate).withContext('authenticated-only forum gate').toContain(forumGuard);
+    // The forum reuses our native identity, so there is no registration gate
+    // (matrix/mastodon per-service tokens) — but the gateway does require
+    // ROLE_FORUM (admins bypass), and forumGuard mirrors that (GUI-07).
+    expect(forum.canActivate).withContext('ROLE_FORUM forum gate').toEqual([forumGuard]);
+    expect(forum.canMatch).withContext('refused before the remote is fetched').toEqual([forumGuard]);
     expect(forum.canActivate ?? []).withContext('forum is not registration-gated').not.toContain(registeredGuard);
     expect(forum.loadChildren).withContext('mounts the forum remote via loadChildren').toBeDefined();
     expect(forum.loadComponent).withContext('not a local placeholder component').toBeUndefined();

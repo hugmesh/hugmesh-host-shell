@@ -238,7 +238,7 @@ per-service intermediates signed by it.
 > This section is historical. The repo first shipped a single nginx serving the
 > Angular bundle on port 8080 with **no auth gate**, fronted by the gateway. That
 > migration is **done**. On `main` the host has real route guards
-> (`adminGuard`/`modGuard`/`userGuard`/`registeredGuard`/`forumGuard`/`wikiGuard`/`tubeGuard`/`owncastGuard`/`gamesGuard`/`gamesAdminGuard`),
+> (`adminGuard`/`modGuard`/`userGuard`/`registeredGuard`/`matrixGuard`/`mastodonGuard`/`forumGuard`/`wikiGuard`/`tubeGuard`/`owncastGuard`/`gamesGuard`/`gamesAdminGuard`),
 > calls the role BFFs (`/bff/me`, `/bff/announcements/home`,
 > `/bff/user/notifications` (60s poll — unread-count badge), `/bff/user/notifications/events` (SSE stream — real-time toast), per-service `/bff/{wiki,tube,owncast}/**`) and the
 > public federation API

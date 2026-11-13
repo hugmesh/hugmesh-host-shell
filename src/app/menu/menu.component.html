@@ -19,7 +19,8 @@
   <div class="collapse navbar-collapse" id="navbarMain">
     <!-- UNIVERSAL NAV: Home | Mastodon | Matrix. The router-outlet is the
          swappable content region; each entry navigates to the matching remote.
-         Mastodon/Matrix are disabled until the session is fully registered. -->
+         Mastodon/Matrix/Forum are disabled (with the reason) until the session
+         passes their route guard's predicate (guards/social-access.ts). -->
     <ul
       class="navbar-nav"
       role="menubar"

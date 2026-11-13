@@ -81,14 +81,14 @@ Feature: Role-home routing and the universal nav swap (integrated env only)
     Then I am redirected to "/login"
 
   Scenario: Selecting Mastodon swaps the content region to /social/mastodon
-    Given I have a user session
+    Given I have a user session with the "mastodon" service grant
     And I go to "/"
     When I select the "nav-mastodon" nav entry
     Then the URL path is "/social/mastodon"
     And the "nav-mastodon" nav entry is active
 
   Scenario: Selecting Matrix swaps the content region to /social/matrix
-    Given I have a user session
+    Given I have a user session with the "matrix" service grant
     And I go to "/"
     When I select the "nav-matrix" nav entry
     Then the URL path is "/social/matrix"

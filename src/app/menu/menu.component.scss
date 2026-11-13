@@ -103,6 +103,21 @@ nav.navbar {
   font-weight: 700;
 }
 
+// DISABLED-ENTRY REASONS IN THE HORIZONTAL BAR (GUI-07). They stay BLOCK help,
+// read without asking (styles.scss `.field-help`), but each one is confined to
+// its own entry's column: capped so it wraps under its label, and padded so two
+// neighbours never touch. Uncapped, a reason sized its <li> to the whole
+// sentence, so a member holding none of the social roles got four reasons fused
+// into one run-on line ("…to open this.Sign in as a Matrix member…") with the
+// entries strung out across the bar. Desktop only: below lg the bar collapses
+// into a vertical list where a full-width reason reads fine.
+@media (min-width: #{t.$bp-lg}) {
+  .navbar-nav > .nav-item > .field-help {
+    max-width: 9rem;
+    padding-inline: 0.5rem;
+  }
+}
+
 // CONSOLE SECTIONS SUBMENU (issue #19): a full-width second row of the navbar,
 // rendered only while an admin/mod console is the active route. Denser than the
 // primary entries — the admin console has ~30 sections — so the .nav-link
@@ -146,7 +161,29 @@ nav.navbar {
 // signed-in home. Copies the /home services grid treatment
 // (home-services.component.scss, which itself copies the LinksComponent grid)
 // because that pattern is host-scoped SCSS — keep the three in sync.
+//
+// THE SCRIM IS NOT OPTIONAL HERE. These cards live in `[menu]`, which sits
+// beside the router outlet rather than inside it, so the `router-outlet + *`
+// backpane that carries the /home copy of this grid never reaches them. Without a
+// surface of their own they painted straight onto <app-background>. The cards
+// are translucent too (card-surface ends at 0.4 alpha), so over the pastel
+// gradient the labels measured 2.46:1, the descriptions 1.99:1 and the disabled
+// Games card's reason 2.01:1. No text token can fix that, because even white
+// text cannot reach AA on a 40% grey wash over near-white. The bar these cards
+// replace on the /user home is glass-float, so the cards take the same chrome
+// scrim. Its alpha is the t.$scrim-alpha contract, which scrim-contrast.spec.ts
+// holds against the rendered composition.
+//
+// Inset 1.5rem from the viewport edges, the same as the header banner above it,
+// so the panel's rounded edge never lands flush against the screen edge. A plain
+// `margin: auto` with the backpane's 90rem cap did exactly that below 90rem.
+// Centred and capped at the backpane's 90rem beyond that.
 .home-services-nav {
+  @include m.glass-float;
+  margin-block: clamp(0.5rem, 1.5vw, 1.25rem);
+  margin-inline: max(1.5rem, (100% - 90rem) / 2);
+  padding: clamp(0.25rem, 1vw, 0.75rem);
+
   .links-grid {
     display: flex;
     flex-wrap: wrap;
@@ -175,7 +212,12 @@ nav.navbar {
   }
 
   .service-card__link {
-    color: t.$light;
+    // --hug-text, not t.$light: #bbb was the palette's dimmest text and left no
+    // margin on a card that is itself translucent (card-surface ends at 0.4
+    // alpha). This is the token the help bubble and body copy already read,
+    // the one a theme re-derives for its own ramp, and scrim-contrast.spec.ts
+    // measures it on the composed card.
+    color: var(--hug-text);
     display: flex;
     flex-direction: column;
     gap: 0.25rem;

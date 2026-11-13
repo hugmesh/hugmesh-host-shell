@@ -13,6 +13,8 @@ const CONSOLE_NAMES: ReadonlyArray<readonly [string, string]> = [
   ['/wiki', 'wiki'],
   ['/tube', 'video archive'],
   ['/owncast', 'live streaming'],
+  ['/social/matrix', 'Matrix chat'],
+  ['/social/mastodon', 'Mastodon timeline'],
   ['/social/forum', 'forums'],
   ['/games/admin', 'games administration'],
   ['/games', 'games'],

@@ -8,6 +8,7 @@ import { BehaviorSubject } from 'rxjs';
 import { MenuComponent } from './menu.component';
 import { MENU_BAR_MODE_KEY } from './menu-bar-mode.service';
 import { WORKLOAD_CAPABILITY_ENDPOINT } from './workload-console-probe.service';
+import { ADMIN_TASKS_ENDPOINT } from './admin-tasks-probe.service';
 import { SessionService } from '../session.service';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
@@ -44,7 +45,9 @@ class SessionStub {
   isAdminTier = () => this.isAdmin() || this.isSuperadmin();
   isGames = signal(false);
   isGamesAdmin = signal(false);
-  roles = signal<string[]>([]);
+  // Holds the social service roles so the card tests below are about the card
+  // rendering; the role gate itself is covered by social-access.parity.spec.ts.
+  roles = signal<string[]>(['matrix', 'mastodon', 'forum']);
   session = signal<{ label: string } | null>({ label: 'alice' });
   hasRole(role: string) { return this.roles().some((r) => r.toLowerCase() === role.toLowerCase()); }
   async clear() { this.loggedIn.set(false); this.session.set(null); }
@@ -190,8 +193,18 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
       expect(card.getAttribute('aria-disabled')).toBe('true');
       expect(byTestid('home-card-nav-mastodon-help')?.textContent)
         .toContain('Complete your registration');
-      // Forum needs only an authenticated member (isUser), so it stays enabled.
+      // Forum needs ROLE_FORUM (held here) but NOT registration, so it stays enabled.
       expect((byTestid('home-card-nav-forum') as HTMLElement).tagName).toBe('A');
+    });
+
+    it('a member WITHOUT the service roles gets disabled social cards that name the role (GUI-07)', async () => {
+      session.roles.set([]);
+      await goto('/user');
+      for (const [id, words] of [['matrix', 'a Matrix member'], ['mastodon', 'a Mastodon member'], ['forum', 'a forum member']]) {
+        const card = byTestid(`home-card-nav-${id}`) as HTMLElement;
+        expect(card.tagName).withContext(`${id}: a refused card is not a link`).toBe('SPAN');
+        expect(byTestid(`home-card-nav-${id}-help`)?.textContent).withContext(id).toContain(words);
+      }
     });
 
     it('an uninstalled service card is greyed with the deployment reason (grey + EXPLAIN, never hide)', async () => {
@@ -360,6 +373,93 @@ describe('MenuComponent — home service cards + console submenus (issue #19)', 
         session.isAdmin.set(false);
         await goto('/about');
         http().expectNone(WORKLOAD_CAPABILITY_ENDPOINT);
+      });
+    });
+
+    // GUI-10: 'Guided tasks' used to be listed for every admin, but no admin-bff
+    // implements GET /bff/admin/tasks, so on a real deployment it 404s and the entry
+    // led to a dead console. It is listed only once that endpoint returns a catalogue.
+    describe('Guided tasks entry (task catalogue probe)', () => {
+      const http = () => TestBed.inject(HttpTestingController);
+      const settle = async () => { await fixture.whenStable(); fixture.detectChanges(); };
+
+      it('stays dark until the probe answers', async () => {
+        await goto('/admin');
+        const req = http().expectOne(ADMIN_TASKS_ENDPOINT);
+        expect(req.request.method).toBe('GET');
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+        expect(el.textContent).not.toContain('Guided tasks');
+        req.flush({ tasks: [] });
+        await settle();
+      });
+
+      it('stays dark when the endpoint answers 404 (no admin-bff serves it)', async () => {
+        session.isSuperadmin.set(true);
+        await goto('/admin');
+        http().expectOne(ADMIN_TASKS_ENDPOINT).flush({ error: 'Not Found' }, { status: 404, statusText: 'Not Found' });
+        await settle();
+        expect(byTestid('subnav-admin-usage')).withContext('the other sections still render').toBeTruthy();
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+        expect(el.textContent).not.toContain('Guided tasks');
+      });
+
+      it('stays dark on a 2xx that is not a task catalogue', async () => {
+        await goto('/admin');
+        http().expectOne(ADMIN_TASKS_ENDPOINT).flush({ items: [] });
+        await settle();
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+      });
+
+      it('stays dark on a network failure', async () => {
+        await goto('/admin');
+        http().expectOne(ADMIN_TASKS_ENDPOINT).error(new ProgressEvent('error'));
+        await settle();
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+      });
+
+      it('appears under the admin sections once the catalogue loads', async () => {
+        await goto('/admin');
+        http().expectOne(ADMIN_TASKS_ENDPOINT).flush({ tasks: [{ id: 't', title: 'T', description: '', steps: [] }] });
+        await settle();
+        const link = byTestid('subnav-admin-tasks') as HTMLAnchorElement;
+        expect(link).toBeTruthy();
+        expect(link.getAttribute('href')).toBe('/admin/tasks');
+        expect(link.textContent).toContain('Guided tasks');
+      });
+
+      it('does not follow the workload-console probe', async () => {
+        await goto('/admin');
+        http().expectOne(WORKLOAD_CAPABILITY_ENDPOINT).flush({ enabled: true });
+        http().expectOne(ADMIN_TASKS_ENDPOINT).flush('', { status: 404, statusText: 'Not Found' });
+        await settle();
+        expect(byTestid('subnav-admin-workloads')).toBeTruthy();
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+      });
+
+      it('goes dark when the session stops being an admin and stays dark until a fresh probe answers', async () => {
+        await goto('/admin');
+        http().expectOne(ADMIN_TASKS_ENDPOINT).flush({ tasks: [] });
+        await settle();
+        expect(byTestid('subnav-admin-tasks')).toBeTruthy();
+
+        session.isAdmin.set(false);
+        fixture.detectChanges();
+        await settle();
+        session.isAdmin.set(true);
+        fixture.detectChanges();
+        await settle();
+        const again = http().expectOne(ADMIN_TASKS_ENDPOINT);
+        expect(byTestid('subnav-admin-tasks'))
+          .withContext('the earlier answer must not outlive the earlier admin session').toBeNull();
+        again.flush('', { status: 404, statusText: 'Not Found' });
+        await settle();
+        expect(byTestid('subnav-admin-tasks')).toBeNull();
+      });
+
+      it('is never probed for a session that is not an admin', async () => {
+        session.isAdmin.set(false);
+        await goto('/about');
+        http().expectNone(ADMIN_TASKS_ENDPOINT);
       });
     });
 
