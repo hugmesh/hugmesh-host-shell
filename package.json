@@ -61,7 +61,7 @@
     "@types/jasmine": "^7.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.6.5",
-    "@wdio/logger": "^9.29.1",
+    "@wdio/logger": "^10.2.0",
     "axios": "1.21.0",
     "chai": "^6.3.0",
     "chokidar": "^6.0.0",
