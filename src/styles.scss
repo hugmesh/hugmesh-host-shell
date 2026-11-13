@@ -37,18 +37,6 @@ $font-family-base:           t.$font-sans;
 body {
   background-color: var(--sd-bg-0, #{t.$black});
   color: var(--sd-text, #{t.$offwhite});
-  // THE THEME'S FACE. The theme pipeline has always emitted --sd-font-sans (and its
-  // --hug- twin) for a chosen font, but nothing in the shell read it: a theme's font
-  // changed the login page and nothing else. Unthemed: the compiled stack, unchanged.
-  font-family: var(--hug-font-sans, #{t.$font-sans});
-}
-// (Form controls follow it: bootstrap's reboot already sets font-family: inherit on them.)
-
-code,
-kbd,
-pre,
-samp {
-  font-family: var(--hug-font-mono, #{t.$font-mono});
 }
 
 // Links: --sd-accent-soft is the contract's only accent-as-text token —
@@ -198,8 +186,8 @@ a {
   --tube-error:       var(--hug-error);
   --tube-radius:      #{t.$radius-md};
   --tube-gap:         0.75rem;
-  --tube-font-sans:   var(--hug-font-sans, #{t.$font-sans});
-  --tube-font-mono:   var(--hug-font-mono, #{t.$font-mono});
+  --tube-font-sans:   #{t.$font-sans};
+  --tube-font-mono:   #{t.$font-mono};
   --owncast-bg:          var(--hug-bg-0);
   --owncast-surface:     var(--hug-bg-1);
   --owncast-border:      var(--hug-border);
@@ -611,12 +599,9 @@ summary {
   }
 }
 
-// Filled accent + its derived on-colour: the one pair the theme pipeline guarantees
-// AA for ANY accent (#000/#fff by luminance). The old accent-soft + #0a0a12 pair broke
-// on a light ramp, where accent-soft is darkened to read as text.
 ::selection {
-  background-color: var(--hug-accent);
-  color: var(--hug-accent-on, #ffffff);
+  background-color: var(--hug-accent-soft);
+  color: #0a0a12;
 }
 
 @media (prefers-reduced-motion: reduce) {

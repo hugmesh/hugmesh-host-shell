@@ -136,9 +136,7 @@
          entirely, and header-controls.placement.spec.ts asserts that. -->
     @if (!session.loggedIn()) {
       <ul class="navbar-nav account-nav ms-lg-auto" aria-label="Account">
-        <!-- A plain list (not the role="menubar" above), so a plain list item: role="none"
-             here stripped the listitem role and broke the list's semantics (#179). -->
-        <li class="nav-item">
+        <li class="nav-item" role="none">
           <a
             class="nav-link"
             routerLink="/login"

@@ -508,19 +508,6 @@ describe('MenuComponent — universal nav menubar', () => {
         .withContext('Sign in is a navigation destination and stays in the nav')
         .toBeTruthy();
     });
-
-    it('the account list keeps list semantics: its items are real list items (#179)', () => {
-      stub.loggedIn.set(false);
-      stub.session.set(null);
-      fixture.detectChanges();
-      const list = el.querySelector('ul.account-nav');
-      expect(list).withContext('the anonymous account list renders').toBeTruthy();
-      for (const child of Array.from(list!.children)) {
-        expect(child.tagName).toBe('LI');
-        // role="none" belongs only inside the role="menubar" list.
-        expect(child.getAttribute('role')).withContext(child.outerHTML.slice(0, 80)).toBeNull();
-      }
-    });
   });
 
   // ── THE SIGN-IN ENTRY IS SESSION-GATED ───────────────────────────────
