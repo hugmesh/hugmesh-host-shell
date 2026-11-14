@@ -10,7 +10,7 @@
 
 h2 {
   text-align: center;
-  color: t.$neon;
+  color: var(--hug-primary-soft, #{t.$neon});
   padding-top: 1rem;
 }
 

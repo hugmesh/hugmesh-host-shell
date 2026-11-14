@@ -44,7 +44,7 @@
 
   &:hover,
   &:focus-visible {
-    color: t.$neon;
+    color: var(--hug-primary-soft, #{t.$neon});
     filter: drop-shadow(0 0 6px rgba(t.$neon, 0.7));
   }
 
