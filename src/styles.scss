@@ -285,7 +285,12 @@ router-outlet + * {
   display: block;
   position: relative;
   z-index: t.$z-content;
-  background: rgba(t.$black, t.$scrim-alpha);
+  // The theme's own page surface, as a channel triple (a hex var inside rgba() is
+  // invalid). It was the literal $black, so on a LIGHT ramp the pane stayed near-black
+  // while the theme's dark ink sat on it: every routed page was unreadable there.
+  // Unthemed: 10,10,10 = $black, byte-identical. The alpha is still the contrast
+  // contract (t.$scrim-alpha), whatever the colour.
+  background: rgba(var(--hug-bg-0-rgb, 10, 10, 10), t.$scrim-alpha);
   // Shape follows the theme's STYLE axis (styles/_mixins.scss carries the note,
   // including why every read is --sd-* first and the --hug-* twin second); the
   // scrim ALPHA does not — that is the contrast contract.
@@ -324,7 +329,7 @@ router-outlet + * {
 // translucency entirely rather than merely deepening it.
 @media (prefers-contrast: more) {
   router-outlet + * {
-    background: t.$black;
+    background: rgb(var(--hug-bg-0-rgb, 10, 10, 10));
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-color: t.$offwhite;
@@ -335,7 +340,7 @@ router-outlet + * {
 // with an opaque pane so a stationary bright field is never the text's backdrop.
 @media (prefers-reduced-motion: reduce) {
   router-outlet + * {
-    background: rgba(t.$black, 0.92);
+    background: rgba(var(--hug-bg-0-rgb, 10, 10, 10), 0.92);
   }
 }
 
