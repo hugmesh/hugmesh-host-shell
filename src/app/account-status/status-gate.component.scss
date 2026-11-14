@@ -54,14 +54,14 @@ $danger-dim: #c0392b;
 
 .status-gate__appeal {
   display: inline-block;
-  color: var(--hug-primary-soft, #{t.$neon});
+  color: t.$neon;
   // Links underlined (not colour-only) per the a11y standard.
   text-decoration: underline;
   font-weight: 600;
 
   &:hover,
   &:focus-visible {
-    color: var(--hug-primary-soft, #{t.$neon-bright});
+    color: t.$neon-bright;
   }
 }
 

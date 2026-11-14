@@ -26,7 +26,7 @@
 
 .announcement__title {
   margin: 0 0 0.25rem;
-  color: var(--hug-primary-soft, #{t.$neon});
+  color: t.$neon;
   font-size: 1.25rem;
   text-align: left;
 }
@@ -47,7 +47,7 @@
   &:hover,
   &:focus-visible {
     @include m.neon-glow;
-    color: var(--hug-primary-soft, #{t.$neon});
+    color: t.$neon;
   }
 }
 
