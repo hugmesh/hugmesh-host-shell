@@ -4,13 +4,19 @@ import { provideRouter } from '@angular/router';
 import { HomeComponent } from './home.component';
 import { CapabilitiesService } from '../capabilities/capabilities.service';
 import { CapabilitiesStub } from '../capabilities/capabilities.stub';
+import { ChromeThemeService } from '../chrome/chrome-theme.service';
 
 describe('HomeComponent', () => {
   let component: HomeComponent;
   let fixture: ComponentFixture<HomeComponent>;
   let el: HTMLElement;
+  let savedTitle: string;
 
   beforeEach(async () => {
+    // The brand is the page as the server delivered it: another spec may have left its own
+    // title behind, so this one states the page it renders on.
+    savedTitle = document.title;
+    document.title = 'HugMesh';
     await TestBed.configureTestingModule({
       imports: [HomeComponent],
       providers: [
@@ -23,6 +29,10 @@ describe('HomeComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     el = fixture.nativeElement as HTMLElement;
+  });
+
+  afterEach(() => {
+    document.title = savedTitle;
   });
 
   it('should create', () => {
@@ -38,6 +48,21 @@ describe('HomeComponent', () => {
   it('should render the "What is HugMesh?" section heading', () => {
     const headings = Array.from(el.querySelectorAll('h2')).map(h => h.textContent?.trim());
     expect(headings).toContain('What is HugMesh?');
+  });
+
+  it("says the theme's own name where it used to say HugMesh (a domain with its own look)", () => {
+    document.documentElement.style.setProperty('--sd-header-content', "'Acme'");
+    try {
+      TestBed.inject(ChromeThemeService).refresh();
+      fixture.detectChanges();
+      const headings = Array.from(el.querySelectorAll('h2')).map(h => h.textContent?.trim());
+      expect(headings).toContain('What is Acme?');
+      expect(el.textContent).toContain('Acme is a self-hosted, federated social platform');
+      expect(el.textContent).not.toContain('What is HugMesh?');
+    } finally {
+      document.documentElement.style.removeProperty('--sd-header-content');
+      TestBed.inject(ChromeThemeService).refresh();
+    }
   });
 
   it('should render the "One account, every service" platform section heading', () => {

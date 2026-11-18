@@ -1,4 +1,5 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { BrandNameService } from '../brand-name.service';
 import { AboutSectionComponent } from './about-section/about-section.component';
 
 // NOTE: this public route now renders real HugMesh platform copy (was
@@ -16,4 +17,7 @@ import { AboutSectionComponent } from './about-section/about-section.component';
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './about.component.scss',
 })
-export class AboutComponent {}
+export class AboutComponent {
+  /** What this deploy calls itself (the theme's wordmark, else the served title). */
+  readonly brand = inject(BrandNameService).name;
+}

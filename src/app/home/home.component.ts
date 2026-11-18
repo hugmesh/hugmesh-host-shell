@@ -1,4 +1,5 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { BrandNameService } from '../brand-name.service';
 import { LinksComponent } from './links/links.component';
 import { HomeAnnouncementsComponent } from '../announcements/home-announcements.component';
 import { HomeServicesComponent } from '../home-services/home-services.component';
@@ -19,4 +20,7 @@ import { DeniedNoticeComponent } from './denied-notice.component';
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './home.component.scss',
 })
-export class HomeComponent {}
+export class HomeComponent {
+  /** What this deploy calls itself (the theme's wordmark, else the served title). */
+  readonly brand = inject(BrandNameService).name;
+}
