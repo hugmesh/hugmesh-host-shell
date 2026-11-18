@@ -5,6 +5,7 @@ import { TitleStrategy, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
 import { REMOTE_ROUTES, routes } from './app.routes';
+import { ChromeThemeService } from './chrome/chrome-theme.service';
 import { ShellTitleStrategy } from './shell-title.strategy';
 
 @Component({ template: '' })
@@ -47,6 +48,34 @@ describe('ShellTitleStrategy', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/wiki/history');
     expect(TestBed.inject(Title).getTitle()).toBe('Page history — ExampleMesh');
+  });
+
+  it("brands the title with the theme's own wordmark (a domain with its own look)", async () => {
+    document.documentElement.style.setProperty('--sd-header-content', "'Acme'");
+    try {
+      TestBed.inject(ChromeThemeService).refresh();
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/wiki');
+      TestBed.tick();
+      expect(TestBed.inject(Title).getTitle()).toBe('Wiki — Acme');
+    } finally {
+      document.documentElement.style.removeProperty('--sd-header-content');
+    }
+  });
+
+  it('retitles the tab when the theme arrives after the first navigation', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/wiki');
+    expect(TestBed.inject(Title).getTitle()).toBe('Wiki — ExampleMesh');
+    document.documentElement.style.setProperty('--sd-header-content', "'Late Name'");
+    try {
+      TestBed.inject(ChromeThemeService).refresh();
+      TestBed.tick();
+      expect(TestBed.inject(Title).getTitle()).toBe('Wiki — Late Name');
+    } finally {
+      document.documentElement.style.removeProperty('--sd-header-content');
+      TestBed.inject(ChromeThemeService).refresh();
+    }
   });
 
   it('falls back to the bare brand when no route names the page', async () => {
