@@ -214,9 +214,21 @@ export class SessionService {
       // mirror (field initializer above — no anonymous flash); now confirm/refresh
       // it against /bff/session so a role changed since the mirror was written — or
       // a cookie-only session with no mirror at all — renders without a re-login.
-      void this.hydrate();
+      this.firstHydrate = this.hydrate().finally(() => { this.firstHydrate = null; });
     }
   }
+
+  /** The bootstrap {@link hydrate} while it is still in flight, else null.
+   *
+   *  The signal is seeded synchronously from the localStorage mirror, which is
+   *  right when there is one. When there is NOT (a cookie-only session: the cookie
+   *  survived but site storage was cleared, or the sign-in was API-driven), the
+   *  signal starts null and only this call can say whether the visitor is really
+   *  signed out. A route guard that decides before it settles bounces a signed-in
+   *  deep link to /login (issue #180), so the guard waits on this first. Never
+   *  rejects: hydrate() swallows every failure into the mirror fallback. */
+  pendingHydrate(): Promise<unknown> | null { return this.firstHydrate; }
+  private firstHydrate: Promise<unknown> | null = null;
 
   /**
    * Refresh the in-memory session from the authoritative GET /bff/session — the

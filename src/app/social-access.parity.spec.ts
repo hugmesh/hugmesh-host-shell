@@ -149,8 +149,11 @@ describe('social access parity — guard == /home card == menubar == /user card 
     localStorage.removeItem('hug.session');
   });
 
-  function runGuard(guard: CanActivateFn, url: string): boolean | UrlTree {
-    return TestBed.runInInjectionContext(() => guard({} as never, { url } as never)) as boolean | UrlTree;
+  /** A guard may answer at once or, for a signed-out visitor whose first hydrate is
+   *  still in flight (issue #180), as a Promise; `await` takes both. */
+  function runGuard(guard: CanActivateFn, url: string): boolean | UrlTree | Promise<boolean | UrlTree> {
+    return TestBed.runInInjectionContext(() => guard({} as never, { url } as never)) as
+      boolean | UrlTree | Promise<boolean | UrlTree>;
   }
 
   for (const p of PERSONAS) {
@@ -164,8 +167,8 @@ describe('social access parity — guard == /home card == menubar == /user card 
           expect(s.predicate(session)).toBe(want);
         });
 
-        it(`${s.id}: the route guard ${want ? 'admits' : 'refuses to the right place'}`, () => {
-          const result = runGuard(s.guard, s.route);
+        it(`${s.id}: the route guard ${want ? 'admits' : 'refuses to the right place'}`, async () => {
+          const result = await runGuard(s.guard, s.route);
           if (want) {
             expect(result).toBeTrue();
           } else if (p.roles === null) {
