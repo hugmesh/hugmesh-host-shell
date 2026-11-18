@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, CanMatchFn, Router, RouterStateSnapshot, UrlSegment } from '@angular/router';
+import { CanActivateFn, CanMatchFn, Router, RouterStateSnapshot, UrlSegment, UrlTree } from '@angular/router';
 import { SessionService } from '../session.service';
 
 /** Where an AUTHENTICATED user who lacks the role is sent. Not /login — see below. */
@@ -55,6 +55,10 @@ export type RoleGuardFn = CanActivateFn & CanMatchFn;
  *  The two call shapes are told apart by their second argument: canActivate gets
  *  `(snapshot, RouterStateSnapshot)`, canMatch gets `(route, UrlSegment[], partial)`.
  *
+ *  COOKIE-ONLY SESSIONS (issue #180). With no `hug.session` mirror the session signal
+ *  starts null until the bootstrap hydrate answers, so the guard waits for that one
+ *  call (bounded by HYDRATE_WAIT_MS) before it decides; with a mirror it never waits.
+ *
  *  NEVER return `false` from the canMatch side: `false` means "this route does not
  *  match, try the next one", which falls through to `**` -> '' -> roleHomeGuard
  *  -> /user, a silent redirect that is exactly the defect being fixed. Both
@@ -63,13 +67,30 @@ export function roleGuard(predicate: (session: SessionService) => boolean): Role
   const guard = (_route: unknown, stateOrSegments: RouterStateSnapshot | UrlSegment[]) => {
     const session = inject(SessionService);
     const router = inject(Router);
-    if (predicate(session)) return true;
-    if (session.session() === null) return router.parseUrl('/login');
-    return router.createUrlTree([DENIED_PATH], {
-      queryParams: { denied: attemptedUrl(router, stateOrSegments) },
-    });
+    const decide = (): boolean | UrlTree => {
+      if (predicate(session)) return true;
+      if (session.session() === null) return router.parseUrl('/login');
+      return router.createUrlTree([DENIED_PATH], {
+        queryParams: { denied: attemptedUrl(router, stateOrSegments) },
+      });
+    };
+    const first = decide();
+    // A cookie-only session (no localStorage mirror) reads as signed out until the
+    // bootstrap /bff/session call settles, so a signed-in deep link bounced to /login
+    // (issue #180). Only that one case waits: a mirror, or a settled hydrate, decides
+    // at once. The wait is bounded so a hung BFF cannot hold navigation open.
+    const pending = first === true || session.session() !== null ? null : session.pendingHydrate?.() ?? null;
+    if (!pending) return first;
+    return Promise.race([pending, delay(HYDRATE_WAIT_MS)]).then(decide);
   };
   return guard as RoleGuardFn;
+}
+
+/** The longest a guard waits for the first /bff/session answer. */
+export const HYDRATE_WAIT_MS = 4000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** The URL the refused navigation was heading for, as `state.url` would spell it
