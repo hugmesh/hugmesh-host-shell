@@ -710,9 +710,21 @@ the admin remote already routes part of an item, it says so.
   admin-curated Plasma Discover store, user install-requests and an in-UI SSH
   terminal. The admin remote already routes `/admin/desktop` and the host's admin
   submenu lists "Desktop governance"; how much of the rest exists is unverified here.
-- 🔭 **Encrypted versioned backups (design + queued).** Per-domain and superadmin
-  Velero + kopia/restic backups with step-up-gated restore. The admin remote has
-  `/admin/backup` and `/admin/backups` routes; the restore flow is unverified here.
+- 🔭 **Encrypted versioned backups (built, ships dark; restore unverified live).** This
+  host's admin submenu lists three entries: "Backup" (`/admin/backup`), "Backups
+  history" (`/admin/backups`) and "Cloud backups" (`/admin/cloud-backups`). Measured in
+  the code on 2026-11-19 (hugmesh/hugmesh-host-shell#114):
+  - Cloud backups (hugmesh-admin-bff-api `/bff/admin/cloud-backups`): per-domain sets
+    with versions and artifacts, destinations, and a superadmin total backup and status
+    sweep (`/bff/superadmin/cloud-backups`). Encryption is the Velero/Kopia repository's
+    (the BFF stores only a reference). Restore needs a step-up, and admin-ui's page asks
+    for it inline. It ships dark: the Velero app is manual-sync and the BFF's effector
+    stays a no-op until `app.backups.effector.enabled=true` (hugmesh-generator
+    `docs/CLOUD-BACKUPS.md`).
+  - USB backups (`/bff/admin/backups`, `/bff/admin/restores`): optional password
+    encryption (PBKDF2 verifier, AES-256). Restore has **no** step-up yet:
+    hugmesh/hugmesh-admin-bff-api#181.
+  - A real restore has not been run on a live mesh with a backup target.
 - ✅ **Egress VPN and per-node attached storage (shipped, default-off).** The
   WireGuard/OpenVPN .conf drop-in egress landed in two halves: the admin BFF persists
   the posted config as the Secret the node agent reads (hugmesh-admin-bff-api PR #18),
