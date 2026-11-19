@@ -254,6 +254,7 @@ export class MenuComponent {
     { label: 'Node storage', route: '/admin/node-storage', testid: 'subnav-admin-node-storage' },
     { label: 'Device radios', route: '/admin/device-radios', testid: 'subnav-admin-device-radios' },
     { label: 'Domain capabilities', route: '/admin/domain-capabilities', testid: 'subnav-admin-domain-capabilities' },
+    { label: 'Tor addresses', route: '/admin/tor-addresses', testid: 'subnav-admin-tor-addresses' },
     { label: 'Desktop governance', route: '/admin/desktop', testid: 'subnav-admin-desktop' },
     { label: 'Egress VPN', route: '/admin/egress-vpn', testid: 'subnav-admin-egress-vpn', show: () => this.session.isSuperadmin() },
     { label: 'Domains', route: '/admin/superadmin/domains', testid: 'subnav-admin-domains', show: () => this.session.isSuperadmin() },
