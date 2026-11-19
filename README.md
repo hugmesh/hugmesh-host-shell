@@ -710,10 +710,10 @@ the admin remote already routes part of an item, it says so.
   admin-curated Plasma Discover store, user install-requests and an in-UI SSH
   terminal. The admin remote already routes `/admin/desktop` and the host's admin
   submenu lists "Desktop governance"; how much of the rest exists is unverified here.
-- 🚧 **Encrypted versioned backups (built, ships dark).** The admin submenu links three
-  admin-remote pages: **Backup** (`/admin/backup`) and **Backups history**
-  (`/admin/backups`), the USB/cloud backup of the admin BFF's `/bff/admin/backups`
-  endpoints, with optional AES-256 encryption under a password the BFF never stores;
+- 🚧 **Encrypted versioned backups (built, ships dark).** The admin submenu links four
+  admin-remote pages: **Backup** (`/admin/backup`), **Recovery** (`/admin/recovery`) and
+  **Backups history** (`/admin/backups`), the USB/cloud backup and restore of the admin
+  BFF's `/bff/admin/backups` and `/bff/admin/restores` endpoints, with optional AES-256 encryption under a password the BFF never stores;
   and **Cloud backups** (`/admin/cloud-backups`), the per-domain console with
   superadmin-only whole-mesh (TOTAL) sets. Each cloud backup set is versioned (each new
   backup of a set is the next version). Its restore requires a fresh MFA step-up
@@ -723,8 +723,7 @@ the admin remote already routes part of an item, it says so.
   `specs/cluster/apps/55-velero.yaml`). It ships dark: until a deployment sets
   `app.backups.effector.enabled=true` and provisions the storage location, a cloud
   backup is recorded and stays `pending`. Not done: the USB restore
-  (`POST /bff/admin/restores`, the admin remote's `/admin/recovery` page, which this
-  menu does not link) needs no step-up
+  (`POST /bff/admin/restores`, the **Recovery** page) needs no step-up
   ([hugmesh-admin-bff-api#180](https://github.com/hugmesh/hugmesh-admin-bff-api/issues/180)),
   and no restore has been run end to end on a live mesh.
 - ✅ **Egress VPN and per-node attached storage (shipped, default-off).** The
